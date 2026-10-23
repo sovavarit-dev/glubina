@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Символ дня</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ruslan+Display&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+/* Layout: одна колонка, карта по центру как на столе, текст под ней; второй экран «Мой путь» — лента прошлых дней. Единый тёмный мир колоды: индиго и золото. */
+:root {
+  --night: #101a33;
+  --night-2: #18264a;
+  --gold: #d9b26a;
+  --gold-soft: #b8975c;
+  --cream: #efe4cc;
+  --muted: #a9a58f;
+  --line: rgba(217, 178, 106, .28);
+  --veil: rgba(217, 178, 106, .06);
+  --field: rgba(16, 26, 51, .7);
+  --display: "Ruslan Display", "PT Serif", Georgia, serif;
+  --body: "PT Serif", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  background: var(--night);
+  color: var(--cream);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.55;
+}
+.wrap {
+  max-width: 460px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 40px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+}
+.head { text-align: center; display: grid; gap: 2px; }
+.eyebrow { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-soft); }
+.date { color: var(--muted); font-size: 14px; }
+
+.tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; }
+.tabs button {
+  font: inherit; font-size: 15px; color: var(--muted); background: none; border: 0;
+  padding: 7px 16px; border-radius: 999px; cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--veil); color: var(--gold); box-shadow: inset 0 0 0 1px var(--line); }
+.tabs button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.view { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+
+.banner {
+  width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; background: var(--veil); display: grid; gap: 8px; font-size: 15px;
+}
+.banner .row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Карта */
+.stage { perspective: 1400px; width: min(78vw, 340px); max-width: 100%; }
+.card {
+  position: relative; width: 100%; aspect-ratio: 2 / 3; max-width: 100%;
+  transform-style: preserve-3d; transition: transform 1.1s cubic-bezier(.3, .1, .2, 1);
+  border: 0; padding: 0; background: none; cursor: pointer; display: block;
+}
+.card.open { transform: rotateY(180deg); cursor: default; }
+.side {
+  position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  border-radius: 14px; overflow: hidden; box-shadow: 0 18px 40px rgba(0, 0, 0, .55), 0 0 0 1px var(--line);
+}
+.side img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.front { transform: rotateY(180deg); }
+.card:not(.open) .back { animation: breathe 3.6s ease-in-out infinite; }
+@keyframes breathe { 50% { box-shadow: 0 18px 48px rgba(217, 178, 106, .22), 0 0 0 1px var(--line); } }
+.card:focus-visible { outline: 2px solid var(--gold); outline-offset: 6px; border-radius: 14px; }
+.hint { color: var(--muted); font-style: italic; text-align: center; min-height: 1.5em; margin: 0; }
+
+.reading { width: 100%; display: grid; gap: 18px; opacity: 0; transform: translateY(8px); transition: opacity .7s .6s, transform .7s .6s; }
+.reading.show { opacity: 1; transform: none; }
+.name { font-family: var(--display); color: var(--gold); text-align: center; font-size: 34px; line-height: 1.1; letter-spacing: .04em; text-wrap: balance; }
+.orn { display: flex; align-items: center; gap: 10px; color: var(--gold-soft); }
+.orn::before, .orn::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.label { margin: 0 0 4px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-soft); font-weight: 400; }
+.block p { margin: 0; }
+.question { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: var(--veil); }
+.question p { font-size: 19px; font-style: italic; }
+
+.note { display: grid; gap: 8px; }
+textarea {
+  width: 100%; min-height: 96px; resize: vertical; box-sizing: border-box;
+  background: var(--field); color: var(--cream); font: inherit; font-size: 16px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+}
+textarea:focus { outline: none; border-color: var(--gold); }
+.saved { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+
+.ghost {
+  justify-self: start; font: inherit; font-size: 15px; color: var(--gold); background: none;
+  border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer;
+}
+.ghost:focus-visible, .text-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.text-btn { font: inherit; font-size: 15px; color: var(--muted); background: none; border: 0; padding: 7px 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.past { border-left: 2px solid var(--gold-soft); padding: 4px 0 4px 14px; display: grid; gap: 6px; }
+.past .when { font-size: 13px; color: var(--muted); }
+.past p { margin: 0; font-style: italic; white-space: pre-wrap; }
+
+.next { text-align: center; color: var(--muted); font-size: 15px; margin: 0; }
+.next b { color: var(--cream); font-variant-numeric: tabular-nums; font-weight: 400; }
+.dev { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.dev button { background: none; border: 1px dashed var(--line); color: var(--muted); font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+
+/* Мой путь */
+.path-intro { color: var(--muted); text-align: center; margin: 0; max-width: 34ch; }
+.path { width: 100%; display: grid; gap: 14px; list-style: none; margin: 0; padding: 0; }
+.entry { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); scroll-margin-top: 16px; }
+.entry img { width: 64px; height: 96px; object-fit: cover; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+.entry .body { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.entry h3 { margin: 0; font-family: var(--display); font-weight: 400; color: var(--gold); font-size: 21px; line-height: 1.15; }
+.entry .when { font-size: 13px; color: var(--muted); }
+.entry p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.entry .empty { color: var(--muted); font-style: italic; }
+.entry textarea { min-height: 80px; }
+.entry .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.example { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; justify-self: start; }
+.nothing { color: var(--muted); font-style: italic; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .reading { transition: none; }
+  .card:not(.open) .back { animation: none; }
+}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">Глубина · символ дня</span>
+    <span class="date" id="today"></span>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tabDay" aria-selected="true">Символ дня</button>
+    <button role="tab" id="tabPath" aria-selected="false">Мой путь</button>
+  </nav>
+
+  <section class="view" id="viewDay">
+    <div class="banner" id="weekBanner" hidden>
+      <span id="weekText"></span>
+      <div class="row">
+        <button class="ghost" id="weekGo">Дописать</button>
+        <button class="text-btn" id="weekSkip">Не сейчас</button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <button class="card" id="card" aria-label="Перевернуть карту">
+        <span class="side back"><img src="cards/back.webp" alt="Рубашка карты"></span>
+        <span class="side front"><img id="face" alt=""></span>
+      </button>
+    </div>
+    <p class="hint" id="hint">Сделайте вдох и коснитесь карты</p>
+
+    <section class="reading" id="reading" hidden>
+      <div class="name" id="name"></div>
+      <div class="orn">✦</div>
+      <div class="block"><h2 class="label">Смысл</h2><p id="meaning"></p></div>
+      <div class="block"><h2 class="label">Тень</h2><p id="shadow"></p></div>
+      <div class="block question"><h2 class="label">Вопрос дня</h2><p id="question"></p></div>
+      <div class="note">
+        <label class="label" for="noteText">Что откликнулось</label>
+        <textarea id="noteText" maxlength="1500" placeholder="Образ, чувство, воспоминание. Это видите только вы."></textarea>
+        <span class="saved" id="saved"></span>
+        <button class="ghost" id="pastBtn" aria-expanded="false" hidden>В прошлый раз</button>
+        <div class="past" id="pastBox" hidden>
+          <span class="when" id="pastWhen"></span>
+          <p id="pastNote"></p>
+          <span class="when" id="pastLaterLabel" hidden>Открылось позже</span>
+          <p id="pastLater" hidden></p>
+        </div>
+      </div>
+      <p class="next">Следующий символ откроется через <b id="left">—</b></p>
+    </section>
+  </section>
+
+  <section class="view" id="viewPath" hidden>
+    <p class="path-intro">Ваши символы по дням. Возвращайтесь к ним и дописывайте, что открылось позже.</p>
+    <ul class="path" id="path"></ul>
+  </section>
+
+  <div class="dev" id="dev" hidden>
+    <button id="demo">Заполнить примером</button>
+    <button id="reset">Начать заново</button>
+  </div>
+</div>
+
+<script>
+const DECK = [
+  {"n": "Туман", "m": "Может говорить о неопределённости, в которой пока трудно различить собственные желания. Иногда за туманом скрывается не отсутствие ответа, а невозможность увидеть всё сразу.", "s": "Стремление избегать ясности, чтобы не сталкиваться с выбором.", "q": "Что в моей жизни сейчас остаётся неясным и как я чувствую себя в этой неопределённости?"},
+  {"n": "Пламя", "m": "Может говорить о внутренней энергии, страсти и желании проявить себя. Иногда это образ чувства, которое больше не хочет оставаться незамеченным.", "s": "Огонь может поглощать всё вокруг, когда ему не удаётся найти границы.", "q": "Что во мне сейчас горит и куда направлена эта энергия?"},
+  {"n": "Корень", "m": "Может говорить о связи с прошлым, семейной историей и тем, на чём держится ваше ощущение себя. Он напоминает о невидимых основаниях, которые поддерживают или ограничивают рост.", "s": "Привязанность к привычному, даже когда оно мешает двигаться дальше.", "q": "На чём держится моё ощущение устойчивости и что из прошлого я продолжаю нести с собой?"},
+  {"n": "Семя", "m": "Может говорить о зарождающемся желании, ещё не получившем форму. В нём есть возможность развития, которой пока не нужно становиться чем-то определённым.", "s": "Страх начать или бесконечное ожидание идеальных условий.", "q": "Что во мне только зарождается и пока не требует от меня готового результата?"},
+  {"n": "Гора", "m": "Может говорить о трудной задаче, внутреннем усилии или стремлении к чему-то значимому. Иногда гора отражает масштаб, который вы придаёте препятствию.", "s": "Привычка требовать от себя невозможного и измерять ценность только достижениями.", "q": "Какую вершину я сейчас пытаюсь покорить и почему она для меня так важна?"},
+  {"n": "Ветер", "m": "Может говорить о переменах, беспокойстве или потребности в движении. Иногда он отражает влияние обстоятельств, которые невозможно полностью контролировать.", "s": "Потеря собственного направления под воздействием чужих ожиданий и внешних событий.", "q": "Что сейчас меняет моё внутреннее состояние и куда я позволяю этому себя унести?"},
+  {"n": "Олень", "m": "Может говорить о чуткости, достоинстве и способности замечать тонкие изменения вокруг. Его образ может напоминать о части вас, которая нуждается в бережном отношении, но сохраняет внутреннюю силу.", "s": "Излишняя настороженность и стремление исчезнуть при малейшей угрозе.", "q": "В каких ситуациях я чувствую себя одновременно сильным и уязвимым?"},
+  {"n": "Ворон", "m": "Может говорить о внимании к тому, что скрыто, забыто или осталось без ответа. Иногда он сопровождает внутреннее соприкосновение с переменами и завершением старого.", "s": "Склонность искать угрозу и мрачный смысл там, где ещё ничего не решено.", "q": "На что я не хочу смотреть прямо, хотя это продолжает привлекать моё внимание?"},
+  {"n": "Черепаха", "m": "Может говорить о собственном темпе, защищённости и умении оставаться рядом с собой. Её панцирь может напоминать о границе между внутренним миром и внешними требованиями.", "s": "Уход в защиту, которая постепенно превращается в изоляцию.", "q": "Где мне важно двигаться в своём темпе, а где я прячусь от жизни?"},
+  {"n": "Мотылёк", "m": "Может говорить о притяжении к чему-то загадочному, прекрасному или эмоционально заряженному. Иногда он отражает желание приблизиться к тому, что одновременно манит и пугает.", "s": "Потеря себя в притяжении, которое не оставляет места для осознанного выбора.", "q": "Что меня так сильно притягивает и какую часть себя я готов ради этого не замечать?"},
+  {"n": "Муравейник", "m": "Может говорить о принадлежности к группе, совместном труде и роли, которую вы занимаете среди других. Он также может отражать привычку поддерживать порядок через множество маленьких действий.", "s": "Растворение в общих задачах, когда собственные желания становятся неважными.", "q": "Какую роль я выполняю среди других и остаётся ли в ней место для меня самого?"},
+  {"n": "Порог", "m": "Может говорить о переходе между знакомым и неизвестным, между прежним состоянием и возможностью нового опыта. Иногда он отражает момент, когда внутреннее решение ещё не стало действием.", "s": "Бесконечное пребывание на границе из страха перед последствиями выбора.", "q": "Перед какой внутренней границей я сейчас стою и что удерживает меня на месте?"},
+  {"n": "Мост", "m": "Может говорить о попытке соединить две части своей жизни, два чувства или две противоположные позиции. Он может появляться как образ поиска связи там, где прежде была дистанция.", "s": "Попытка любой ценой примирить то, что пока не удаётся совместить.", "q": "Между какими двумя частями себя я сейчас пытаюсь построить связь?"},
+  {"n": "Колодец", "m": "Может говорить о погружении в глубину переживаний и обращении к тому, что обычно скрыто от повседневного внимания. Вода в его глубине может напоминать о чувствах, которым трудно найти слова.", "s": "Страх перед собственными переживаниями или бесконечное погружение в них без возможности вернуться к настоящему.", "q": "Что находится глубже моих привычных объяснений и какие чувства поднимаются, когда я к этому приближаюсь?"},
+  {"n": "Чердак", "m": "Может говорить о воспоминаниях, забытых интересах и частях личной истории, которые давно не были в центре внимания. Иногда это образ внутреннего хранилища, где рядом существуют ценные находки и то, к чему вы пока не готовы прикоснуться.", "s": "Захламление внутреннего пространства прошлым, которое больше не удаётся пересмотреть.", "q": "Что из своего прошлого я давно не открывал и что могло бы обнаружиться там сегодня?"},
+  {"n": "Пустой стул", "m": "Может говорить об отсутствии, ожидании встречи или месте, которое пока никем не занято. Иногда он отражает потребность услышать собственный голос без присутствия чужих ожиданий.", "s": "Одиночество, превращённое в привычку ждать того, кто должен заполнить внутреннюю пустоту.", "q": "Кого или чего не хватает в моей жизни и какое место я сам оставляю для себя?"},
+  {"n": "Зеркало", "m": "Может говорить о самовосприятии и о том, как ваш образ себя складывается из личного опыта и чужих взглядов. Иногда отражение обнаруживает разницу между тем, кем вы себя считаете, и тем, что чувствуете на самом деле.", "s": "Зависимость от внешней оценки или невозможность увидеть себя за привычным образом.", "q": "Что я замечаю в себе, когда перестаю смотреть на себя чужими глазами?"},
+  {"n": "Чаша", "m": "Может говорить о способности принимать чувства, впечатления и заботу, не требуя от себя немедленно что-то с ними делать. Её образ может быть связан с внутренним вместилищем, которое имеет свои пределы.", "s": "Переполненность чужими переживаниями или неспособность принимать то, в чём вы нуждаетесь.", "q": "Что я сейчас способен принять, а для чего во мне пока нет места?"},
+  {"n": "Нить", "m": "Может говорить о связи между событиями, людьми и частями вашего опыта. Иногда она помогает заметить едва различимую линию, которая объединяет то, что прежде казалось разрозненным.", "s": "Страх потерять связь, из-за которого становится трудно отпустить прошлое.", "q": "Какая невидимая связь продолжает влиять на мои решения и чувства?"},
+  {"n": "Ножницы", "m": "Могут говорить о разделении, различении и способности отделять одно от другого. Их образ может появляться там, где важно заметить границу между собственными желаниями и тем, что вам навязано.", "s": "Резкое отсечение чувств или отношений вместо признания сложных переживаний.", "q": "Что в моей жизни я пытаюсь разделить и что мне трудно отпустить или сохранить?"},
+  {"n": "Колокол", "m": "Может говорить о пробуждении внимания к чему-то важному, что прежде оставалось на периферии сознания. Его звучание может быть образом внутреннего отклика, который трудно игнорировать.", "s": "Тревожное ожидание сигнала извне и неспособность услышать собственные ощущения без подтверждения.", "q": "На какой внутренний отклик я давно обращаю внимание, но пока не могу понять его значение?"},
+  {"n": "Маска", "m": "Может говорить о социальных ролях, привычных способах взаимодействия и той части себя, которую вы показываете окружающим. Иногда она помогает исследовать разницу между защитой и искренним выражением чувств.", "s": "Потеря контакта с собой, когда роль становится единственным допустимым способом быть.", "q": "Какую свою сторону я показываю другим и какую предпочитаю оставлять за маской?"},
+  {"n": "Фонарь", "m": "Может говорить о внимании, которое освещает небольшой участок внутреннего пространства, не раскрывая всей картины. Иногда это образ готовности исследовать неизвестное постепенно, шаг за шагом.", "s": "Стремление контролировать каждый следующий шаг и страх двигаться без полной ясности.", "q": "Что я могу рассмотреть внимательнее, если мне не нужно сразу понимать всё целиком?"},
+  {"n": "Гроза", "m": "Может говорить о накопившемся напряжении, сильных чувствах или переменах, которые трудно удерживать внутри. Иногда она помогает заметить, сколько энергии скрывается за внешним спокойствием.", "s": "Разрушительная разрядка, при которой чувства начинают управлять отношениями и решениями.", "q": "Что во мне накопилось и как я обычно обхожусь с сильными чувствами?"},
+  {"n": "Песочные часы", "m": "Могут говорить о переживании времени, конечности и необходимости замечать, на что уходит ваша жизнь. Их образ также может напоминать, что разные внутренние процессы созревают с разной скоростью.", "s": "Постоянная спешка, страх опоздать или ощущение, что собственная жизнь проходит мимо.", "q": "На что я трачу своё время и что в моей жизни заслуживает большего внимания?"}
+];
+const MAIN = "sd_main";
+const DAY = "d_";
+
+const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
+if (tg) { try { tg.ready(); tg.expand(); tg.setHeaderColor("#101a33"); tg.setBackgroundColor("#101a33"); } catch (e) {} }
+
+// Хранилище: облако Telegram (каждый день — отдельная запись), вне Telegram — память браузера.
+const cloud = tg && tg.CloudStorage;
+const parse = v => { try { return v ? JSON.parse(v) : null; } catch (e) { return null; } };
+const store = {
+  get: k => new Promise(res => {
+    if (cloud) cloud.getItem(k, (e, v) => res(parse(v)));
+    else { try { res(parse(localStorage.getItem(k))); } catch (e) { res(null); } }
+  }),
+  set: (k, v) => {
+    const s = JSON.stringify(v);
+    if (cloud) { try { cloud.setItem(k, s); } catch (e) {} }
+    else { try { localStorage.setItem(k, s); } catch (e) {} }
+  },
+  del: k => {
+    if (cloud) { try { cloud.removeItem(k); } catch (e) {} }
+    else { try { localStorage.removeItem(k); } catch (e) {} }
+  },
+  keys: () => new Promise(res => {
+    if (cloud) cloud.getKeys((e, ks) => res(ks || []));
+    else { try { res(Object.keys(localStorage)); } catch (e) { res([]); } }
+  }),
+  many: ks => new Promise(res => {
+    if (!ks.length) return res({});
+    if (cloud) cloud.getItems(ks, (e, o) => { const r = {}; for (const k in (o || {})) r[k] = parse(o[k]); res(r); });
+    else { const r = {}; for (const k of ks) { try { r[k] = parse(localStorage.getItem(k)); } catch (e) {} } res(r); }
+  })
+};
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, "0");
+const keyOf = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const todayKey = () => keyOf(new Date());
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return keyOf(d); };
+const human = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }); };
+const ageDays = k => { const [y, m, d] = k.split("-").map(Number); const t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((t - new Date(y, m - 1, d)) / 864e5); };
+const img = i => "cards/" + pad(i + 1) + ".webp";
+$("today").textContent = new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", weekday: "long" });
+
+let main = {};      // { seen:[], date, card, dismissed:[] }
+let days = {};      // "YYYY-MM-DD" -> { c, note, later, ex }
+
+function saveDay(k) { store.set(DAY + k, days[k]); }
+function saveMain() { store.set(MAIN, main); }
+
+/* ---------- Символ дня ---------- */
+function pick() {
+  let seen = (main.seen || []).filter(i => i < DECK.length);
+  if (seen.length >= DECK.length) seen = [];
+  let pool = DECK.map((_, i) => i).filter(i => !seen.includes(i) && i !== main.card);
+  if (!pool.length) pool = DECK.map((_, i) => i);
+  const i = pool[Math.floor(Math.random() * pool.length)];
+  seen.push(i);
+  return { i, seen };
+}
+
+function fill(i) {
+  const c = DECK[i];
+  $("face").src = img(i); $("face").alt = c.n;
+  $("name").textContent = c.n;
+  $("meaning").textContent = c.m; $("shadow").textContent = c.s; $("question").textContent = c.q;
+  $("noteText").value = (days[todayKey()] && days[todayKey()].note) || "";
+  showPast(i);
+}
+
+function showPast(i) {
+  const t = todayKey();
+  const prev = Object.keys(days).filter(k => k < t && days[k] && days[k].c === i && (days[k].note || days[k].later)).sort().pop();
+  $("pastBtn").hidden = !prev; $("pastBox").hidden = true; $("pastBtn").setAttribute("aria-expanded", "false");
+  if (!prev) return;
+  const e = days[prev];
+  $("pastWhen").textContent = human(prev) + ", этот символ уже выпадал вам";
+  $("pastNote").textContent = e.note || "В тот день вы ничего не записали.";
+  $("pastLaterLabel").hidden = $("pastLater").hidden = !e.later;
+  $("pastLater").textContent = e.later || "";
+}
+$("pastBtn").addEventListener("click", () => {
+  const open = $("pastBox").hidden;
+  $("pastBox").hidden = !open; $("pastBtn").setAttribute("aria-expanded", String(open));
+});
+
+function reveal(instant) {
+  const card = $("card");
+  if (instant) card.style.transition = "none";
+  card.classList.add("open");
+  card.setAttribute("aria-label", DECK[main.card].n);
+  if (instant) { void card.offsetHeight; card.style.transition = ""; }
+  $("hint").hidden = true;
+  $("reading").hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => $("reading").classList.add("show")));
+  tick();
+}
+
+function cover() {
+  $("reading").classList.remove("show"); $("reading").hidden = true;
+  $("card").classList.remove("open"); $("hint").hidden = false;
+}
+
+function tick() {
+  const now = new Date(), end = new Date(now); end.setHours(24, 0, 0, 0);
+  const m = Math.max(0, Math.round((end - now) / 60000));
+  $("left").textContent = Math.floor(m / 60) + " ч " + pad(m % 60) + " мин";
+}
+setInterval(tick, 30000);
+
+$("card").addEventListener("click", () => {
+  if ($("card").classList.contains("open") || main.date === todayKey()) return;
+  const { i, seen } = pick();
+  const t = todayKey();
+  main.date = t; main.card = i; main.seen = seen; saveMain();
+  days[t] = { c: i }; saveDay(t);
+  fill(i);
+  try { tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred("soft"); } catch (e) {}
+  const pre = new Image(); pre.onload = pre.onerror = () => reveal(false); pre.src = img(i);
+});
+
+let timer;
+$("noteText").addEventListener("input", e => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    const t = todayKey();
+    days[t] = days[t] || { c: main.card };
+    days[t].note = e.target.value; saveDay(t);
+    $("saved").textContent = "Сохранено";
+  }, 600);
+});
+
+/* ---------- Напоминание через неделю ---------- */
+function weekCandidate() {
+  const dis = main.dismissed || [];
+  return Object.keys(days).filter(k => {
+    const a = ageDays(k);
+    return a >= 7 && a <= 10 && days[k] && !days[k].later && !dis.includes(k);
+  }).sort().pop();
+}
+function showWeek() {
+  const k = weekCandidate();
+  $("weekBanner").hidden = !k;
+  if (!k) return;
+  const a = ageDays(k);
+  $("weekText").textContent = (a === 7 ? "Неделю назад" : a + " дней назад") + " вам выпал символ «" + DECK[days[k].c].n + "». Что-то изменилось?";
+  $("weekGo").onclick = () => { switchTab("path"); openLater(k); };
+}
+$("weekSkip").addEventListener("click", () => {
+  const k = weekCandidate(); if (!k) return;
+  main.dismissed = (main.dismissed || []).concat(k).slice(-30); saveMain(); showWeek();
+});
+
+/* ---------- Мой путь ---------- */
+function renderPath() {
+  const list = $("path"); list.textContent = "";
+  const ks = Object.keys(days).filter(k => days[k] && Number.isInteger(days[k].c)).sort().reverse();
+  if (!ks.length) {
+    const li = document.createElement("li"); li.className = "nothing";
+    li.textContent = "Здесь появятся ваши символы, когда вы откроете первую карту.";
+    list.append(li); return;
+  }
+  const t = todayKey();
+  for (const k of ks) {
+    const e = days[k], c = DECK[e.c];
+    const li = document.createElement("li"); li.className = "entry"; li.id = "e-" + k;
+    li.innerHTML = '<img alt=""><div class="body"><div><h3></h3><span class="when"></span></div></div>';
+    li.querySelector("img").src = img(e.c);
+    li.querySelector("h3").textContent = c.n;
+    li.querySelector(".when").textContent = k === t ? "Сегодня" : human(k);
+    const body = li.querySelector(".body");
+    if (e.ex) { const s = document.createElement("span"); s.className = "example"; s.textContent = "пример"; body.append(s); }
+    body.append(section("Откликнулось", e.note, k === t ? "Запишите на вкладке «Символ дня»." : "В тот день вы ничего не записали."));
+    if (k !== t) {
+      if (e.later) body.append(section("Открылось позже", e.later));
+      const actions = document.createElement("div"); actions.className = "actions";
+      const b = document.createElement("button"); b.className = "ghost";
+      b.textContent = e.later ? "Дополнить" : "Что открылось позже";
+      b.addEventListener("click", () => openLater(k));
+      actions.append(b); body.append(actions);
+    }
+    list.append(li);
+  }
+}
+function section(label, text, empty) {
+  const d = document.createElement("div");
+  const h = document.createElement("div"); h.className = "label"; h.textContent = label;
+  const p = document.createElement("p");
+  if (text) p.textContent = text; else { p.textContent = empty; p.className = "empty"; }
+  d.append(h, p); return d;
+}
+function openLater(k) {
+  const li = $("e-" + k); if (!li) return;
+  const actions = li.querySelector(".actions");
+  actions.textContent = "";
+  const ta = document.createElement("textarea"); ta.maxLength = 1500; ta.id = "later-" + k;
+  ta.placeholder = "Что вы видите в этом символе сейчас?";
+  ta.value = days[k].later || "";
+  ta.setAttribute("aria-label", "Открылось позже: " + DECK[days[k].c].n);
+  const save = document.createElement("button"); save.className = "ghost"; save.textContent = "Сохранить";
+  save.addEventListener("click", () => {
+    days[k].later = ta.value.trim(); saveDay(k); renderPath(); showWeek();
+  });
+  const wrap = document.createElement("div"); wrap.style.display = "grid"; wrap.style.gap = "8px"; wrap.style.width = "100%";
+  wrap.append(ta, save); actions.append(wrap);
+  li.scrollIntoView({ block: "start", behavior: "smooth" });
+  setTimeout(() => ta.focus({ preventScroll: true }), 300);
+}
+
+/* ---------- Вкладки ---------- */
+function switchTab(which) {
+  const path = which === "path";
+  $("viewDay").hidden = path; $("viewPath").hidden = !path;
+  $("tabDay").setAttribute("aria-selected", String(!path));
+  $("tabPath").setAttribute("aria-selected", String(path));
+  if (path) renderPath();
+}
+$("tabDay").addEventListener("click", () => switchTab("day"));
+$("tabPath").addEventListener("click", () => switchTab("path"));
+
+/* ---------- Только для просмотра вне Telegram ---------- */
+async function wipe() {
+  const ks = (await store.keys()).filter(k => k === MAIN || k.startsWith(DAY));
+  ks.forEach(store.del);
+  main = {}; days = {};
+}
+$("reset").addEventListener("click", async () => {
+  await wipe(); cover(); showWeek(); switchTab("day");
+});
+$("demo").addEventListener("click", async () => {
+  await wipe();
+  const ex = [
+    [26, 13, "Пример. Тёмная вода и страх заглянуть. Вспомнила бабушкин дом.", "Пример. Через неделю поняла, что боюсь не глубины, а того, что там никого нет."],
+    [7, 16, "Пример. Зеркало в старой раме. Хотелось отвернуться.", ""],
+    [3, 7, "Пример. Ворон сидел спокойно, без угрозы. Удивило.", ""],
+    [1, 12, "", ""]
+  ];
+  for (const [a, c, note, later] of ex) { const k = daysAgo(a); days[k] = { c, note, later, ex: 1 }; saveDay(k); }
+  const t = todayKey();
+  main = { seen: [13, 16, 7, 12], date: t, card: 13, dismissed: [] };
+  days[t] = { c: 13, ex: 1 }; saveDay(t); saveMain();
+  fill(13); reveal(true); showWeek(); switchTab("day");
+});
+
+/* ---------- Запуск ---------- */
+(async () => {
+  main = (await store.get(MAIN)) || {};
+  const ks = (await store.keys()).filter(k => k.startsWith(DAY));
+  const got = await store.many(ks);
+  for (const k of ks) if (got[k]) days[k.slice(DAY.length)] = got[k];
+  if (main.date === todayKey() && Number.isInteger(main.card)) { fill(main.card); reveal(true); }
+  showWeek();
+})();
+</script>
+
+</body>
+</html>
