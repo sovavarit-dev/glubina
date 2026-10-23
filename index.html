@@ -128,6 +128,11 @@ textarea:focus { outline: none; border-color: var(--gold); }
 .entry p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .entry .empty { color: var(--muted); font-style: italic; }
 .entry textarea { min-height: 80px; }
+.rec { display: grid; gap: 6px; justify-items: start; }
+.rec > * { max-width: 100%; }
+.rec textarea { width: 100%; }
+.add { display: grid; gap: 2px; border-left: 2px solid var(--line); padding-left: 10px; }
+.ghost:disabled { opacity: .5; cursor: default; }
 .entry .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .example { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; justify-self: start; }
 .nothing { color: var(--muted); font-style: italic; text-align: center; }
@@ -186,7 +191,7 @@ textarea:focus { outline: none; border-color: var(--gold); }
       </div>
       <div class="note">
         <label class="label" for="noteText">Что откликнулось</label>
-        <textarea id="noteText" maxlength="1500" placeholder="Образ, чувство, воспоминание. Это видите только вы."></textarea>
+        <textarea id="noteText" maxlength="1200" placeholder="Образ, чувство, воспоминание. Это видите только вы."></textarea>
         <span class="saved" id="saved"></span>
         <button class="ghost" id="pastBtn" aria-expanded="false" hidden>В прошлый раз</button>
         <div class="past" id="pastBox" hidden>
@@ -311,14 +316,15 @@ function fill(i) {
 
 function showPast(i) {
   const t = todayKey();
-  const prev = Object.keys(days).filter(k => k < t && days[k] && days[k].c === i && (days[k].note || days[k].later)).sort().pop();
+  const prev = Object.keys(days).filter(k => k < t && days[k] && days[k].c === i && (days[k].note || addsOf(days[k]).length)).sort().pop();
   $("pastBtn").hidden = !prev; $("pastBox").hidden = true; $("pastBtn").setAttribute("aria-expanded", "false");
   if (!prev) return;
   const e = days[prev];
   $("pastWhen").textContent = human(prev) + ", этот символ уже выпадал вам";
   $("pastNote").textContent = e.note || "В тот день вы ничего не записали.";
-  $("pastLaterLabel").hidden = $("pastLater").hidden = !e.later;
-  $("pastLater").textContent = e.later || "";
+  const adds = addsOf(e);
+  $("pastLaterLabel").hidden = $("pastLater").hidden = !adds.length;
+  $("pastLater").textContent = adds.map(a => (a.d ? human(a.d) + ": " : "") + a.t).join("\n\n");
 }
 $("pastBtn").addEventListener("click", () => {
   const open = $("pastBox").hidden;
@@ -377,7 +383,7 @@ function weekCandidate() {
   const dis = main.dismissed || [];
   return Object.keys(days).filter(k => {
     const a = ageDays(k);
-    return a >= 7 && a <= 10 && days[k] && !days[k].later && !dis.includes(k);
+    return a >= 7 && a <= 10 && days[k] && !addsOf(days[k]).length && !dis.includes(k);
   }).sort().pop();
 }
 function showWeek() {
@@ -428,59 +434,87 @@ $("shareImg").addEventListener("click", async () => {
 });
 
 /* ---------- Мой путь ---------- */
+// Дописки хранятся списком с датами; старая одиночная запись later тоже показывается.
+const addsOf = e => [...(e.later ? [{ d: null, t: e.later }] : []), ...((e.adds) || [])];
+const full = k => JSON.stringify(days[k] || {}).length > 3600;
+const el = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
+
 function renderPath() {
   const list = $("path"); list.textContent = "";
   const ks = Object.keys(days).filter(k => days[k] && Number.isInteger(days[k].c)).sort().reverse();
   if (!ks.length) {
-    const li = document.createElement("li"); li.className = "nothing";
-    li.textContent = "Здесь появятся ваши символы, когда вы откроете первую карту.";
-    list.append(li); return;
+    list.append(el("li", "nothing", "Здесь появятся ваши символы, когда вы откроете первую карту."));
+    return;
   }
   const t = todayKey();
   for (const k of ks) {
     const e = days[k], c = DECK[e.c];
-    const li = document.createElement("li"); li.className = "entry"; li.id = "e-" + k;
-    li.innerHTML = '<img alt=""><div class="body"><div><h3></h3><span class="when"></span></div></div>';
-    li.querySelector("img").src = img(e.c);
-    li.querySelector("h3").textContent = c.n;
-    li.querySelector(".when").textContent = k === t ? "Сегодня" : human(k);
-    const body = li.querySelector(".body");
-    if (e.ex) { const s = document.createElement("span"); s.className = "example"; s.textContent = "пример"; body.append(s); }
-    body.append(section("Откликнулось", e.note, k === t ? "Запишите на вкладке «Символ дня»." : "В тот день вы ничего не записали."));
-    if (k !== t) {
-      if (e.later) body.append(section("Открылось позже", e.later));
-      const actions = document.createElement("div"); actions.className = "actions";
-      const b = document.createElement("button"); b.className = "ghost";
-      b.textContent = e.later ? "Дополнить" : "Что открылось позже";
-      b.addEventListener("click", () => openLater(k));
-      actions.append(b); body.append(actions);
+    const li = el("li", "entry"); li.id = "e-" + k;
+    const im = el("img"); im.src = img(e.c); im.alt = "";
+    const body = el("div", "body");
+    const head = el("div");
+    head.append(el("h3", null, c.n), el("span", "when", (k === t ? "Сегодня, " : "") + human(k)));
+    body.append(head);
+    if (e.ex) body.append(el("span", "example", "пример"));
+
+    // Откликнулось
+    const noteBox = el("div", "rec");
+    noteBox.append(el("div", "label", "Откликнулось"));
+    const np = el("p", e.note ? "" : "empty", e.note || (k === t ? "Пока ничего не записано." : "В тот день вы ничего не записали."));
+    const edit = el("button", "text-btn", e.note ? "Изменить" : "Записать");
+    edit.addEventListener("click", () => editor(noteBox, e.note || "", "Образ, чувство, воспоминание", v => {
+      days[k].note = v; saveDay(k); if (k === t) $("noteText").value = v; renderPath();
+    }));
+    noteBox.append(np, edit);
+    body.append(noteBox);
+
+    // Открылось позже
+    const adds = addsOf(e);
+    const laterBox = el("div", "rec"); laterBox.id = "later-" + k;
+    if (adds.length) {
+      laterBox.append(el("div", "label", "Открылось позже"));
+      for (const a of adds) {
+        const item = el("div", "add");
+        if (a.d) item.append(el("span", "when", human(a.d)));
+        item.append(el("p", null, a.t));
+        laterBox.append(item);
+      }
     }
+    const add = el("button", "ghost", adds.length ? "Дописать ещё" : "Дописать, что открылось");
+    if (full(k)) { add.disabled = true; add.textContent = "Для этого дня записей достаточно"; }
+    add.addEventListener("click", () => openLater(k));
+    laterBox.append(add);
+    body.append(laterBox);
+
+    li.append(im, body);
     list.append(li);
   }
 }
-function section(label, text, empty) {
-  const d = document.createElement("div");
-  const h = document.createElement("div"); h.className = "label"; h.textContent = label;
-  const p = document.createElement("p");
-  if (text) p.textContent = text; else { p.textContent = empty; p.className = "empty"; }
-  d.append(h, p); return d;
+
+// Поле ввода на месте записи; сохраняет по кнопке.
+function editor(box, value, ph, onSave) {
+  box.querySelectorAll("button, p.empty").forEach(x => x.remove());
+  const ta = el("textarea"); ta.maxLength = 1200; ta.value = value; ta.placeholder = ph;
+  ta.setAttribute("aria-label", ph);
+  const row = el("div", "actions");
+  const save = el("button", "ghost", "Сохранить");
+  const cancel = el("button", "text-btn", "Отмена");
+  save.addEventListener("click", () => onSave(ta.value.trim()));
+  cancel.addEventListener("click", renderPath);
+  row.append(save, cancel);
+  box.append(ta, row);
+  setTimeout(() => ta.focus({ preventScroll: true }), 200);
+  return ta;
 }
+
 function openLater(k) {
-  const li = $("e-" + k); if (!li) return;
-  const actions = li.querySelector(".actions");
-  actions.textContent = "";
-  const ta = document.createElement("textarea"); ta.maxLength = 1500; ta.id = "later-" + k;
-  ta.placeholder = "Что вы видите в этом символе сейчас?";
-  ta.value = days[k].later || "";
-  ta.setAttribute("aria-label", "Открылось позже: " + DECK[days[k].c].n);
-  const save = document.createElement("button"); save.className = "ghost"; save.textContent = "Сохранить";
-  save.addEventListener("click", () => {
-    days[k].later = ta.value.trim(); saveDay(k); renderPath(); showWeek();
+  const box = $("later-" + k); if (!box || full(k)) return;
+  editor(box, "", "Что вы видите в этом символе сейчас?", v => {
+    if (!v) return renderPath();
+    days[k].adds = (days[k].adds || []).concat({ d: todayKey(), t: v.slice(0, 600) });
+    saveDay(k); renderPath(); showWeek();
   });
-  const wrap = document.createElement("div"); wrap.style.display = "grid"; wrap.style.gap = "8px"; wrap.style.width = "100%";
-  wrap.append(ta, save); actions.append(wrap);
-  li.scrollIntoView({ block: "start", behavior: "smooth" });
-  setTimeout(() => ta.focus({ preventScroll: true }), 300);
+  $("e-" + k).scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
 /* ---------- Вкладки ---------- */
