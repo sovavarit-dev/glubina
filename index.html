@@ -107,6 +107,7 @@ textarea:focus { outline: none; border-color: var(--gold); }
 }
 .ghost:focus-visible, .text-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .text-btn { font: inherit; font-size: 15px; color: var(--muted); background: none; border: 0; padding: 7px 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.share { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .past { border-left: 2px solid var(--gold-soft); padding: 4px 0 4px 14px; display: grid; gap: 6px; }
 .past .when { font-size: 13px; color: var(--muted); }
 .past p { margin: 0; font-style: italic; white-space: pre-wrap; }
@@ -135,6 +136,11 @@ textarea:focus { outline: none; border-color: var(--gold); }
   .card, .reading { transition: none; }
   .card:not(.open) .back { animation: none; }
 }
+.gate { min-height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; }
+.gate img { width: min(56vw, 220px); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); }
+.gate p { margin: 0; color: var(--muted); max-width: 30ch; }
+.gate a { text-decoration: none; color: var(--night); background: var(--gold); padding: 12px 22px; border-radius: 999px; font-size: 16px; }
+.gate a:focus-visible { outline: 2px solid var(--cream); outline-offset: 3px; }
 </style>
 </head>
 <body>
@@ -174,6 +180,10 @@ textarea:focus { outline: none; border-color: var(--gold); }
       <div class="block"><h2 class="label">Смысл</h2><p id="meaning"></p></div>
       <div class="block"><h2 class="label">Тень</h2><p id="shadow"></p></div>
       <div class="block question"><h2 class="label">Вопрос дня</h2><p id="question"></p></div>
+      <div class="share">
+        <button class="ghost" id="shareImg">Поделиться</button>
+        <button class="text-btn" id="shareStory">В сторис Telegram</button>
+      </div>
       <div class="note">
         <label class="label" for="noteText">Что откликнулось</label>
         <textarea id="noteText" maxlength="1500" placeholder="Образ, чувство, воспоминание. Это видите только вы."></textarea>
@@ -323,6 +333,7 @@ function reveal(instant) {
   if (instant) { void card.offsetHeight; card.style.transition = ""; }
   $("hint").hidden = true;
   $("reading").hidden = false;
+  prepShare();
   requestAnimationFrame(() => requestAnimationFrame(() => $("reading").classList.add("show")));
   tick();
 }
@@ -380,6 +391,40 @@ function showWeek() {
 $("weekSkip").addEventListener("click", () => {
   const k = weekCandidate(); if (!k) return;
   main.dismissed = (main.dismissed || []).concat(k).slice(-30); saveMain(); showWeek();
+});
+
+/* ---------- Поделиться ---------- */
+const storyUrl = () => new URL("stories/" + pad(main.card + 1) + ".jpg", location.href).href;
+const canTg = v => { try { return tg && tg.isVersionAtLeast && tg.isVersionAtLeast(v); } catch (e) { return false; } };
+const openOut = url => { if (tg) { try { tg.openLink(url); return; } catch (e) {} } window.open(url, "_blank", "noopener"); };
+$("shareStory").addEventListener("click", () => {
+  const url = storyUrl();
+  if (canTg("7.8") && tg.shareToStory) {
+    try { tg.shareToStory(url, { text: "Мой символ дня — " + DECK[main.card].n + "\nt.me/glubina_help_bot?startapp" }); return; } catch (e) {}
+  }
+  openOut(url);
+});
+// Картинку готовим заранее: системное меню «Поделиться» открывается только сразу после нажатия.
+let shareFile = null;
+async function prepShare() {
+  shareFile = null;
+  try {
+    const r = await fetch(storyUrl());
+    const blob = await r.blob();
+    shareFile = new File([blob], "simvol-dnya-" + pad(main.card + 1) + ".jpg", { type: "image/jpeg" });
+  } catch (e) {}
+}
+$("shareImg").addEventListener("click", async () => {
+  const text = "Мой символ дня — " + DECK[main.card].n + ". Вытяните свой: t.me/glubina_help_bot?startapp";
+  if (shareFile && navigator.canShare && navigator.canShare({ files: [shareFile] })) {
+    try { await navigator.share({ files: [shareFile], text }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const url = storyUrl();
+  if (canTg("8.0") && tg.downloadFile) {
+    try { tg.downloadFile({ url, file_name: "simvol-dnya-" + pad(main.card + 1) + ".jpg" }); return; } catch (e) {}
+  }
+  openOut(url);
 });
 
 /* ---------- Мой путь ---------- */
@@ -473,8 +518,17 @@ $("demo").addEventListener("click", async () => {
   fill(13); reveal(true); showWeek(); switchTab("day");
 });
 
+function showGate() {
+  document.querySelector(".wrap").innerHTML =
+    '<div class="gate"><img src="cards/back.webp" alt="">' +
+    '<div class="name">Символ дня</div>' +
+    '<p>Символ дня открывается только в Telegram, там же хранится ваш путь.</p>' +
+    '<a href="https://t.me/glubina_help_bot?startapp">Открыть в Telegram</a></div>';
+}
+
 /* ---------- Запуск ---------- */
 (async () => {
+  if (!tg) { showGate(); return; }
   main = (await store.get(MAIN)) || {};
   const ks = (await store.keys()).filter(k => k.startsWith(DAY));
   const got = await store.many(ks);
