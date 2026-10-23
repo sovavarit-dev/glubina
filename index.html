@@ -400,7 +400,7 @@ const openOut = url => { if (tg) { try { tg.openLink(url); return; } catch (e) {
 $("shareStory").addEventListener("click", () => {
   const url = storyUrl();
   if (canTg("7.8") && tg.shareToStory) {
-    try { tg.shareToStory(url, { text: "Мой символ дня — " + DECK[main.card].n + "\nt.me/glubina_help_bot?startapp" }); return; } catch (e) {}
+    try { tg.shareToStory(url, { text: "Мой символ дня — " + DECK[main.card].n + "\nПопасть в Глубину: t.me/anpache_bot" }); return; } catch (e) {}
   }
   openOut(url);
 });
