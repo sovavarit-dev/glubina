@@ -4,7 +4,7 @@
   const api = window.KARTA_API;
   if (api && tg && tg.initData) {
     try {
-      const r = await fetch(api.replace(/\/$/, "") + "/content", { headers: { "X-Telegram-Init-Data": tg.initData } });
+      const r = await fetch(api, { headers: { "X-Telegram-Init-Data": tg.initData } });
       if (r.ok) window.CONTENT = await r.json();
     } catch (e) { /* остаемся на встроенном демо-контенте */ }
   }
