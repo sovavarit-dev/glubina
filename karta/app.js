@@ -278,37 +278,39 @@ window.startApp = function () {
     return a;
   }
   function Welcome() {
-    app.innerHTML = `<div class="stack" style="padding-top:32px">
-      <div class="kicker">Карта Глубины</div>
-      <h1 style="font-size:32px">Добро пожаловать</h1>
-      <p class="lead">Здесь погружения в образы, записи после них и бережное знакомство с собой — в своем темпе.</p>
-      <p class="lead">Сначала пара вопросов, чтобы приложение обращалось к тебе по-своему.</p>
-      <a class="btn" href="#/hello/2" style="margin-top:12px">Начнем</a>
-    </div>`;
+    if (!window.WELCOME_HTML) { app.innerHTML = `<div class="stack" style="padding-top:48px"><h1>Добро пожаловать на Глубину</h1><a class="btn" href="#/hello/2">Нырнуть</a></div>`; return; }
+    app.innerHTML = `<div class="wel"><div class="stage">${window.WELCOME_HTML}</div></div>`;
+    const st = app.querySelector(".stage");
+    const fit = () => { if (!st.isConnected) return window.removeEventListener("resize", fit); const k = window.innerWidth / 390; const H = Math.max(window.innerHeight / k, 640); st.style.height = H + "px"; st.classList.toggle("short", H < 760); st.style.transform = `translateX(-50%) scale(${k})`; };
+    fit(); window.addEventListener("resize", fit);
   }
   function Know() {
     const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || {};
     const st = { gender: "" };
-    const maxDate = new Date().toISOString().slice(0, 10);
     app.innerHTML = `<div class="stack">${back("#/hello", "Назад")}
       <h1>Давай познакомимся</h1>
       <label class="q"><b>Как к тебе обращаться?</b><input class="inp" id="nm" type="text" maxlength="40" autocomplete="given-name" value="${esc(u.first_name || "")}" placeholder="Имя"></label>
       <div class="stack" style="gap:8px"><b style="font-size:15px">Пол</b><div class="seg3" id="gd">
         <button type="button" data-g="f">женский</button><button type="button" data-g="m">мужской</button><button type="button" data-g="n">не указывать</button></div>
         <div class="small">Чтобы тексты обращались к тебе правильно.</div></div>
-      <label class="q"><b>Дата рождения</b><input class="inp" id="dob" type="date" min="1920-01-01" max="${maxDate}"><span class="small">Нужна, чтобы убедиться, что тебе есть 18, и чтобы Настя учитывала возраст, когда отвечает на твои вопросы.</span></label>
-      <label class="consent"><input type="checkbox" id="ok"><span>Соглашаюсь на обработку персональных данных по <a href="#/policy" style="color:var(--blue);text-decoration:underline">политике</a>. Данные хранятся в России.</span></label>
+      <label class="q"><b>Дата рождения</b><input class="inp" id="dob" type="text" inputmode="numeric" autocomplete="bday" placeholder="дд.мм.гггг" maxlength="10" style="letter-spacing:.06em;font-variant-numeric:tabular-nums"><span class="small">Нужна, чтобы убедиться, что тебе есть 18, и чтобы Настя учитывала возраст, когда отвечает на твои вопросы.</span></label>
+      <label class="consent"><input type="checkbox" id="ok"><span>Принимаю <a href="#/policy/privacy" style="color:var(--blue);text-decoration:underline">политику конфиденциальности</a> и даю <a href="#/policy/consent" style="color:var(--blue);text-decoration:underline">согласие на обработку персональных данных</a></span></label>
       <button class="btn" id="go" disabled>Продолжить</button>
     </div>`;
     const nm = $("#nm"), dob = $("#dob"), ok = $("#ok"), btn = $("#go");
-    const check = () => { btn.disabled = !(nm.value.trim() && dob.value && ok.checked && st.gender); };
+    const parseDob = (v) => { const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v); if (!m) return null; const d = +m[1], mo = +m[2], y = +m[3]; const dt = new Date(y, mo - 1, d); return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d ? `${m[3]}-${m[2]}-${m[1]}` : null; };
+    dob.addEventListener("input", () => {
+      const dgt = dob.value.replace(/\D/g, "").slice(0, 8);
+      dob.value = dgt.length > 4 ? `${dgt.slice(0, 2)}.${dgt.slice(2, 4)}.${dgt.slice(4)}` : dgt.length > 2 ? `${dgt.slice(0, 2)}.${dgt.slice(2)}` : dgt;
+    });
+    const check = () => { btn.disabled = !(nm.value.trim() && parseDob(dob.value) && ok.checked && st.gender); };
     app.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { st.gender = b.dataset.g; app.querySelectorAll("[data-g]").forEach((x) => x.classList.toggle("on", x === b)); check(); });
     [nm, dob, ok].forEach((e) => { e.oninput = check; e.onchange = check; });
     btn.onclick = () => {
-      const a = ageOf(dob.value);
+      const iso = parseDob(dob.value); const a = iso ? ageOf(iso) : null;
       if (a === null || a < 0 || a > 110) { toast("Проверь дату рождения"); return; }
       if (a < 18) { S.profile = { minor: true, at: now() }; save(); return go("#/adult"); }
-      S.profile = { name: nm.value.trim(), gender: st.gender, dob: dob.value, consent: new Date().toISOString(), at: now() };
+      S.profile = { name: nm.value.trim(), gender: st.gender, dob: iso, consent: new Date().toISOString(), at: now() };
       save(); haptic(); go("#/");
     };
   }
@@ -319,11 +321,11 @@ window.startApp = function () {
       <p class="lead">Возвращайся, когда исполнится 18.</p>
     </div>`;
   }
-  function Policy() {
+  function Policy(kind) {
+    const consent = kind === "consent";
     app.innerHTML = `<div class="stack">${back(S.profile ? "#/" : "#/hello/2", "Назад")}
-      <h1>Обработка персональных данных</h1>
-      <p class="lead">[Полный текст политики — подготовим до запуска.]</p>
-      <p class="lead">Коротко: мы храним имя, пол и дату рождения, чтобы обращаться к тебе по-своему, проверить совершеннолетие и учитывать возраст в ответах на вопросы. Данные хранятся в России и не передаются третьим лицам.</p>
+      <h1>${consent ? "Согласие на обработку персональных данных" : "Политика конфиденциальности"}</h1>
+      <p class="lead">[Полный текст — подготовим до запуска.]</p>
     </div>`;
   }
 
@@ -512,7 +514,7 @@ window.startApp = function () {
     }
     if (r !== "music") paint = () => {};
     switch (r) {
-      case "policy": return Policy();
+      case "policy": return Policy(id);
       case "dict": return Dict(id);
       case "dsec": return DSec(id);
       case "sym": return Sym(id);
