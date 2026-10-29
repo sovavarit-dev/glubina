@@ -208,13 +208,15 @@
     };
     $("#save").onclick = () => {
       S.notes[id] = { image: $("#img").value.trim(), feelings: Array.from(sel), own: n.own || [], stand: $("#stand").value.trim(), savedAt: now() };
-      save(); haptic(); toast("Сохранено"); go("#/journal");
+      save(); haptic(); go("#/journal/saved");
     };
   }
 
-  function Journal() {
+  function Journal(flag) {
     const items = cycle.practices.filter((p) => S.notes[p.id] || counted(p.id));
-    let h = `<div class="stack">${back("#/", "Карта")}<h1>Мои погружения</h1>`;
+    let h = `<div class="stack">${back("#/", "Карта")}`;
+    if (flag === "saved") h += `<div class="card sage" style="padding:18px;gap:12px"><div style="font-weight:800;font-size:18px;color:var(--sage-l)">Заметка сохранена</div><div style="font-size:14px">Интеграция откроется через 8 часов — напомню.</div><a class="btn" href="#/">Вернуться на главную</a></div>`;
+    h += `<h1>Мои погружения</h1>`;
     if (!items.length) h += `<p class="lead">Здесь появятся заметки после погружений.</p>`;
     items.slice().reverse().forEach((p) => {
       const n = S.notes[p.id] || {};
@@ -224,7 +226,7 @@
         <div class="row" style="gap:16px;flex-wrap:wrap"><a class="small" style="color:var(--blue);font-weight:700" href="#/after/${p.id}">${n.image ? "Изменить заметку" : "Записать"}</a>
         ${integrOpen(p.id) ? `<a class="small" style="color:var(--terra-l);font-weight:700" href="#/integr/${p.id}">${integrDone(p.id) ? "Интеграция" : "Интеграция открыта"}</a>` : p.integration && counted(p.id) ? `<span class="small">интеграция — ${fmtWhen(integrAt(p.id))}</span>` : ""}</div></div>`;
     });
-    h += `</div>`;
+    h += `<a class="btn" href="#/" style="margin-top:6px">На главную</a></div>`;
     app.innerHTML = h;
   }
 
@@ -274,7 +276,7 @@
       case "player": return Player(id);
       case "return": return Return(id);
       case "after": return After(id);
-      case "journal": return Journal();
+      case "journal": return Journal(id);
       case "integr": return Integr(id);
       case "aid": return Aid();
       default: return Main();
