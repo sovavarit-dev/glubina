@@ -1,4 +1,4 @@
-(function () {
+window.startApp = function () {
   "use strict";
 
   const C = window.CONTENT;
@@ -287,4 +287,4 @@
     try { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor("#0F1E33"); tg.setBackgroundColor && tg.setBackgroundColor("#0F1E33"); tg.BackButton.onClick(() => history.back()); } catch (e) {}
   }
   render();
-})();
+};
