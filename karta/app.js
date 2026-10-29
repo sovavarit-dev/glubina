@@ -10,7 +10,7 @@ window.startApp = function () {
   const KEY = "karta-state-v1";
 
   // ---------- состояние (пока на устройстве; потом — сервер) ----------
-  const blank = () => ({ listens: {}, notes: {}, integr: {}, shift: 0 });
+  const blank = () => ({ listens: {}, notes: {}, integr: {}, shift: 0, profile: null, myimg: {}, playlist: [], music: { timer: 60, repeat: "list", fade: true } });
   let S;
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { S = blank(); }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
@@ -43,6 +43,10 @@ window.startApp = function () {
     pause: '<svg width="28" height="28" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
     play: '<svg width="28" height="28" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>',
     rew: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+    note: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9FB2C8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
+    pauseS: '<svg width="20" height="20" viewBox="0 0 24 24" fill="#8CC4E8" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+    plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9FB2C8" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    checkS: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>',
     fwd: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>'
   };
   const back = (href, label) => `<a class="back" href="${href}">${icon.back}${esc(label)}</a>`;
@@ -73,7 +77,7 @@ window.startApp = function () {
     const waitingInt = cycle.practices.filter((p) => counted(p.id) && p.integration && !integrOpen(p.id));
     const nx = nextStep();
     let h = `<div class="stack">
-      <div class="row" style="justify-content:space-between"><div><div class="kicker">Глубина</div><h1>Твоя карта</h1></div></div>`;
+      <div class="row" style="justify-content:space-between"><div><div class="kicker">${S.profile && S.profile.name ? "Привет, " + esc(S.profile.name) : "Глубина"}</div><h1>Твоя карта</h1></div></div>`;
     pendingInt.forEach((p) => {
       h += `<a class="card terra" href="#/integr/${p.id}"><div class="small hint-terra" style="font-weight:600">Интеграция открыта</div><div style="font-weight:700;font-size:16px">к практике «${esc(p.title)}»</div></a>`;
     });
@@ -89,6 +93,8 @@ window.startApp = function () {
     }
     h += `</a>
       <a class="link-row" href="#/journal">Мои погружения ${icon.chev}</a>
+      <a class="link-row" href="#/dict">Словарь символов ${icon.chev}</a>
+      <a class="link-row" href="#/music">Музыкальное сопровождение ${icon.chev}</a>
       <a class="link-row" href="#/aid" style="border-color:var(--terra-line);color:var(--terra-l)">Если сложно — Аптечка ${icon.chev}</a>
       <div class="demo stack" style="gap:10px">
         <div class="small">Демо-режим: перемотка времени, чтобы проверить таймеры (8 и 48 часов)</div>
@@ -263,6 +269,236 @@ window.startApp = function () {
     </div>`;
   }
 
+
+  // ---------- первый вход: знакомство ----------
+  function ageOf(dob) {
+    const d = new Date(dob); if (isNaN(d)) return null;
+    const t = new Date(); let a = t.getFullYear() - d.getFullYear();
+    if (t.getMonth() < d.getMonth() || (t.getMonth() === d.getMonth() && t.getDate() < d.getDate())) a--;
+    return a;
+  }
+  function Welcome() {
+    app.innerHTML = `<div class="stack" style="padding-top:32px">
+      <div class="kicker">Карта Глубины</div>
+      <h1 style="font-size:32px">Добро пожаловать</h1>
+      <p class="lead">Здесь погружения в образы, записи после них и бережное знакомство с собой — в своем темпе.</p>
+      <p class="lead">Сначала пара вопросов, чтобы приложение обращалось к тебе по-своему.</p>
+      <a class="btn" href="#/hello/2" style="margin-top:12px">Начнем</a>
+    </div>`;
+  }
+  function Know() {
+    const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || {};
+    const st = { gender: "" };
+    const maxDate = new Date().toISOString().slice(0, 10);
+    app.innerHTML = `<div class="stack">${back("#/hello", "Назад")}
+      <h1>Давай познакомимся</h1>
+      <label class="q"><b>Как к тебе обращаться?</b><input class="inp" id="nm" type="text" maxlength="40" autocomplete="given-name" value="${esc(u.first_name || "")}" placeholder="Имя"></label>
+      <div class="stack" style="gap:8px"><b style="font-size:15px">Пол</b><div class="seg3" id="gd">
+        <button type="button" data-g="f">женский</button><button type="button" data-g="m">мужской</button><button type="button" data-g="n">не указывать</button></div>
+        <div class="small">Чтобы тексты обращались к тебе правильно.</div></div>
+      <label class="q"><b>Дата рождения</b><input class="inp" id="dob" type="date" min="1920-01-01" max="${maxDate}"><span class="small">Нужна, чтобы убедиться, что тебе есть 18, и чтобы Настя учитывала возраст, когда отвечает на твои вопросы.</span></label>
+      <label class="consent"><input type="checkbox" id="ok"><span>Соглашаюсь на обработку персональных данных по <a href="#/policy" style="color:var(--blue);text-decoration:underline">политике</a>. Данные хранятся в России.</span></label>
+      <button class="btn" id="go" disabled>Продолжить</button>
+    </div>`;
+    const nm = $("#nm"), dob = $("#dob"), ok = $("#ok"), btn = $("#go");
+    const check = () => { btn.disabled = !(nm.value.trim() && dob.value && ok.checked && st.gender); };
+    app.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { st.gender = b.dataset.g; app.querySelectorAll("[data-g]").forEach((x) => x.classList.toggle("on", x === b)); check(); });
+    [nm, dob, ok].forEach((e) => { e.oninput = check; e.onchange = check; });
+    btn.onclick = () => {
+      const a = ageOf(dob.value);
+      if (a === null || a < 0 || a > 110) { toast("Проверь дату рождения"); return; }
+      if (a < 18) { S.profile = { minor: true, at: now() }; save(); return go("#/adult"); }
+      S.profile = { name: nm.value.trim(), gender: st.gender, dob: dob.value, consent: new Date().toISOString(), at: now() };
+      save(); haptic(); go("#/");
+    };
+  }
+  function Minor() {
+    app.innerHTML = `<div class="stack" style="padding-top:48px;text-align:center;align-items:center">
+      <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="34" fill="#182B45"/><circle cx="36" cy="36" r="20" fill="#1F3654"/><circle cx="36" cy="36" r="6" fill="#8CC4E8"/></svg>
+      <h1>Карта Глубины — приложение для взрослых</h1>
+      <p class="lead">Возвращайся, когда исполнится 18.</p>
+    </div>`;
+  }
+  function Policy() {
+    app.innerHTML = `<div class="stack">${back(S.profile ? "#/" : "#/hello/2", "Назад")}
+      <h1>Обработка персональных данных</h1>
+      <p class="lead">[Полный текст политики — подготовим до запуска.]</p>
+      <p class="lead">Коротко: мы храним имя, пол и дату рождения, чтобы обращаться к тебе по-своему, проверить совершеннолетие и учитывать возраст в ответах на вопросы. Данные хранятся в России и не передаются третьим лицам.</p>
+    </div>`;
+  }
+
+  // ---------- словарь символов ----------
+  const DS = (C.dict && C.dict.sections) || [];
+  const SY = []; DS.forEach((sec) => sec.symbols.forEach((x) => SY.push(Object.assign({ sec: sec }, x))));
+  const symById = (id) => SY.find((x) => x.id === id);
+  const symByTitle = (t) => SY.find((x) => x.title.toLowerCase() === String(t).toLowerCase());
+  const mine = (id) => S.myimg[id] || (S.myimg[id] = { text: "", links: [] });
+  const hasMine = (id) => S.myimg[id] && (S.myimg[id].text || (S.myimg[id].links || []).length);
+  function Dict(tab) {
+    const my = tab === "my";
+    let h = `<div class="stack">${back("#/", "Карта")}
+      <div class="stack" style="gap:6px"><h1>Словарь символов</h1><p class="small">У символа нет одного значения. Здесь — то, что он нес в мифах и сказках, и место, чтобы найти свое.</p></div>
+      <div class="seg2"><a href="#/dict" class="${my ? "" : "on"}">Словарь</a><a href="#/dict/my" class="${my ? "on" : ""}">Мои образы</a></div>`;
+    if (!DS.length) { app.innerHTML = h + `<p class="lead">Словарь появится после подключения.</p></div>`; return; }
+    if (my) {
+      const ids = Object.keys(S.myimg).filter(hasMine);
+      if (!ids.length) h += `<div class="card dashed"><div class="small">Здесь появятся твои записи к символам и твои связи между ними. Открой любой символ и напиши, что он значит для тебя.</div></div>`;
+      ids.forEach((id) => {
+        const x = symById(id); if (!x) return; const m = S.myimg[id];
+        h += `<a class="card" href="#/sym/${id}"><div class="row" style="justify-content:space-between"><b>${esc(x.title)}</b>${icon.chev}</div>
+          ${m.text ? `<div style="font-size:14px;color:var(--muted2)">${esc(m.text)}</div>` : ""}
+          ${(m.links || []).length ? `<div class="chips">${m.links.map((l) => { const y = symById(l); return y ? `<span class="chip mine sm">${esc(y.title.toLowerCase())}</span>` : ""; }).join("")}</div>` : ""}</a>`;
+      });
+      app.innerHTML = h + `</div>`; return;
+    }
+    const deep = SY.filter((x) => x.deep);
+    h += `<input class="inp" id="q" type="search" placeholder="Найти символ: вода, дом, волк…" aria-label="Поиск символа">
+      <div id="res" class="stack" style="gap:8px"></div>
+      <div id="secs" class="stack" style="gap:18px">
+      <div class="stack" style="gap:10px"><div class="kicker" style="letter-spacing:.06em">ОБРАЗЫ ИЗ ПРАКТИК ГЛУБИНЫ</div><div class="chips">${deep.map((x) => `<a class="chip" href="#/sym/${x.id}">${esc(x.title.toLowerCase())}</a>`).join("")}</div></div>
+      <div class="stack" style="gap:10px"><div class="kicker" style="letter-spacing:.06em">РАЗДЕЛЫ</div>
+      ${DS.map((sec) => `<a class="card" href="#/dsec/${sec.id}" style="gap:4px"><div class="row" style="justify-content:space-between"><b>${esc(sec.title)}</b><span class="small">${sec.symbols.length}</span></div><div class="small">${esc(sec.symbols.slice(0, 6).map((x) => x.title.toLowerCase()).join(", "))}</div></a>`).join("")}
+      </div></div></div>`;
+    app.innerHTML = h;
+    const q = $("#q"), res = $("#res"), secs = $("#secs");
+    q.oninput = () => {
+      const t = q.value.trim().toLowerCase();
+      if (!t) { res.innerHTML = ""; secs.style.display = ""; return; }
+      const f = SY.filter((x) => x.title.toLowerCase().includes(t) || x.essence.toLowerCase().includes(t)).slice(0, 30);
+      secs.style.display = "none";
+      res.innerHTML = f.length ? f.map(symRow).join("") : `<div class="small">Такого символа пока нет в словаре. Свой образ можно записать в «Совпадениях».</div>`;
+    };
+  }
+  const symRow = (x) => `<a class="sym-row" href="#/sym/${x.id}"><span class="t"><b>${esc(x.title)}</b><span>${esc(x.essence)}</span></span>${icon.chev}</a>`;
+  function DSec(id) {
+    const sec = DS.find((x) => x.id === id); if (!sec) return go("#/dict");
+    app.innerHTML = `<div class="stack">${back("#/dict", "Словарь")}
+      <div class="stack" style="gap:6px"><h1>${esc(sec.title)}</h1><p class="small">${esc(sec.intro)}</p></div>
+      <div class="stack" style="gap:8px">${sec.symbols.map((x) => symRow(Object.assign({ sec: sec }, x))).join("")}</div></div>`;
+  }
+  function Sym(id) {
+    const x = symById(id); if (!x) return go("#/dict");
+    const m = S.myimg[id] || { text: "", links: [] };
+    const links = m.links || [];
+    const relIds = x.related.map((t) => { const y = symByTitle(t); return y ? y.id : null; });
+    const rel = x.related.map((t, i) => { const y = relIds[i]; return y ? `<a class="chip${links.includes(y) ? " mine" : ""}" href="#/sym/${y}">${esc(t)}</a>` : `<span class="chip" style="color:var(--muted)">${esc(t)}</span>`; }).join("");
+    const myl = links.filter((l) => !relIds.includes(l)).map((l) => { const y = symById(l); return y ? `<a class="chip mine" href="#/sym/${y.id}">${esc(y.title.toLowerCase())}</a>` : ""; }).join("");
+    app.innerHTML = `<div class="stack" style="gap:22px">${back("#/dsec/" + x.sec.id, x.sec.title)}
+      <div class="stack" style="gap:6px"><div class="kicker" style="letter-spacing:.06em">${esc(x.sec.title.toUpperCase())}</div><h1 style="font-size:32px">${esc(x.title)}</h1><p class="lead" style="font-size:14px">${esc(x.essence)}</p></div>
+      <div class="stack" style="gap:10px"><h2 style="font-size:17px">В мифах и сказках</h2>
+        ${x.myths.map((y) => `<div class="row" style="align-items:flex-start;font-size:14px;line-height:1.55;color:#D6E0EA"><span style="color:var(--blue)">—</span><span><b style="color:var(--text)">${esc(y.h)}.</b> ${esc(y.t)}</span></div>`).join("")}</div>
+      ${x.sd || x.deep ? `<div class="card" style="background:var(--card2)">${x.sd ? `<h2 style="font-size:17px">В символдраме</h2><p style="font-size:14px;line-height:1.55;color:#D6E0EA">${esc(x.sd)}</p>` : ""}${x.deep ? `<span class="small">В Глубине: ${esc(x.deep)}</span>` : ""}</div>` : ""}
+      <div class="card" style="background:none;border:1px solid var(--line)"><h2 style="font-size:17px">Другая сторона</h2><p style="font-size:14px;line-height:1.55;color:#D6E0EA">${esc(x.shadow)}</p></div>
+      <div class="stack" style="gap:10px"><div class="kicker" style="letter-spacing:.06em">РЯДОМ ПО СМЫСЛУ</div><div class="chips">${rel}${myl}</div>
+        <a class="dash-btn" href="#/pick/${id}">${links.length ? "Изменить мои связи" : "Открыть весь список"} ${icon.chev}</a>
+        <span class="small" style="font-size:12px;color:var(--dim)">Выбери символы, которые связаны с этим образом для тебя. Твои связи появятся здесь и в «Моих образах».</span></div>
+      <div class="card" style="background:var(--card2);gap:10px"><label for="moe"><h2 style="font-size:17px">Что ${esc(x.title.toLowerCase())} значит для тебя?</h2></label>
+        <div class="stack" style="gap:6px;font-size:13px;line-height:1.45;color:var(--muted)"><span style="font-size:12px;color:var(--dim)">Если нужна подсказка:</span>${x.questions.map((q) => `<span>— ${esc(q)}</span>`).join("")}</div>
+        <textarea id="moe" rows="4" placeholder="Твоя ассоциация — она здесь главная">${esc(m.text)}</textarea>
+        <span class="small" id="st" style="font-size:12px;color:var(--dim)">${m.text ? "Сохранено в «Мои образы»" : "Запись сохранится в «Мои образы»"}</span></div>
+    </div>`;
+    const ta = $("#moe"), stl = $("#st"); let deb;
+    ta.oninput = () => { clearTimeout(deb); deb = setTimeout(() => { mine(id).text = ta.value.trim(); mine(id).at = now(); save(); stl.textContent = "Сохранено в «Мои образы»"; }, 500); };
+  }
+  function Pick(id) {
+    const x = symById(id); if (!x) return go("#/dict");
+    const sel = new Set((S.myimg[id] && S.myimg[id].links) || []);
+    app.innerHTML = `<div class="stack">${back("#/sym/" + id, x.title)}
+      <div class="stack" style="gap:6px"><h1>Твои связи: ${esc(x.title.toLowerCase())}</h1><p class="small">Отметь символы, которые для тебя связаны с этим образом. Здесь нет правильных ответов.</p></div>
+      ${DS.map((sec) => `<div class="stack" style="gap:8px"><div class="kicker" style="letter-spacing:.06em">${esc(sec.title.toUpperCase())}</div><div class="chips">${sec.symbols.filter((y) => y.id !== id).map((y) => `<button type="button" class="chip${sel.has(y.id) ? " mine" : ""}" data-l="${y.id}">${esc(y.title.toLowerCase())}</button>`).join("")}</div></div>`).join("")}
+      <button class="btn" id="done">Готово</button></div>`;
+    app.querySelectorAll("[data-l]").forEach((b) => b.onclick = () => { const l = b.dataset.l; sel.has(l) ? sel.delete(l) : sel.add(l); b.classList.toggle("mine"); });
+    $("#done").onclick = () => { mine(id).links = Array.from(sel); mine(id).at = now(); save(); haptic(); go("#/sym/" + id); };
+  }
+
+  // ---------- музыка ----------
+  const MU = C.music || [];
+  const audio = window.__kartaAudio || (window.__kartaAudio = new Audio());
+  audio.preload = "none";
+  const M = window.__kartaMusic || (window.__kartaMusic = { cur: null, tab: "all", end: 0, iv: null, lock: null });
+  const mset = () => S.music || (S.music = { timer: 60, repeat: "list", fade: true });
+  const track = (id) => MU.find((t) => t.id === id);
+  const queue = () => (M.tab === "mine" ? S.playlist.map(track).filter(Boolean) : MU);
+  const fmtMin = (sec) => Math.round(sec / 60) + " мин";
+  async function wake(on) {
+    try {
+      if (on && "wakeLock" in navigator && !M.lock) { M.lock = await navigator.wakeLock.request("screen"); M.lock.addEventListener("release", () => { M.lock = null; }); }
+      if (!on && M.lock) { await M.lock.release(); M.lock = null; }
+    } catch (e) {}
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !audio.paused) wake(true); });
+  function playTrack(id) {
+    const t = track(id); if (!t) return;
+    if (M.cur !== id || !audio.src) { audio.src = t.src; M.cur = id; }
+    audio.volume = 1;
+    audio.play().catch(() => toast("Нажми ▶ еще раз"));
+    const tm = mset().timer; M.end = tm ? Date.now() + tm * 60000 : 0;
+    try { if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: "Карта Глубины" }); } catch (e) {}
+    wake(true); tick();
+  }
+  function stopMusic() { audio.pause(); audio.volume = 1; M.end = 0; wake(false); }
+  function tick() {
+    clearInterval(M.iv);
+    M.iv = setInterval(() => {
+      if (audio.paused) return;
+      if (M.end) {
+        const left = M.end - Date.now();
+        if (mset().fade && left < 30000) audio.volume = Math.max(0, Math.min(1, left / 30000));
+        if (left <= 0) { stopMusic(); paint(); return; }
+      }
+      paint();
+    }, 1000);
+  }
+  audio.onended = () => {
+    const r = mset().repeat, q = queue(), i = q.findIndex((t) => t.id === M.cur);
+    if (r === "one") { audio.currentTime = 0; audio.play(); return; }
+    const nx = q[i + 1] || (r === "list" ? q[0] : null);
+    if (nx) playTrack(nx.id); else { stopMusic(); paint(); }
+  };
+  let paint = () => {};
+  function Music() {
+    const st = mset();
+    const draw = () => {
+      const q = queue();
+      const opt = (k, v, label) => `<button type="button" class="${st[k] === v ? "on" : ""}" data-${k}="${v}">${label}</button>`;
+      app.innerHTML = `<div class="stack">${back("#/", "Карта")}
+        <div class="stack" style="gap:6px"><h1>Музыкальное сопровождение</h1><div class="small">Музыка без голоса и заданий — для сна, практик и чтобы просто побыть с собой.</div></div>
+        <div class="seg2"><a href="#" data-tab="all" class="${M.tab === "all" ? "on" : ""}">Вся музыка</a><a href="#" data-tab="mine" class="${M.tab === "mine" ? "on" : ""}">Мой плейлист · ${S.playlist.length}</a></div>
+        <div class="stack" style="gap:8px">${q.length ? q.map((t) => `<div class="trk${M.cur === t.id ? " cur" : ""}">
+          <button type="button" class="tbody" data-play="${t.id}"><span class="ti">${M.cur === t.id && !audio.paused ? icon.pauseS : icon.note}</span><span class="t"><b>${esc(t.title)}</b><span>${fmtMin(t.dur)}</span></span></button>
+          <button type="button" class="add${S.playlist.includes(t.id) ? " in" : ""}" data-add="${t.id}" aria-label="${S.playlist.includes(t.id) ? "Убрать из плейлиста" : "Добавить в плейлист"}">${S.playlist.includes(t.id) ? icon.checkS : icon.plus}</button></div>`).join("") : `<div class="card dashed"><div class="small">Плейлист пока пуст. Во вкладке «Вся музыка» нажми «+» у треков, которые хочешь сюда.</div></div>`}</div>
+        ${M.tab === "all" ? `<div class="small center" style="font-size:12px;color:var(--dim)">Нажми «+», чтобы собрать свой плейлист из этой музыки</div>` : ""}
+        <div id="now"></div>
+        <div class="card" style="gap:14px">
+          <div class="stack" style="gap:8px"><span class="small">Таймер, мин</span><div class="seg5">${opt("timer", 10, "10")}${opt("timer", 20, "20")}${opt("timer", 40, "40")}${opt("timer", 60, "60")}${opt("timer", 0, "выкл")}</div></div>
+          <div class="stack" style="gap:8px"><span class="small">Повтор</span><div class="seg3">${opt("repeat", "none", "Без повтора")}${opt("repeat", "one", "Один трек")}${opt("repeat", "list", "Плейлист")}</div></div>
+          <label class="row" style="justify-content:space-between;min-height:44px"><span style="font-size:14px">Плавно затихнуть в конце</span><input type="checkbox" id="fade" ${st.fade ? "checked" : ""} style="width:22px;height:22px;accent-color:var(--sage)"></label>
+        </div>
+        <a class="small center" href="#" id="chan" style="min-height:44px;display:flex;align-items:center;justify-content:center">Эта музыка есть и в канале ↗</a>
+      </div>`;
+      app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = (e) => { e.preventDefault(); M.tab = b.dataset.tab; draw(); });
+      app.querySelectorAll("[data-play]").forEach((b) => b.onclick = () => { const id = b.dataset.play; if (M.cur === id && !audio.paused) stopMusic(); else playTrack(id); draw(); });
+      app.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { const id = b.dataset.add, i = S.playlist.indexOf(id); i >= 0 ? S.playlist.splice(i, 1) : S.playlist.push(id); save(); haptic(); draw(); });
+      app.querySelectorAll("[data-timer]").forEach((b) => b.onclick = () => { st.timer = Number(b.dataset.timer); M.end = st.timer && !audio.paused ? Date.now() + st.timer * 60000 : 0; audio.volume = 1; save(); draw(); });
+      app.querySelectorAll("[data-repeat]").forEach((b) => b.onclick = () => { st.repeat = b.dataset.repeat; save(); draw(); });
+      $("#fade").onchange = (e) => { st.fade = e.target.checked; save(); };
+      $("#chan").onclick = (e) => { e.preventDefault(); toast("Ссылку на канал добавим перед запуском"); };
+      paint = () => {
+        const el = $("#now"); if (!el) return;
+        const t = track(M.cur); if (!t) { el.innerHTML = ""; return; }
+        const d = audio.duration || t.dur, c = audio.currentTime || 0;
+        const left = M.end ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : 0;
+        el.innerHTML = `<div class="card blue" style="gap:10px"><div class="row" style="justify-content:space-between"><b>${esc(t.title)}</b><span class="small">${audio.paused ? "пауза" : left ? "затихнет через " + left + " мин" : "играет"}</span></div>
+          <input id="ms" type="range" min="0" max="${Math.floor(d)}" value="${Math.floor(c)}" aria-label="Перемотка"><div class="times"><span>${fmt(c)}</span><span>${fmt(d)}</span></div>
+          <button class="btn" id="mp" style="padding:12px 0">${audio.paused ? "Слушать" : "Пауза"}</button></div>`;
+        $("#ms").onchange = (e) => { audio.currentTime = Number(e.target.value); };
+        $("#mp").onclick = () => { if (audio.paused) playTrack(M.cur); else stopMusic(); draw(); };
+      };
+      paint();
+    };
+    draw();
+  }
+
   // ---------- роутер ----------
   function render() {
     clearInterval(timer); timer = null;
@@ -270,7 +506,18 @@ window.startApp = function () {
     const [r, id] = parts;
     window.scrollTo(0, 0);
     if (tg && tg.BackButton) { r ? tg.BackButton.show() : tg.BackButton.hide(); }
+    if (r !== "policy") {
+      if (!S.profile) return r === "hello" && id === "2" ? Know() : Welcome();
+      if (S.profile.minor) return Minor();
+    }
+    if (r !== "music") paint = () => {};
     switch (r) {
+      case "policy": return Policy();
+      case "dict": return Dict(id);
+      case "dsec": return DSec(id);
+      case "sym": return Sym(id);
+      case "pick": return Pick(id);
+      case "music": return Music();
       case "cycle": return Cycle();
       case "prep": return Prep(id);
       case "player": return Player(id);
