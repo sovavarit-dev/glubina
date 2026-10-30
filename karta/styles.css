@@ -214,3 +214,13 @@ textarea.gold{background:var(--sage-bg);border-color:#3F5E4A}
 .flip.turn .tcard{transform:rotateY(90deg)}
 .face{animation:unflip .45s ease-out}
 @keyframes unflip{from{transform:perspective(900px) rotateY(-90deg)}to{transform:none}}
+/* возвращение: плеер растворяется, строки появляются по одной */
+.dive-ui{transition:opacity 1.6s ease}
+.dive-ui.fading{opacity:0}
+.dive .dive-depth,.dive-depth{transition:opacity 1s}
+.ret-bg~.dive-depth,.ret-bg .dive-depth{display:none}
+.ret{min-height:calc(100vh - 48px);padding-top:40px;gap:14px}
+.ret .ln{opacity:0;transform:translateY(10px);animation:lnIn 1.6s ease forwards}
+.ret h1{font-size:34px}.ret .lead{font-size:19px;color:var(--text)}
+@keyframes lnIn{to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ret .ln{animation:none;opacity:1;transform:none}}

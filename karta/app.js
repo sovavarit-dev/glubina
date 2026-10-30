@@ -196,7 +196,15 @@ window.startApp = function () {
     const close = () => bg.remove();
     $("#exstay").onclick = () => { close(); if (PL) { PL.playing = was; const b = $("#pp"); if (b) b.innerHTML = was ? icon.pause : icon.play; } };
     bg.onclick = (e) => { if (e.target === bg) $("#exstay").click(); };
-    $("#exgo").onclick = () => { close(); PL = null; clearInterval(timer); timer = null; go("#/return/" + id); };
+    $("#exgo").onclick = () => { close(); leaveDive(id); };
+  }
+  // плеер медленно растворяется, вода светлеет — и только потом экран возвращения
+  function leaveDive(id) {
+    clearInterval(timer); timer = null; PL = null;
+    const ui = document.querySelector(".dive-ui"); if (ui) ui.classList.add("fading");
+    const dd = document.querySelector(".dive-depth"); if (dd) dd.style.opacity = "0";
+    setDepth(1);
+    setTimeout(() => go("#/return/" + id), 1800);
   }
   function Player(id) {
     const p = prac(id);
@@ -220,7 +228,7 @@ window.startApp = function () {
       if (PL.pos >= COUNT_AFTER_SEC && !counted(id)) { S.listens[id] = now(); save(); }
       if (PL.pos >= p.duration) finish();
     };
-    const finish = () => { clearInterval(timer); timer = null; PL = null; go("#/return/" + id); };
+    const finish = () => leaveDive(id);
     clearInterval(timer);
     timer = setInterval(() => { if (PL && PL.playing) { PL.pos += 1; sync(); } }, 1000);
     sync();
@@ -232,13 +240,19 @@ window.startApp = function () {
   }
 
   function Return(id) {
-    app.innerHTML = `<div class="stack" style="padding-top:24px">
-      <div class="stack" style="gap:8px"><h1>Не торопись</h1><p class="lead">Почувствуй опору под собой. Пошевели пальцами. Потянись, как после сна.</p></div>
-      <a class="btn" href="#/after/${id}">Записать, что было</a>
-      <a class="card terra" href="#/observer"><div class="small hint-terra" style="font-weight:600">Если сложно вернуться в реальность</div><div style="font-weight:800;font-size:18px">Техника «Наблюдатель»</div><div class="small" style="color:var(--muted2)">текст · 2–3 минуты</div></a>
-      <a class="btn ghost" href="#/">Позже</a>
-      ${counted(id) ? "" : `<p class="small center">Практика не засчитана — прошло меньше двух минут. К ней можно вернуться в любой момент.</p>`}
-    </div>`;
+    const ln = (d, html) => `<div class="ln" style="animation-delay:${d}s">${html}</div>`;
+    app.innerHTML = `<div class="dive ret-bg">${diveScene()}</div><div class="stack dive-ui ret">
+      ${ln(0.4, '<h1>Не торопись</h1>')}
+      ${ln(2.2, '<p class="lead">Почувствуй опору под собой</p>')}
+      ${ln(4.0, '<p class="lead">Пошевели пальцами</p>')}
+      ${ln(5.8, '<p class="lead">Потянись, как после сна</p>')}
+      <div class="ln stack" style="animation-delay:7.8s;gap:12px;margin-top:auto">
+        <a class="btn" href="#/after/${id}">Записать, что было</a>
+        <a class="card terra" href="#/observer"><div class="small hint-terra" style="font-weight:600">Если сложно вернуться в реальность</div><div style="font-weight:800;font-size:18px">Техника «Наблюдатель»</div><div class="small" style="color:var(--muted2)">прочитать и сделать · 2–3 минуты</div></a>
+        <a class="btn ghost" href="#/">Позже</a>
+        ${counted(id) ? "" : `<p class="small center">Практика не засчитана — прошло меньше двух минут. К ней можно вернуться в любой момент.</p>`}
+      </div></div>`;
+    setDepth(1);
   }
 
   function After(id) {
@@ -862,12 +876,15 @@ window.startApp = function () {
       bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grip"></div>
         <div class="row" style="justify-content:space-between"><h2 style="font-size:20px">${esc(zz[1][0].toUpperCase() + zz[1].slice(1))}</h2><span class="small">1 из 2</span></div>
         <b style="font-size:16px;font-weight:600">Какое ощущение здесь?</b>
-        <div class="chips">${SENSES.map((s) => `<button type="button" class="chip${cur.sense.includes(s) ? " terraon" : ""}" data-s="${s}">${s}</button>`).join("")}</div>
-        <input class="inp" id="sown" placeholder="Своими словами — по желанию" value="${esc(cur.own)}">
+        <div class="chips">${SENSES.concat((S.ownSense || []).filter((x) => !SENSES.includes(x))).map((s) => `<button type="button" class="chip${cur.sense.includes(s) ? " terraon" : ""}" data-s="${esc(s)}">${esc(s)}</button>`).join("")}</div>
+        <div class="row"><input class="inp" id="sown" placeholder="+ свое ощущение" maxlength="30"><button type="button" class="pill" id="sownb" style="min-height:48px">Добавить</button></div>
         <button class="btn" id="snext">Дальше</button>
         ${B[z] ? `<button type="button" class="link-row" id="sdel" style="justify-content:center;border:none;color:var(--muted);font-weight:500;min-height:36px">Убрать отметку</button>` : ""}</div>`;
       bg.querySelectorAll("[data-s]").forEach((b) => b.onclick = () => { const s = b.dataset.s, i = cur.sense.indexOf(s); i >= 0 ? cur.sense.splice(i, 1) : cur.sense.push(s); b.classList.toggle("terraon"); });
-      bg.querySelector("#snext").onclick = () => { cur.own = bg.querySelector("#sown").value.trim(); step2(); };
+      const addOwn = () => { const v = bg.querySelector("#sown").value.trim().toLowerCase(); if (!v) return false; S.ownSense = Array.from(new Set((S.ownSense || []).concat(v))); if (!cur.sense.includes(v)) cur.sense.push(v); save(); return true; };
+      bg.querySelector("#sownb").onclick = () => { if (addOwn()) step1(); };
+      bg.querySelector("#sown").onkeydown = (e) => { if (e.key === "Enter" && addOwn()) step1(); };
+      bg.querySelector("#snext").onclick = () => { addOwn(); cur.own = ""; step2(); };
       const d = bg.querySelector("#sdel"); if (d) d.onclick = () => { delete B[z]; save(); close(); Body(kind, key, side); };
     };
     const step2 = () => {
@@ -1059,12 +1076,16 @@ window.startApp = function () {
       app.innerHTML = `<div class="stack">${back(n ? "#/today/z/" + (n - 1) : "#/today/body/front", n ? "Назад" : "Тело")}
         <div class="stack" style="gap:6px"><div class="kicker terra">${esc(name)} · ${n + 1} из ${ks.length}</div><h1 style="font-size:26px">Как ощущается здесь?</h1><p class="small">Трудно назвать — это нормально. Выбери то, что хоть немного похоже. Можно несколько.</p></div>
         ${SENS_GROUPS.map((g) => `<div class="stack" style="gap:8px"><span class="kicker" style="letter-spacing:.08em;font-size:11px">${g[0]}</span><div class="chips">${chipSel(g[1], Z.sense, "s")}</div></div>`).join("")}
+        <div class="stack" style="gap:8px"><span class="kicker" style="letter-spacing:.08em;font-size:11px">СВОИ СЛОВА</span>${(S.ownSense || []).length ? `<div class="chips">${chipSel(S.ownSense, Z.sense, "s")}</div>` : ""}
+          <div class="row"><input class="inp" id="sadd" placeholder="+ свое ощущение" maxlength="30"><button type="button" class="pill" id="saddb" style="min-height:48px">Добавить</button></div></div>
         <div class="stack" style="gap:8px"><b style="font-size:15px">Насколько сильно</b><div class="seg3">${["едва", "заметно", "очень сильно"].map((x) => `<button type="button" data-pw="${x}" class="${Z.power === x ? "on" : ""}">${x}</button>`).join("")}</div></div>
         <label class="q"><b>Если бы у ощущения была форма или цвет</b><input class="inp" id="form" value="${esc(Z.form)}" placeholder="тугой узел, темно-синий…"></label>
         <a class="btn" href="#/today/z/${n + 1}">Дальше</a></div>`;
       app.querySelectorAll("[data-s]").forEach((b) => b.onclick = () => { const x = b.dataset.s, k = Z.sense.indexOf(x); k >= 0 ? Z.sense.splice(k, 1) : Z.sense.push(x); b.classList.toggle("terraon"); save(); });
       app.querySelectorAll("[data-pw]").forEach((b) => b.onclick = () => { Z.power = b.dataset.pw; app.querySelectorAll("[data-pw]").forEach((x) => x.classList.toggle("on", x === b)); save(); });
       $("#form").oninput = (e) => { Z.form = e.target.value; save(); };
+      const addS = () => { const v = $("#sadd").value.trim().toLowerCase(); if (!v) return; S.ownSense = Array.from(new Set((S.ownSense || []).concat(v))); if (!Z.sense.includes(v)) Z.sense.push(v); save(); Today("z", String(n)); };
+      $("#saddb").onclick = addS; $("#sadd").onkeydown = (e) => { if (e.key === "Enter") addS(); };
       return;
     }
     if (step === "feel") {
