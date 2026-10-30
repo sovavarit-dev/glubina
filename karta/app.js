@@ -72,46 +72,10 @@ window.startApp = function () {
   }
 
   // ---------- экраны ----------
-  function Main() {
-    const pendingInt = cycle.practices.filter((p) => integrOpen(p.id) && !integrDone(p.id));
-    const waitingInt = cycle.practices.filter((p) => counted(p.id) && p.integration && !integrOpen(p.id));
-    const nx = nextStep();
-    let h = `<div class="stack">
-      <div class="row" style="justify-content:space-between;gap:12px"><h1 style="font-size:28px">Привет${S.profile && S.profile.name ? ", " + esc(S.profile.name) : ""}</h1><div class="small" style="text-align:right;line-height:1.35;flex-shrink:0">твоя карта<br><b style="color:var(--muted2)">Глубины</b></div></div>`;
-    h += todayBlock();
-    pendingInt.forEach((p) => {
-      h += `<a class="card terra" href="#/integr/${p.id}"><div class="small hint-terra" style="font-weight:600">Интеграция открыта</div><div style="font-weight:700;font-size:16px">к практике «${esc(p.title)}»</div></a>`;
-    });
-    waitingInt.forEach((p) => {
-      h += `<div class="card dashed"><div class="small">Интеграция к «${esc(p.title)}»</div><div style="font-weight:700">откроется ${fmtWhen(integrAt(p.id))}</div></div>`;
-    });
-    h += `<a class="card" href="#/cycle/${cycle.id}" style="gap:14px;padding:18px"><div class="row" style="justify-content:space-between"><h2 style="font-size:20px">Погружения</h2>${icon.chev}</div>`;
-    if (nx) {
-      const open = isOpen(nx.id);
-      h += `<div class="card blue" style="padding:14px"><div class="small">Следующий шаг · Первые шаги ${idx(nx.id) + 1}/${cycle.practices.length}</div><div style="font-weight:800;font-size:17px">${esc(nx.title)}</div>${open ? "" : `<div class="small">откроется ${unlockAt(nx.id) ? fmtWhen(unlockAt(nx.id)) : "после предыдущей"}</div>`}</div>`;
-    } else {
-      h += `<div class="small">Цикл «${esc(cycle.title)}» пройден.</div>`;
-    }
-    h += `</a>
-      <a class="link-row" href="#/journal">Мои погружения ${icon.chev}</a>
-      <a class="link-row" href="#/pod">Подкасты ${icon.chev}</a>
-      <a class="link-row" href="#/dict">Словарь символов ${icon.chev}</a>
-      <a class="link-row" href="#/music">Музыкальное сопровождение ${icon.chev}</a>
-      <a class="link-row" href="#/aid" style="border-color:var(--terra-line);color:var(--terra-l)">Если сложно — Аптечка ${icon.chev}</a>
-      <div class="demo stack" style="gap:10px">
-        <div class="small">Демо-режим: перемотка времени, чтобы проверить таймеры (8 и 48 часов)</div>
-        <div class="chips"><button class="chip" data-shift="8">+8 часов</button><button class="chip" data-shift="48">+48 часов</button><button class="chip" data-reset="1">Начать заново</button></div>
-      </div>
-    </div>`;
-    app.innerHTML = h;
-    app.querySelectorAll("[data-shift]").forEach((b) => b.onclick = () => { S.shift = (S.shift || 0) + Number(b.dataset.shift) * H; save(); toast("Время сдвинуто на +" + b.dataset.shift + " ч"); render(); });
-    const r = app.querySelector("[data-reset]");
-    r.onclick = () => { if (confirmReset()) { S = blank(); save(); render(); } };
-  }
   function confirmReset() { return window.confirm ? window.confirm("Стереть все записи на этом устройстве?") : true; }
 
   function Cycle() {
-    let h = `<div class="stack">${back("#/", "Карта")}
+    let h = `<div class="stack">${back("#/dives", "Погружения")}
       <div class="stack" style="gap:6px"><div class="kicker" style="color:var(--sage);font-weight:600;letter-spacing:.08em">ЦИКЛ 1</div><h1>${esc(cycle.title)}</h1><p class="lead" style="font-size:14px">${esc(cycle.desc)}</p></div>
       <div class="stack" style="gap:10px">`;
     cycle.practices.forEach((p, i) => {
@@ -286,7 +250,7 @@ window.startApp = function () {
 
   function Journal(flag) {
     const items = cycle.practices.filter((p) => S.notes[p.id] || counted(p.id));
-    let h = `<div class="stack">${back("#/", "Карта")}`;
+    let h = `<div class="stack">${back("#/dives", "Погружения")}`;
     if (flag === "saved") h += `<div class="card sage" style="padding:18px;gap:12px"><div style="font-weight:800;font-size:18px;color:var(--sage-l)">Заметка сохранена</div><div style="font-size:14px">Интеграция откроется через 8 часов — напомню.</div><a class="btn" href="#/">Вернуться на главную</a></div>`;
     h += `<h1>Мои погружения</h1>`;
     if (!items.length) h += `<p class="lead">Здесь появятся заметки после погружений.</p>`;
@@ -313,11 +277,11 @@ window.startApp = function () {
   function Integr(id) {
     const p = prac(id);
     if (!p || !p.integration) return go("#/");
-    if (!integrOpen(id)) { app.innerHTML = `<div class="stack">${back("#/", "Карта")}<h1>${esc(p.title)}</h1><p class="lead">Интеграция откроется ${fmtWhen(integrAt(id))}.</p></div>`; return; }
+    if (!integrOpen(id)) { app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<h1>${esc(p.title)}</h1><p class="lead">Интеграция откроется ${fmtWhen(integrAt(id))}.</p></div>`; return; }
     const I = p.integration, a = (S.integr[id] && S.integr[id].answers) || {};
     const n = S.notes[id] || {};
     const field = (k, t, d, ph) => `<label class="q"><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ""}<textarea data-k="${k}" rows="2" placeholder="${esc(ph || "Первое, что приходит…")}">${esc(a[k] || "")}</textarea></label>`;
-    let h = `<div class="stack">${back("#/", "Карта")}
+    let h = `<div class="stack">${back("#/", "Сегодня")}
       <div class="stack" style="gap:6px"><div class="kicker terra">Интеграция · ${esc(cycle.title)} · ${idx(id) + 1}</div><h1 style="font-size:30px">${esc(p.title)}</h1></div>
       ${n.image ? `<div class="card"><div class="small" style="font-weight:600">ТВОЯ ЗАМЕТКА</div><div style="font-size:14px;color:#D6E0EA">${esc(n.image)}</div></div>` : ""}
       <p style="font-size:16px;line-height:1.6">${esc(I.lead)}</p>
@@ -336,7 +300,7 @@ window.startApp = function () {
   }
 
   function Aid() {
-    app.innerHTML = `<div class="stack">${back("#/", "Карта")}
+    app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
       <div class="stack" style="gap:6px"><div class="kicker terra">Аптечка</div><h1>Если сейчас тяжело</h1></div>
       <a class="choice terra" href="#/gate" style="padding:20px"><span class="t"><b style="font-size:20px">Плохо, а что — не понять</b><span>накрыло сейчас или тянется давно</span></span>${icon.chev}</a>
       <div class="kicker" style="letter-spacing:.08em;margin-top:6px">ПРАКТИКИ</div>
@@ -425,7 +389,7 @@ window.startApp = function () {
   const hasMine = (id) => S.myimg[id] && (S.myimg[id].text || (S.myimg[id].links || []).length);
   function Dict(tab) {
     const my = tab === "my";
-    let h = `<div class="stack">${back("#/", "Карта")}
+    let h = `<div class="stack">${back("#/lib", "Библиотека")}
       <div class="stack" style="gap:6px"><h1>Словарь символов</h1><p class="small">У символа нет одного значения. Здесь — то, что он нес в мифах и сказках, и место, чтобы найти свое.</p></div>
       <div class="seg2"><a href="#/dict" class="${my ? "" : "on"}">Словарь</a><a href="#/dict/my" class="${my ? "on" : ""}">Мои образы</a></div>`;
     if (!DS.length) { app.innerHTML = h + `<p class="lead">Словарь появится после подключения.</p></div>`; return; }
@@ -502,12 +466,20 @@ window.startApp = function () {
 
   // ---------- музыка ----------
   const MU = C.music || [];
+  const VOICES = C.voices || [];
   const audio = window.__kartaAudio || (window.__kartaAudio = new Audio());
   audio.preload = "none";
-  const M = window.__kartaMusic || (window.__kartaMusic = { cur: null, tab: "all", end: 0, iv: null, lock: null });
-  const mset = () => S.music || (S.music = { timer: 60, repeat: "list", fade: true });
+  const vEl = window.__kartaVoice || (window.__kartaVoice = new Audio());
+  vEl.preload = "none";
+  const M = window.__kartaMusic || (window.__kartaMusic = { cur: null, tab: "all", qtab: "all", end: 0, iv: null, lock: null, drag: false });
+  const mset = () => {
+    const m = S.music || (S.music = { timer: 60, repeat: "list", fade: true });
+    if (!m.voice) m.voice = { on: false, id: "relax" };
+    return m;
+  };
   const track = (id) => MU.find((t) => t.id === id);
-  const queue = () => (M.tab === "mine" ? S.playlist.map(track).filter(Boolean) : MU);
+  const voiceById = (id) => VOICES.find((v) => v.id === id);
+  const queue = () => ((M.qtab || M.tab) === "mine" ? S.playlist.map(track).filter(Boolean) : MU);
   const fmtMin = (sec) => Math.round(sec / 60) + " мин";
   async function wake(on) {
     try {
@@ -515,22 +487,101 @@ window.startApp = function () {
       if (!on && M.lock) { await M.lock.release(); M.lock = null; }
     } catch (e) {}
   }
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !audio.paused) wake(true); });
+  // Голос поверх музыки: музыка и голос идут через общий микшер, чтобы приглушать музыку
+  // (на iPhone громкость у audio менять нельзя — только через Web Audio).
+  const DUCK = 0.35, VOICE_IN = 20000, BACK_UP = 20000;
+  const V = window.__kartaV || (window.__kartaV = { st: "off", at: 0, end: 0, left: 0 }); // off · wait · play · after
+  const MX = window.__kartaMix || (window.__kartaMix = { ac: null, gm: null, gv: null });
+  function mixer() {
+    if (MX.ac) { if (MX.ac.state === "suspended") MX.ac.resume().catch(() => {}); return true; }
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return false;
+      const ac = new Ctx();
+      const gm = ac.createGain(), gv = ac.createGain();
+      ac.createMediaElementSource(audio).connect(gm); gm.connect(ac.destination);
+      ac.createMediaElementSource(vEl).connect(gv); gv.connect(ac.destination);
+      MX.ac = ac; MX.gm = gm; MX.gv = gv;
+      return true;
+    } catch (e) { return false; }
+  }
+  function setVol(el, g, v) {
+    v = Math.max(0, Math.min(1, v));
+    if (MX.ac && g) { try { g.gain.setTargetAtTime(v, MX.ac.currentTime, 0.5); } catch (e) {} }
+    else { try { el.volume = v; } catch (e) {} }
+  }
+  const voiceOn = () => { const vs = mset().voice, v = voiceById(vs.id); return vs.on && v && v.src ? v : null; };
+  const voiceDur = () => { const v = voiceById(mset().voice.id) || {}; return (vEl.duration && isFinite(vEl.duration) ? vEl.duration : v.dur || 0) * 1000; };
+  // таймер не меньше, чем идет голос
+  function ensureTimer() {
+    if (!M.end) return;
+    if (V.st === "wait") M.end = Math.max(M.end, V.at + voiceDur() + BACK_UP);
+    if (V.st === "play") M.end = Math.max(M.end, Date.now() + (voiceDur() - (vEl.currentTime || 0) * 1000) + BACK_UP);
+  }
+  function armVoice(delay) {
+    const v = voiceOn(); if (!v) return;
+    mixer();
+    if (vEl.getAttribute("src") !== v.src) vEl.src = v.src;
+    V.st = "wait"; V.at = Date.now() + delay; ensureTimer();
+  }
+  function startVoice() {
+    const v = voiceOn(); if (!v) { V.st = "off"; return; }
+    if (vEl.getAttribute("src") !== v.src) vEl.src = v.src;
+    try { vEl.currentTime = 0; } catch (e) {}
+    setVol(vEl, MX.gv, 1);
+    vEl.play().catch(() => {});
+    V.st = "play"; ensureTimer();
+  }
+  function voiceOff() { // «Только музыка»: голос стихает, музыка возвращается за 20 секунд
+    if (V.st === "play") { setVol(vEl, MX.gv, 0); setTimeout(() => vEl.pause(), 1500); }
+    V.st = V.st === "play" ? "after" : "off"; V.end = Date.now();
+  }
+  vEl.onended = () => { V.st = "after"; V.end = Date.now(); };
+  function mixTick() {
+    if (NOW.kind !== "music" || audio.paused) return;
+    const t = Date.now();
+    let duck = 1;
+    if (V.st === "wait") { if (t >= V.at) startVoice(); else if (t >= V.at - 3000) duck = DUCK; }
+    if (V.st === "play") duck = DUCK;
+    if (V.st === "after") { const k = Math.min(1, (t - V.end) / BACK_UP); duck = DUCK + (1 - DUCK) * k; if (k >= 1) V.st = "off"; }
+    let fade = 1;
+    if (M.end && mset().fade) { const left = M.end - t; if (left < 30000) fade = Math.max(0, left / 30000); }
+    setVol(audio, MX.gm, duck * fade);
+    if (V.st === "play") setVol(vEl, MX.gv, fade);
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !audio.paused) { wake(true); if (MX.ac && MX.ac.state === "suspended") MX.ac.resume().catch(() => {}); } });
   // Один звук на все приложение: музыка или подкаст. NOW — что сейчас в плеере.
   const NOW = window.__kartaNow || (window.__kartaNow = { kind: null, id: null });
-  function playTrack(id) {
+  function playTrack(id, auto) {
     const t = track(id); if (!t) return;
+    const starting = audio.paused || NOW.kind !== "music";
+    if (!auto && starting) M.qtab = M.tab;
     if (NOW.kind !== "music" || M.cur !== id || !audio.src) { audio.src = t.src; M.cur = id; }
     NOW.kind = "music"; NOW.id = id;
-    audio.volume = 1; audio.playbackRate = 1;
+    if (MX.ac) mixer();
+    audio.playbackRate = 1;
+    if (!auto) {
+      const tm = mset().timer; M.end = tm ? Date.now() + tm * 60000 : 0;
+      if (voiceOn()) {
+        if (V.st === "off") armVoice(VOICE_IN);
+        else if (V.st === "wait" && starting) { V.at = Date.now() + Math.max(V.left || 0, 3000); V.left = 0; }
+        else if (V.st === "play") vEl.play().catch(() => {});
+      }
+      ensureTimer();
+      setVol(audio, MX.gm, V.st === "play" ? DUCK : 1);
+    }
     audio.play().catch(() => toast("Нажми ▶ еще раз"));
-    const tm = mset().timer; M.end = tm ? Date.now() + tm * 60000 : 0;
     try { if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: "Карта Глубины" }); } catch (e) {}
     wake(true); paintMini();
   }
-  function stopMusic() { audio.pause(); audio.volume = 1; M.end = 0; wake(false); }
+  function stopMusic(full) {
+    audio.pause(); M.end = 0; wake(false);
+    if (V.st === "wait") V.left = Math.max(0, V.at - Date.now());
+    if (V.st === "play") vEl.pause();
+    if (full) { vEl.pause(); V.st = "off"; }
+    setVol(audio, MX.gm, 1);
+  }
   function closeAudio() {
-    audio.pause(); audio.volume = 1; M.end = 0; wake(false);
+    audio.pause(); M.end = 0; wake(false); vEl.pause(); V.st = "off"; setVol(audio, MX.gm, 1);
     if (NOW.kind === "pod") podSave(true);
     audio.removeAttribute("src"); try { audio.load(); } catch (e) {}
     NOW.kind = null; NOW.id = null; M.cur = null; paintMini(); paint();
@@ -540,7 +591,9 @@ window.startApp = function () {
     const r = mset().repeat, q = queue(), i = q.findIndex((t) => t.id === M.cur);
     if (r === "one") { audio.currentTime = 0; audio.play(); return; }
     const nx = q[i + 1] || (r === "list" ? q[0] : null);
-    if (nx) playTrack(nx.id); else { stopMusic(); paint(); paintMini(); }
+    if (nx) playTrack(nx.id, true);
+    else if (V.st === "wait" || V.st === "play") playTrack(q[0].id, true); // голос еще идет — музыка не обрывается
+    else { stopMusic(true); paint(); paintMini(); }
   };
   audio.onplay = audio.onpause = () => { paintMini(); paint(); };
   let paint = () => {};
@@ -562,14 +615,14 @@ window.startApp = function () {
   function playEp(id) {
     const e = epById(id); if (!e || !e.src) return;
     if (NOW.kind !== "pod" || NOW.id !== id || !audio.src) {
-      M.end = 0; M.cur = null; wake(false);
+      M.end = 0; M.cur = null; wake(false); vEl.pause(); V.st = "off";
       audio.src = e.src;
       const pos = podSt(id).done ? 0 : podSt(id).pos || 0;
       if (pos > 1) audio.addEventListener("loadedmetadata", () => { try { audio.currentTime = pos; } catch (x) {} }, { once: true });
       NOW.kind = "pod"; NOW.id = id;
       try { if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: e.title, artist: "Настя Черемных · " + e.series.title }); } catch (x) {}
     }
-    audio.volume = 1; audio.playbackRate = S.podRate || 1;
+    if (MX.ac) mixer(); setVol(audio, MX.gm, 1); audio.playbackRate = S.podRate || 1;
     audio.play().catch(() => toast("Нажми ▶ еще раз"));
     paintMini();
   }
@@ -586,7 +639,7 @@ window.startApp = function () {
     if (NOW.kind === "music") {
       const t = track(NOW.id) || {}; title = t.title || "Музыка"; href = "#/music";
       const left = M.end ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : 0;
-      sub = audio.paused ? "пауза" : left ? "таймер " + left + " мин" : "играет";
+      sub = audio.paused ? "пауза" : (V.st === "play" ? "с голосом · " : "") + (left ? "таймер " + left + " мин" : "играет");
     } else {
       const e = epById(NOW.id) || {}; title = e.title || "Подкаст"; href = "#/ep/" + NOW.id;
       const d = audio.duration || e.dur || 0, c = audio.currentTime || 0;
@@ -608,54 +661,113 @@ window.startApp = function () {
   }
   clearInterval(window.__kartaLoop);
   window.__kartaLoop = setInterval(() => {
-    if (NOW.kind === "music" && !audio.paused && M.end) {
-      const left = M.end - Date.now();
-      if (mset().fade && left < 30000) audio.volume = Math.max(0, Math.min(1, left / 30000));
-      if (left <= 0) stopMusic();
+    if (NOW.kind === "music" && !audio.paused) {
+      mixTick();
+      if (M.end && M.end - Date.now() <= 0) { stopMusic(true); paint(); }
     }
     if (NOW.kind === "pod" && !audio.paused) podSave();
     if (!audio.paused || mini.innerHTML) { paintMini(); paint(); }
   }, 1000);
+  const MIC = '<svg width="36" height="36" viewBox="0 0 40 40" aria-hidden="true" style="flex-shrink:0"><circle cx="20" cy="20" r="19" fill="#1F3654"/><rect x="16" y="9" width="8" height="14" rx="4" fill="none" stroke="#A9BDD2" stroke-width="1.8"/><path d="M12 19a8 8 0 0 0 16 0M20 27v4" fill="none" stroke="#A9BDD2" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  const REP = (c, one) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>${one ? `<circle cx="12" cy="12" r="4.6" fill="${c}" stroke="none"/><text x="12" y="14.6" font-size="7.5" text-anchor="middle" fill="#0F1E33" stroke="none" font-weight="800" font-family="Manrope,sans-serif">1</text>` : ""}</svg>`;
+  const MOONS = (c) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>`;
+  const REP_LABEL = { none: "без повтора", list: "по кругу", one: "один трек" };
+  function voiceSheet(onDone) {
+    const vs = mset().voice;
+    let pick = voiceById(vs.id) && !voiceById(vs.id).soon ? vs.id : (VOICES.find((v) => !v.soon) || {}).id;
+    const bg = document.createElement("div"); bg.className = "sheet-bg";
+    const draw = () => {
+      bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="vsh"><div class="grip"></div>
+        <h2 id="vsh" style="font-size:19px">Голосовое сопровождение</h2>
+        <p class="small" style="margin-top:-6px">Ляжет поверх любой музыки: сначала немного музыки, потом голос, потом снова только музыка.</p>
+        <div class="stack" style="gap:8px">${VOICES.map((v) => `<button type="button" class="vopt${v.id === pick ? " on" : ""}${v.soon ? " soon" : ""}" data-v="${v.id}"><span class="rad"></span><span class="t"><b>${esc(v.title)}</b><span>${esc(v.sub || "")}${v.soon ? " · скоро" : v.dur ? " · " + fmtMin(v.dur) : ""}</span></span></button>`).join("")}</div>
+        <button class="btn" id="von"${pick ? "" : " disabled"}>Включить</button></div>`;
+      bg.querySelectorAll("[data-v]").forEach((b) => b.onclick = () => {
+        const v = voiceById(b.dataset.v);
+        if (v.soon) { toast("Эта запись появится скоро"); return; }
+        pick = v.id; draw();
+      });
+      const on = bg.querySelector("#von");
+      if (on) on.onclick = () => {
+        const was = vs.on && vs.id;
+        vs.id = pick; vs.on = true; save(); haptic(); bg.remove();
+        if (NOW.kind === "music" && !audio.paused) {
+          if (V.st === "play" && was !== pick) { vEl.pause(); V.st = "off"; }
+          if (V.st === "off" || V.st === "after") armVoice(5000);
+        }
+        onDone();
+      };
+    };
+    draw();
+    bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+    document.body.appendChild(bg);
+  }
   function Music() {
     const st = mset();
     const draw = () => {
-      const q = queue();
-      const opt = (k, v, label) => `<button type="button" class="${st[k] === v ? "on" : ""}" data-${k}="${v}">${label}</button>`;
-      app.innerHTML = `<div class="stack">${back("#/", "Карта")}
-        <div class="stack" style="gap:6px"><h1>Музыкальное сопровождение</h1><div class="small">Музыка без голоса и заданий — для сна, практик и чтобы просто побыть с собой.</div></div>
+      const q = M.tab === "mine" ? S.playlist.map(track).filter(Boolean) : MU;
+      const vs = st.voice, vv = vs.on ? voiceById(vs.id) : null;
+      app.innerHTML = `<div class="stack" style="gap:14px">${back("#/lib", "Библиотека")}
+        <div class="stack" style="gap:4px"><h1>Музыкальное сопровождение</h1><div class="small">Для сна, практик и чтобы побыть с собой</div></div>
+        <div class="vplate"><button type="button" class="vbody" id="vpick">${MIC}<span class="t"><b>С голосом</b>${vv ? `<span class="on">${esc(vv.title)} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>` : `<span>выбрать, что будет звучать</span>`}</span></button>
+          <button type="button" class="tgl${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></div>
         <div class="seg2"><a href="#" data-tab="all" class="${M.tab === "all" ? "on" : ""}">Вся музыка</a><a href="#" data-tab="mine" class="${M.tab === "mine" ? "on" : ""}">Мой плейлист · ${S.playlist.length}</a></div>
-        <div class="stack" style="gap:8px">${q.length ? q.map((t) => `<div class="trk${M.cur === t.id ? " cur" : ""}">
-          <button type="button" class="tbody" data-play="${t.id}"><span class="ti">${M.cur === t.id && !audio.paused ? icon.pauseS : icon.note}</span><span class="t"><b>${esc(t.title)}</b><span>${fmtMin(t.dur)}</span></span></button>
-          <button type="button" class="add${S.playlist.includes(t.id) ? " in" : ""}" data-add="${t.id}" aria-label="${S.playlist.includes(t.id) ? "Убрать из плейлиста" : "Добавить в плейлист"}">${S.playlist.includes(t.id) ? icon.checkS : icon.plus}</button></div>`).join("") : `<div class="card dashed"><div class="small">Плейлист пока пуст. Во вкладке «Вся музыка» нажми «+» у треков, которые хочешь сюда.</div></div>`}</div>
-        ${M.tab === "all" ? `<div class="small center" style="font-size:12px;color:var(--dim)">Нажми «+», чтобы собрать свой плейлист из этой музыки</div>` : ""}
         <div id="now"></div>
-        <div class="card terra" style="gap:10px;opacity:.85"><div class="row" style="gap:12px"><svg width="36" height="36" viewBox="0 0 40 40" aria-hidden="true" style="flex-shrink:0"><circle cx="20" cy="20" r="19" fill="#4A3036"/><rect x="16" y="9" width="8" height="14" rx="4" fill="none" stroke="#F0C7B5" stroke-width="1.8"/><path d="M12 19a8 8 0 0 0 16 0M20 27v4" fill="none" stroke="#F0C7B5" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <div class="stack" style="gap:2px;flex:1"><b>С голосовым сопровождением</b><span class="small" style="color:#D9B8AA">голос Насти поверх любого трека · скоро</span></div></div>
-          <div class="small" style="color:#D9B8AA">«Если не уснуть от тревоги» и «Уснуть быстрее» — появятся, когда будут готовы записи.</div></div>
-        <div class="card" style="gap:14px">
-          <div class="stack" style="gap:8px"><span class="small">Таймер, мин</span><div class="seg5">${opt("timer", 10, "10")}${opt("timer", 20, "20")}${opt("timer", 40, "40")}${opt("timer", 60, "60")}${opt("timer", 0, "выкл")}</div></div>
-          <div class="stack" style="gap:8px"><span class="small">Повтор</span><div class="seg3">${opt("repeat", "none", "Без повтора")}${opt("repeat", "one", "Один трек")}${opt("repeat", "list", "Плейлист")}</div></div>
-          <label class="row" style="justify-content:space-between;min-height:44px"><span style="font-size:14px">Плавно затихнуть в конце</span><input type="checkbox" id="fade" ${st.fade ? "checked" : ""} style="width:22px;height:22px;accent-color:var(--sage)"></label>
-        </div>
+        ${q.length ? `<div class="row" style="gap:8px"><button type="button" class="btn" id="pall" style="flex:1;padding:12px 0;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Слушать все</button><button type="button" class="btn ghost" id="ploop" style="width:auto;padding:12px 14px;display:flex;align-items:center;gap:6px">${REP("#9FB2C8")}по кругу</button></div>` : ""}
+        <div class="stack" style="gap:8px">${q.length ? q.map((t) => `<div class="trk${M.cur === t.id ? " cur" : ""}">
+          <button type="button" class="tbody" data-play="${t.id}"><span class="ti">${M.cur === t.id && !audio.paused ? icon.pauseS : icon.note}</span><span class="t"><b>${esc(t.title)}</b><span>${fmtMin(t.dur)}${t.tag ? " · " + esc(t.tag) : ""}</span></span></button>
+          <button type="button" class="add${S.playlist.includes(t.id) ? " in" : ""}" data-add="${t.id}" aria-label="${S.playlist.includes(t.id) ? "Убрать из плейлиста" : "Добавить в плейлист"}">${S.playlist.includes(t.id) ? icon.checkS : icon.plus}</button></div>`).join("") : `<div class="card dashed"><div class="small">Плейлист пока пуст. Во вкладке «Вся музыка» нажми «+» у треков, которые хочешь сюда.</div></div>`}</div>
+        ${M.tab === "all" ? `<div class="small center" style="font-size:12px;color:var(--dim)">Нажми «+», чтобы собрать свой плейлист</div>` : ""}
+        <div class="tmr" id="tmr">${MOONS("#9FB2C8")}<span class="t"><span>Таймер сна</span><span class="small" style="font-size:12px">шаг 10 минут</span></span>
+          <button type="button" class="pm" id="tminus" aria-label="Меньше">−</button><b id="tval">${st.timer ? st.timer + " мин" : "выкл"}</b><button type="button" class="pm" id="tplus" aria-label="Больше">+</button></div>
         <a class="small center" href="#" id="chan" style="min-height:44px;display:flex;align-items:center;justify-content:center">Эта музыка есть и в канале ↗</a>
       </div>`;
       app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = (e) => { e.preventDefault(); M.tab = b.dataset.tab; draw(); });
-      app.querySelectorAll("[data-play]").forEach((b) => b.onclick = () => { const id = b.dataset.play; if (M.cur === id && !audio.paused) stopMusic(); else playTrack(id); draw(); });
+      app.querySelectorAll("[data-play]").forEach((b) => b.onclick = () => { const id = b.dataset.play; if (M.cur === id && !audio.paused) stopMusic(); else { if (M.cur !== id || audio.paused) M.qtab = M.tab; playTrack(id); } draw(); });
       app.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { const id = b.dataset.add, i = S.playlist.indexOf(id); i >= 0 ? S.playlist.splice(i, 1) : S.playlist.push(id); save(); haptic(); draw(); });
-      app.querySelectorAll("[data-timer]").forEach((b) => b.onclick = () => { st.timer = Number(b.dataset.timer); M.end = st.timer && !audio.paused ? Date.now() + st.timer * 60000 : 0; audio.volume = 1; save(); draw(); });
-      app.querySelectorAll("[data-repeat]").forEach((b) => b.onclick = () => { st.repeat = b.dataset.repeat; save(); draw(); });
-      $("#fade").onchange = (e) => { st.fade = e.target.checked; save(); };
+      const startAll = (rep) => { st.repeat = rep; save(); if (!audio.paused && NOW.kind === "music") stopMusic(); M.qtab = M.tab; playTrack(q[0].id); draw(); };
+      if ($("#pall")) { $("#pall").onclick = () => startAll("none"); $("#ploop").onclick = () => startAll("list"); }
+      $("#vpick").onclick = () => voiceSheet(draw);
+      $("#vtgl").onclick = () => {
+        if (vs.on) { vs.on = false; save(); if (V.st !== "off") voiceOff(); draw(); }
+        else voiceSheet(draw);
+      };
+      const setT = (v) => { st.timer = Math.max(0, Math.min(180, v)); save(); $("#tval").textContent = st.timer ? st.timer + " мин" : "выкл"; if (NOW.kind === "music" && !audio.paused) { M.end = st.timer ? Date.now() + st.timer * 60000 : 0; ensureTimer(); } paint(); };
+      $("#tminus").onclick = () => setT(st.timer - 10);
+      $("#tplus").onclick = () => setT(st.timer + 10);
       $("#chan").onclick = (e) => { e.preventDefault(); toast("Ссылку на канал добавим перед запуском"); };
       paint = () => {
-        const el = $("#now"); if (!el) return;
-        const t = track(M.cur); if (!t) { el.innerHTML = ""; return; }
-        const d = audio.duration || t.dur, c = audio.currentTime || 0;
+        const el = $("#now"); if (!el || M.drag) return;
+        const t = track(M.cur); if (!t || NOW.kind !== "music") { el.innerHTML = ""; return; }
+        const pq = queue(), pi = pq.findIndex((x) => x.id === t.id);
+        const d = audio.duration && isFinite(audio.duration) ? audio.duration : t.dur, c = audio.currentTime || 0;
         const left = M.end ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : 0;
-        el.innerHTML = `<div class="card blue" style="gap:10px"><div class="row" style="justify-content:space-between"><b>${esc(t.title)}</b><span class="small">${audio.paused ? "пауза" : left ? "затихнет через " + left + " мин" : "играет"}</span></div>
+        const sub = (pq.length > 1 && pi >= 0 ? pi + 1 + " из " + pq.length + " · " : "") + (audio.paused ? "пауза" : left ? "затихнет через " + left + " мин" : "играет");
+        let vrow = "";
+        if (V.st === "wait" || V.st === "play") {
+          const vd = voiceDur() / 1000, vc = vEl.currentTime || 0;
+          const txt = V.st === "wait" ? "Голос начнется через " + fmt(Math.max(0, ((audio.paused ? V.left : V.at - Date.now()) || 0) / 1000)) : "Голос · " + fmt(vc) + " из " + fmt(vd);
+          vrow = `<div class="vrow"><span class="eq${V.st === "play" && !audio.paused ? " live" : ""}"><i></i><i></i><i></i><i></i><i></i></span><span style="flex:1">${txt}</span><button type="button" id="vonly">Только музыка</button></div>`;
+        }
+        const r = st.repeat || "list";
+        el.innerHTML = `<div class="mplayer"><div class="stack" style="gap:2px"><b style="font-size:17px">${esc(t.title)}</b><span class="small" style="font-size:12px;color:var(--blue)">${sub}</span></div>
+          ${vrow}
           <input id="ms" type="range" min="0" max="${Math.floor(d)}" value="${Math.floor(c)}" aria-label="Перемотка"><div class="times"><span>${fmt(c)}</span><span>${fmt(d)}</span></div>
-          <button class="btn" id="mp" style="padding:12px 0">${audio.paused ? "Слушать" : "Пауза"}</button></div>`;
-        $("#ms").onchange = (e) => { audio.currentTime = Number(e.target.value); };
+          <div class="mctl"><button type="button" class="side" id="mrep" aria-label="Повтор: ${REP_LABEL[r]}"><span class="ring${r !== "none" ? " on" : ""}">${REP(r !== "none" ? "#8CC4E8" : "#7F93AA", r === "one")}</span><span class="lb">${REP_LABEL[r]}</span></button>
+          <button type="button" class="nav" id="mprev" aria-label="Предыдущий"><svg width="22" height="22" viewBox="0 0 24 24" fill="#C3D0DE"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+          <button type="button" class="big" id="mp" aria-label="${audio.paused ? "Играть" : "Пауза"}">${audio.paused ? icon.play : icon.pause}</button>
+          <button type="button" class="nav" id="mnext" aria-label="Следующий"><svg width="22" height="22" viewBox="0 0 24 24" fill="#C3D0DE"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+          <button type="button" class="side" id="mtm" aria-label="Таймер"><span class="ring">${MOONS(M.end ? "#8CC4E8" : "#7F93AA")}</span><span class="lb">${M.end && !audio.paused ? left + " мин" : st.timer ? st.timer + " мин" : "выкл"}</span></button></div></div>`;
+        const ms = $("#ms");
+        ms.oninput = () => { M.drag = true; };
+        ms.onchange = (e) => { audio.currentTime = Number(e.target.value); M.drag = false; };
         $("#mp").onclick = () => { if (audio.paused) playTrack(M.cur); else stopMusic(); draw(); };
+        $("#mrep").onclick = () => { st.repeat = { none: "list", list: "one", one: "none" }[r]; save(); haptic(); paint(); };
+        const step = (k) => { if (!pq.length) return; const j = (pi + k + pq.length) % pq.length; const was = !audio.paused; playTrack(pq[j].id, true); if (!was) { M.end = st.timer ? Date.now() + st.timer * 60000 : 0; } draw(); };
+        $("#mprev").onclick = () => { if (c > 5) { audio.currentTime = 0; return; } step(-1); };
+        $("#mnext").onclick = () => step(1);
+        $("#mtm").onclick = () => { const tm = $("#tmr"); if (tm) tm.scrollIntoView({ behavior: "smooth", block: "center" }); };
+        if ($("#vonly")) $("#vonly").onclick = () => { voiceOff(); haptic(); paint(); };
       };
       paint();
     };
@@ -664,7 +776,7 @@ window.startApp = function () {
 
   // ---------- подкасты: экраны ----------
   function Pods() {
-    let h = `<div class="stack">${back("#/", "Карта")}
+    let h = `<div class="stack">${back("#/lib", "Библиотека")}
       <div class="stack" style="gap:6px"><h1>Подкасты</h1><div class="small">Теория и письменные практики. Записи сохраняются сами.</div></div>`;
     if (!PODS.length) h += `<p class="lead">Подкасты появятся после подключения.</p>`;
     PODS.forEach((se) => {
@@ -985,7 +1097,7 @@ window.startApp = function () {
   }
   function Caught(i) {
     const c = S.catches[Number(i)]; if (!c) return go("#/");
-    app.innerHTML = `<div class="stack">${back("#/", "Карта")}
+    app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
       <div class="stack center" style="gap:10px;padding:18px 0;align-items:center">
         <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="27" fill="#24382F"/><path d="M18 29l7 7 13-15" fill="none" stroke="#A9CBB3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <div class="kicker" style="color:var(--sage);letter-spacing:.08em;font-weight:700">ИМЯ ЕСТЬ</div>
@@ -1014,13 +1126,14 @@ window.startApp = function () {
     card: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg>'
   };
   const zoneTitle = (z) => { const x = zoneById(z); return x ? x[1] : z; };
-  function daySummary() {
-    const d = S.days[dkey()], parts = [];
+  function daySummary(k) {
+    k = k || dkey();
+    const d = S.days[k], parts = [];
     if (d && d.quiet) parts.push("тело спокойно");
     if (d && d.zones) { const zs = Object.keys(d.zones).slice(0, 2).map(zoneTitle); if (zs.length) parts.push(zs.join(", ")); }
     if (d && d.feel && (d.feel.shade || d.feel.base || d.feel.own)) parts.push(d.feel.own || d.feel.shade || d.feel.base);
-    const sy = S.sym[dkey()]; if (sy && cardById(sy.id)) parts.push("символ «" + cardById(sy.id).title + "»");
-    if (S.dreams[dkey()] && S.dreams[dkey()].text) parts.push("сон записан");
+    const sy = S.sym[k]; if (sy && cardById(sy.id)) parts.push("символ «" + cardById(sy.id).title + "»");
+    if (S.dreams[k] && S.dreams[k].text) parts.push("сон записан");
     return parts.join(" · ");
   }
   const insideRows = () => {
@@ -1045,7 +1158,7 @@ window.startApp = function () {
     return h;
   }
   function Inside() {
-    app.innerHTML = `<div class="stack">${back("#/", "Карта")}<h1>Заглянуть в себя</h1><div class="howcard" style="padding-top:14px">${insideRows()}</div></div>`;
+    app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<h1>Заглянуть в себя</h1><div class="howcard" style="padding-top:14px">${insideRows()}</div></div>`;
   }
   // «Как я сегодня»: тело → ощущение → чувство → хочется → откуда
   const SENS_GROUPS = [["ДАВЛЕНИЕ", ["тяжесть", "сжатие", "ком", "распирание"]], ["ТЕМПЕРАТУРА", ["тепло", "жар", "холод"]], ["ДВИЖЕНИЕ", ["дрожь", "пульсация", "покалывание", "хочется двигаться"]], ["ПУСТОТА", ["онемение", "пустота", "как будто не мое"]], ["ПРОСТОР", ["легкость", "расслабление", "мягкость"]]];
@@ -1058,7 +1171,7 @@ window.startApp = function () {
       // тело: отметить места
       const side = i === "back" ? "back" : "front", zs = ZONES[side], marked = Object.keys(D.zones);
       app.innerHTML = `<div class="stack" style="gap:12px;padding-bottom:190px">
-        <div class="row" style="justify-content:space-between">${back("#/", "Карта")}<div class="seg2 mini2"><a href="#/today/body/front" class="${side === "front" ? "on" : ""}">Спереди</a><a href="#/today/body/back" class="${side === "back" ? "on" : ""}">Сзади</a></div></div>
+        <div class="row" style="justify-content:space-between">${back("#/", "Сегодня")}<div class="seg2 mini2"><a href="#/today/body/front" class="${side === "front" ? "on" : ""}">Спереди</a><a href="#/today/body/back" class="${side === "back" ? "on" : ""}">Сзади</a></div></div>
         <div class="stack" style="gap:4px"><h1 style="font-size:24px">Где сегодня откликается тело?</h1><div class="small">Отметь места, где что-то ощущается — напряжение, тепло, пустота</div></div>
         <div class="bodywrap"><span style="left:6px">${side === "front" ? "правая" : "левая"}</span><span style="right:6px">${side === "front" ? "левая" : "правая"}</span>
         <svg class="bodysvg" viewBox="0 0 200 420" role="img" aria-label="Силуэт">${side === "back" ? `<g stroke="#2A4263" stroke-width="1.5" stroke-dasharray="3 3" fill="none">${BACK_GHOST.map((d) => `<path d="${d}"/>`).join("")}</g>` : ""}<g stroke-width="1.5" stroke-linejoin="round">${zs.map((z) => `<path class="zone${D.zones[z[0]] ? " on" : ""}" data-tz="${z[0]}" d="${z[2]}"><title>${z[1]}</title></path>`).join("")}</g></svg></div></div>
@@ -1146,7 +1259,7 @@ window.startApp = function () {
     const d = new Date(now()), mon = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
     const draw = () => {
       const first = D.images[0];
-      app.innerHTML = `<div class="stack">${back("#/", "Карта")}
+      app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
         <div class="stack" style="gap:6px"><div class="kicker">${d.getHours() < 12 ? "Утро" : "Сегодня"} · ${d.getDate()} ${mon[d.getMonth()]}</div><h1>Что снилось?</h1><p class="small">Без толкований — только то, что было, и твои ассоциации.</p></div>
         <label class="q"><b>Сон</b><textarea id="dtx" rows="5" placeholder="Что было, где ты, кто рядом…">${esc(D.text)}</textarea></label>
         <div class="stack" style="gap:8px"><b style="font-size:15px">Главные образы</b>
@@ -1169,9 +1282,9 @@ window.startApp = function () {
   const cardFace = (c) => `<div class="tcard face" style="--ink:${c.ink};--fade:${c.fade}"><img src="${c.img}" alt="${esc(c.title)}"><i class="fade"></i><i class="line"></i><span class="nm">${esc(c.title.toUpperCase())}</span></div>`;
   function SymDay() {
     const st = S.sym[dkey()];
-    if (!DECK.length) { app.innerHTML = `<div class="stack">${back("#/", "Карта")}<h1>Символ дня</h1><p class="lead">Колода появится после подключения.</p></div>`; return; }
+    if (!DECK.length) { app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<h1>Символ дня</h1><p class="lead">Колода появится после подключения.</p></div>`; return; }
     if (!st) {
-      app.innerHTML = `<div class="stack" style="align-items:center;text-align:center"><div style="align-self:flex-start">${back("#/", "Карта")}</div>
+      app.innerHTML = `<div class="stack" style="align-items:center;text-align:center"><div style="align-self:flex-start">${back("#/", "Сегодня")}</div>
         <div class="stack" style="gap:6px;align-items:center"><h1>Символ дня</h1><p class="small">Сделай вдох и коснись карты, когда почувствуешь, что пора.</p></div>
         <button type="button" class="flip" id="flip" aria-label="Открыть карту"><div class="tcard back"><img src="${C.deck.back}" alt=""><i class="line" style="--ink:#5A4A44"></i></div></button></div>`;
       $("#flip").onclick = () => {
@@ -1183,12 +1296,161 @@ window.startApp = function () {
       return;
     }
     const c = cardById(st.id) || DECK[0], y = symByTitle(c.title);
-    app.innerHTML = `<div class="stack">${back("#/", "Карта")}
+    app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
       <div class="stack" style="align-items:center">${cardFace(c)}</div>
       <label class="q"><b>Что откликается в этом образе сегодня?</b><textarea id="snote" rows="3" placeholder="Первое, что приходит…">${esc(st.note || "")}</textarea></label>
       ${y ? `<a class="link-row" href="#/sym/${y.id}">${esc(c.title)} в словаре символов ${icon.chev}</a>` : ""}
       <p class="small center">Новая карта — завтра.</p></div>`;
     $("#snote").oninput = (e) => { st.note = e.target.value; save(); };
+  }
+
+  // ---------- «Сегодня» и вкладки ----------
+  const TABS = [["", "Сегодня", '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'], ["dives", "Погружения", '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>'], ["lib", "Библиотека", '<path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/>'], ["notes", "Мои записи", '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>']];
+  const tabsEl = document.getElementById("tabs") || (() => { const d = document.createElement("nav"); d.id = "tabs"; d.setAttribute("aria-label", "Разделы"); document.body.appendChild(d); return d; })();
+  const waterEl = document.getElementById("water") || (() => { const d = document.createElement("div"); d.id = "water"; d.setAttribute("aria-hidden", "true"); document.body.insertBefore(d, document.body.firstChild); return d; })();
+  function paintTabs(active) {
+    document.body.classList.toggle("tabs", active >= 0);
+    if (active < 0) { tabsEl.innerHTML = ""; return; }
+    tabsEl.innerHTML = TABS.map(([r, l, p], i) => `<a href="#/${r}" class="${i === active ? "on" : ""}"${i === active ? ' aria-current="page"' : ""}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>${l}</a>`).join("");
+  }
+  function waterSVG() {
+    const H = 844; let seed = 5; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    let b = "";
+    for (let i = 0; i < 12; i++) {
+      const x = 30 + Math.round(rnd() * 330), r = [1.5, 2, 2.5, 3][Math.floor(rnd() * 4)], d = 10 + Math.round(rnd() * 8), bg = (rnd() * d).toFixed(1);
+      b += `<circle cx="${x}" cy="${H - 40}" r="${r}" fill="none" stroke="#CFE6F5" stroke-width="1" opacity="0"><animate attributeName="cy" values="${H - 40};120" dur="${d}s" begin="-${bg}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.55;.55;0" keyTimes="0;.15;.8;1" dur="${d}s" begin="-${bg}s" repeatCount="indefinite"/></circle>`;
+    }
+    let weed = "";
+    [[28, 120, "#24382F", 0], [48, 160, "#2E4A3C", 1.5], [70, 100, "#24382F", 2.6], [300, 140, "#24382F", .8], [324, 105, "#2E4A3C", 2.2], [350, 170, "#24382F", .3], [368, 120, "#2E4A3C", 1.1]].forEach(([x, hh, c, dl]) => {
+      weed += `<path d="M${x} ${H} Q ${x - 12} ${H - hh * .5} ${x} ${H - hh}" fill="none" stroke="${c}" stroke-width="7" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="-5 ${x} ${H};5 ${x} ${H};-5 ${x} ${H}" dur="7s" begin="-${dl}s" repeatCount="indefinite"/></path>`;
+    });
+    const fish = (y, dur, dir, sc, col, delay) => {
+      let body = `<g transform="scale(${sc})"><path d="M0 0 q14 -9 28 0 q-14 9 -28 0z" fill="${col}"/><path d="M27 0 l9 -6 v12z" fill="${col}"><animateTransform attributeName="transform" type="scale" values="1 1;1 .6;1 1" dur=".8s" repeatCount="indefinite"/></path><circle cx="6" cy="-1" r="1.3" fill="#0B1728"/></g>`;
+      let vals;
+      if (dir < 0) { body = `<g transform="scale(-1 1)">${body}</g>`; vals = `-50 ${y};440 ${y - 30}`; } else vals = `440 ${y};-50 ${y + 20}`;
+      return `<g opacity=".55"><animateTransform attributeName="transform" type="translate" values="${vals}" dur="${dur}s" begin="-${delay}s" repeatCount="indefinite"/><g><animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="3s" repeatCount="indefinite"/>${body}</g></g>`;
+    };
+    return `<svg viewBox="0 0 390 ${H}" preserveAspectRatio="xMidYMax slice" width="100%" height="100%">
+<defs><linearGradient id="wray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFE6F5" stop-opacity="0"/><stop offset=".3" stop-color="#CFE6F5" stop-opacity=".10"/><stop offset="1" stop-color="#CFE6F5" stop-opacity="0"/></linearGradient></defs>
+<polygon points="110,0 150,0 230,${H} 130,${H}" fill="url(#wray)"><animate attributeName="opacity" values=".5;1;.5" dur="10s" repeatCount="indefinite"/></polygon><polygon points="230,0 258,0 330,${H} 262,${H}" fill="url(#wray)" opacity=".7"><animate attributeName="opacity" values="1;.4;1" dur="13s" repeatCount="indefinite"/></polygon>
+${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fish(440, 64, 1, .55, "#F0C7B5", 40)}
+<path d="M0 ${H - 110} Q 60 ${H - 140} 120 ${H - 118} T 240 ${H - 126} T 390 ${H - 120} V${H} H0Z" fill="#132845"/>
+<path d="M0 ${H - 70} Q 80 ${H - 92} 160 ${H - 74} T 300 ${H - 80} T 390 ${H - 72} V${H} H0Z" fill="#0E1E36"/>
+${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d="M200 ${H} q3 -50 18 -66 q5 26 -8 66z" fill="#4A3036"/><circle cx="218" cy="${H - 66}" r="3.5" fill="#C9775A" opacity=".7"/></g>${b}</svg>`;
+  }
+  function setWater(on) {
+    document.body.classList.toggle("water", on);
+    if (on && !waterEl.innerHTML) waterEl.innerHTML = waterSVG();
+    try { tg && tg.setHeaderColor && tg.setHeaderColor(on ? "#24456B" : "#0F1E33"); } catch (e) {}
+  }
+  const dayTs = (k) => new Date(k + "T12:00:00").getTime();
+  const dayLabel = (ts) => {
+    const t = new Date(now()); t.setHours(0, 0, 0, 0); const d = new Date(ts); d.setHours(0, 0, 0, 0);
+    const diff = Math.round((t - d) / 86400000);
+    if (diff === 0) return "сегодня"; if (diff === 1) return "вчера";
+    return ["вс", "пн", "вт", "ср", "чт", "пт", "сб"][d.getDay()] + ", " + d.getDate() + "." + String(d.getMonth() + 1).padStart(2, "0");
+  };
+  const anyToday = () => { const k = dkey(), d = S.days[k]; return !!((d && d.done) || (S.dreams[k] && S.dreams[k].text) || S.sym[k]); };
+  function dayDots(k) {
+    const out = [];
+    if (S.days[k] && S.days[k].done) out.push("#8FB39A");
+    if (Object.values(S.listens || {}).some((ts) => ts && dkey(ts) === k)) out.push("#8CC4E8");
+    if (S.dreams[k] && S.dreams[k].text) out.push("#CFE6F5");
+    if ((S.catches || []).some((c) => dkey(c.at) === k)) out.push("#C9775A");
+    return out;
+  }
+  function weekBlock() {
+    const t = new Date(now()); t.setHours(12, 0, 0, 0);
+    const mon = new Date(t); mon.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    let h = `<div class="stack" style="gap:10px"><span class="lbl">НЕДЕЛЯ</span><div class="week">`;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon); d.setDate(mon.getDate() + i);
+      const k = dkey(d.getTime()), cur = k === dkey(), fut = d > t;
+      h += `<div class="wd${cur ? " cur" : ""}${fut ? " fut" : ""}"><span>${["пн", "вт", "ср", "чт", "пт", "сб", "вс"][i]}</span><b>${d.getDate()}</b><span class="dots">${fut ? "" : dayDots(k).map((c) => `<i style="background:${c}"></i>`).join("")}</span></div>`;
+    }
+    return h + `</div><div class="legend"><span><i style="background:#8FB39A"></i>как ты</span><span><i style="background:#8CC4E8"></i>погружение</span><span><i style="background:#CFE6F5"></i>сон</span><span><i style="background:#C9775A"></i>слово</span></div></div>`;
+  }
+  const PLAY = (c) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="${c}" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>`;
+  function Main() {
+    const pendingInt = cycle.practices.filter((p) => integrOpen(p.id) && !integrDone(p.id));
+    const waitingInt = cycle.practices.filter((p) => counted(p.id) && p.integration && !integrOpen(p.id));
+    const nx = nextStep(), done = anyToday(), k = dkey();
+    let h = `<div class="stack" style="gap:20px">
+      <div class="row" style="justify-content:space-between;gap:12px"><h1 style="font-size:28px">Привет${S.profile && S.profile.name ? ", " + esc(S.profile.name) : ""}</h1><a class="sos" href="#/aid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F0C7B5" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Если сложно</a></div>`;
+    if (isNight()) h += `<a class="night glass" href="#/music"><svg width="40" height="40" viewBox="0 0 44 44" aria-hidden="true" style="flex-shrink:0"><circle cx="22" cy="22" r="21" fill="#0F1E33"/><path d="M28 27.5A9 9 0 1 1 18.5 15a7 7 0 0 0 9.5 12.5z" fill="#CFE6F5"/></svg><span class="t"><span class="small">Если сложно заснуть</span><b>Музыкальное сопровождение</b></span>${icon.chev}</a>`;
+    if (!done) {
+      const tile = (href, ic, t, ok) => `<a class="tile" href="${href}"><span class="ic">${ic}</span>${t}${ok ? '<span class="ok"></span>' : ""}</a>`;
+      h += `<div class="howcard"><svg class="rings" width="140" height="140" viewBox="0 0 140 140" aria-hidden="true"><circle cx="70" cy="70" r="60"/><circle cx="70" cy="70" r="42"/><circle cx="70" cy="70" r="24"/></svg>
+        <span style="font-size:28px;font-weight:800;line-height:1.1;position:relative">Как ты?</span>
+        <div class="tiles">${tile("#/today", ICN.body, "Тело<br>и чувства")}${tile("#/dream", ICN.moon, "Что<br>снилось")}${tile("#/symbol", ICN.card, "Символ<br>дня")}</div></div>`;
+    }
+    h += `<div class="stack" style="gap:8px"><span class="lbl">СЕЙЧАС</span>`;
+    if (nx) {
+      const open = isOpen(nx.id);
+      h += `<a class="nowcard" href="${open ? "#/prep/" + nx.id : "#/cycle/" + cycle.id}"><span class="pl${open ? "" : " off"}">${open ? PLAY("#0F1E33") : icon.lock}</span><span class="t"><span class="small" style="font-size:12px">${esc(cycle.title)} · ${idx(nx.id) + 1} из ${cycle.practices.length}</span><b>${esc(nx.title)}</b><span class="small" style="font-size:12px;color:${open ? "var(--blue)" : "var(--muted)"}">${open ? "погружение" + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : "") : "откроется " + (unlockAt(nx.id) ? fmtWhen(unlockAt(nx.id)) : "после предыдущей")}</span></span></a>`;
+    } else h += `<a class="nowcard" href="#/dives"><span class="pl">${icon.check}</span><span class="t"><b>Цикл «${esc(cycle.title)}» пройден</b><span class="small" style="font-size:12px">практики вне циклов — во вкладке «Погружения»</span></span></a>`;
+    pendingInt.forEach((p) => { h += `<a class="introw" href="#/integr/${p.id}"><span class="dot"></span><span style="flex:1">Открыта интеграция к «${esc(p.title)}»</span>${icon.chev}</a>`; });
+    waitingInt.forEach((p) => { h += `<div class="introw wait"><span class="dot"></span><span style="flex:1">Интеграция к «${esc(p.title)}» — ${fmtWhen(integrAt(p.id))}</span></div>`; });
+    h += `</div>` + weekBlock() + `</div>`;
+    if (done) h += `<a class="lookpill" href="#/inside"><span class="dot"></span><span class="t"><b>Заглянуть в себя</b><span>${esc(daySummary(k))}</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>`;
+    app.innerHTML = h;
+  }
+  const FUTURE_CYCLES = ["Тот, кто ждал", "Своя опора"];
+  function Dives() {
+    const nx = nextStep(), dn = cycle.practices.filter((p) => counted(p.id)).length, free = C.free || [];
+    let h = `<div class="stack" style="gap:20px"><h1>Погружения</h1>
+      <a class="nowcard" href="#/cycle/${cycle.id}" style="padding:12px 14px"><span class="pl" style="width:40px;height:40px">${PLAY("#0F1E33")}</span><span class="t"><span class="small" style="font-size:12px">${esc(cycle.title)} · ${dn} из ${cycle.practices.length}</span><b style="font-size:15px">${nx ? esc(nx.title) + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : "") : "цикл пройден"}</b></span>${icon.chev}</a>
+      <div class="stack" style="gap:10px"><div class="stack" style="gap:2px"><h2>Когда хочется сейчас</h2><span class="small">в любой день, без порядка</span></div>`;
+    if (free.length) h += `<div class="free">${free.map((f, i) => `<a class="fcard c${i % 3}" href="${f.href || "#"}"><span class="pl">${PLAY("#C3D0DE")}</span><b>${esc(f.title)}</b><span class="small" style="margin-top:auto;font-size:12px">${f.duration ? Math.round(f.duration / 60) + " мин" : ""}</span></a>`).join("")}</div>`;
+    else h += `<div class="card dashed"><div class="small">Скоро здесь появятся практики, которые можно слушать в любой день: для ресурса, перед сном, для встречи с образом.</div></div>`;
+    h += `</div><div class="stack" style="gap:8px"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="lbl">ЦИКЛЫ</span>${dn ? `<a class="small" href="#/journal" style="color:var(--blue);font-weight:700;font-size:12px">пройденные · ${dn} →</a>` : ""}</div>
+      <div class="cyc"><a href="#/cycle/${cycle.id}"><b>${esc(cycle.title)}</b><span>${dn} из ${cycle.practices.length}</span></a>${FUTURE_CYCLES.map((t) => `<span class="soon"><b>${esc(t)}</b><span>скоро</span></span>`).join("")}</div></div>
+      <div class="demo stack" style="gap:10px">
+        <div class="small">Демо-режим: перемотка времени, чтобы проверить таймеры (8 и 48 часов)</div>
+        <div class="chips"><button class="chip" data-shift="8">+8 часов</button><button class="chip" data-shift="48">+48 часов</button><button class="chip" data-reset="1">Начать заново</button></div>
+      </div></div>`;
+    app.innerHTML = h;
+    app.querySelectorAll("[data-shift]").forEach((b) => b.onclick = () => { S.shift = (S.shift || 0) + Number(b.dataset.shift) * H; save(); toast("Время сдвинуто на +" + b.dataset.shift + " ч"); render(); });
+    app.querySelector("[data-reset]").onclick = () => { if (confirmReset()) { S = blank(); save(); go("#/"); render(); } };
+  }
+  function Lib() {
+    const eps = EPS.filter((e) => e.src), dd = eps.filter((e) => podSt(e.id).done).length;
+    const nSym = DS.reduce((a, s) => a + ((s.items || s.symbols || []).length || 0), 0);
+    const card = (href, cls, kick, t, sub, art) => `<a class="libcard ${cls}" href="${href}">${art}<span class="k">${kick}</span><b>${t}</b><span class="s">${sub}</span></a>`;
+    const orb = '<svg width="150" height="150" viewBox="0 0 150 150" aria-hidden="true" class="art" style="right:-20px;top:-15px;opacity:.6"><circle cx="75" cy="75" r="60" fill="none" stroke="#3A5578"/><circle cx="75" cy="75" r="42" fill="none" stroke="#3A5578"/><circle cx="75" cy="75" r="24" fill="none" stroke="#3A5578"/><circle cx="75" cy="15" r="4" fill="#8CC4E8"/><circle cx="117" cy="75" r="3.5" fill="#8CC4E8"/><circle cx="75" cy="75" r="5" fill="#A9CBB3"/></svg>';
+    const book = '<svg width="120" height="120" viewBox="0 0 24 24" aria-hidden="true" class="art" style="right:-6px;top:6px;opacity:.18" fill="none" stroke="#E8EEF4" stroke-width="1"><path d="M2 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2zM22 4h-7a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8z"/></svg>';
+    const wave = '<svg width="180" height="80" viewBox="0 0 180 80" aria-hidden="true" class="art" style="right:-30px;top:8px;opacity:.35"><path d="M0 40 Q 15 20 30 40 T 60 40 T 90 40 T 120 40 T 150 40 T 180 40" fill="none" stroke="#8CC4E8" stroke-width="2"/><path d="M0 52 Q 15 36 30 52 T 60 52 T 90 52 T 120 52 T 150 52 T 180 52" fill="none" stroke="#3A5578" stroke-width="1.5"/></svg>';
+    const se = PODS[0];
+    app.innerHTML = `<div class="stack" style="gap:14px"><div class="stack" style="gap:4px"><h1>Библиотека</h1><span class="small">Теория, образы и музыка — когда хочется не погружаться, а узнать и побыть.</span></div>
+      ${card("#/pod", "a", "ПОДКАСТЫ", se ? esc(se.title) : "Подкасты", eps.length ? dd + " из " + eps.length + " выпусков · письменные практики" : "теория и письменные практики", orb)}
+      ${card("#/dict", "b", "СЛОВАРЬ", "Словарь символов", (nSym ? nSym + " символов · " : "") + "мои образы — " + Object.keys(S.myimg || {}).length, book)}
+      ${card("#/music", "c", "МУЗЫКА", "Музыкальное сопровождение", "для сна, практик и побыть с собой · " + MU.length + " " + plural(MU.length, "трек", "трека", "треков"), wave)}</div>`;
+  }
+  let NF = "all";
+  function Notes() {
+    const items = [];
+    Object.keys(S.days || {}).forEach((k) => { const d = S.days[k]; if (d && d.done) items.push({ kind: "day", ts: dayTs(k), k }); });
+    Object.keys(S.dreams || {}).forEach((k) => { const d = S.dreams[k]; if (d && d.text) items.push({ kind: "dream", ts: dayTs(k), k }); });
+    (S.catches || []).forEach((c, i) => items.push({ kind: "word", ts: c.at, i }));
+    cycle.practices.forEach((p) => { const n = S.notes[p.id]; if (n || counted(p.id)) items.push({ kind: "dive", ts: counted(p.id) || (n && n.savedAt) || 0, p }); });
+    items.sort((a, b) => b.ts - a.ts);
+    const F = [["all", "Все"], ["dive", "Погружения"], ["dream", "Сны"], ["day", "Как ты"], ["word", "Слова"]];
+    const chipsOf = (xs, bg, c) => xs.length ? `<span class="nchips">${xs.map((x) => `<span style="background:${bg};color:${c}">${esc(x)}</span>`).join("")}</span>` : "";
+    let h = `<div class="stack" style="gap:14px"><div class="stack" style="gap:4px"><h1>Мои записи</h1><span class="small">Видишь только ты.</span></div>
+      <div class="nfil">${F.map(([k, l]) => `<button type="button" class="${NF === k ? "on" : ""}" data-nf="${k}">${l}</button>`).join("")}</div>`;
+    const list = items.filter((x) => NF === "all" || x.kind === NF);
+    if (!list.length) h += `<div class="card dashed"><div class="small">Здесь будут твои записи: после погружений, сны, «Как ты?» и пойманные слова.</div></div>`;
+    list.forEach((x) => {
+      let col, kind, t, sub = "", ch = "", href = "";
+      if (x.kind === "day") { const d = S.days[x.k]; col = "#8FB39A"; kind = "КАК ТЫ"; t = daySummary(x.k) || "отмечено"; sub = d.want && d.want.length ? "хочется: " + d.want.join(", ") : ""; ch = chipsOf(Object.keys(d.zones || {}).map(zoneTitle), "#33262A", "#F0C7B5"); if (x.k === dkey()) href = "#/inside"; }
+      if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); if (x.k === dkey()) href = "#/dream"; }
+      if (x.kind === "word") { const c = S.catches[x.i]; col = "#C9775A"; kind = "ПОЙМАННОЕ СЛОВО"; t = c.word; href = "#/caught/" + x.i; }
+      if (x.kind === "dive") { const n = S.notes[x.p.id] || {}; col = "#8CC4E8"; kind = "ПОГРУЖЕНИЕ"; t = x.p.title; sub = n.image ? (n.image.length > 90 ? n.image.slice(0, 90) + "…" : n.image) : "заметки пока нет"; ch = chipsOf(n.feelings || [], "#24382F", "#D3E4D8"); href = "#/after/" + x.p.id; }
+      const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span><b>${esc(t)}</b>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
+      h += href ? `<a class="note" href="${href}">${inner}</a>` : `<div class="note">${inner}</div>`;
+    });
+    app.innerHTML = h + `</div>`;
+    app.querySelectorAll("[data-nf]").forEach((b) => b.onclick = () => { NF = b.dataset.nf; Notes(); });
   }
 
   // ---------- роутер ----------
@@ -1199,14 +1461,20 @@ window.startApp = function () {
     clearInterval(timer); timer = null;
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
-    if (tg && tg.BackButton) { r ? tg.BackButton.show() : tg.BackButton.hide(); }
+    const tabI = r ? ["dives", "lib", "notes"].indexOf(r) + 1 || -1 : 0;
+    if (tg && tg.BackButton) { tabI < 0 ? tg.BackButton.show() : tg.BackButton.hide(); }
+    if (r !== "policy" && (!S.profile || S.profile.minor)) { paintTabs(-1); setWater(false); }
     if (r !== "policy") {
       if (!S.profile) return r === "hello" && id === "2" ? Know() : Welcome();
       if (S.profile.minor) return Minor();
     }
     paint = () => {};
     paintMini();
+    paintTabs(tabI); setWater(tabI === 0);
     switch (r) {
+      case "dives": return Dives();
+      case "lib": return Lib();
+      case "notes": return Notes();
       case "policy": return Policy(id);
       case "dict": return Dict(id);
       case "dsec": return DSec(id);
