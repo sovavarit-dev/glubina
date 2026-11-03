@@ -1694,12 +1694,26 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
       document.body.appendChild(bg);
     };
   }
+  function FreeNote(i) {
+    S.free = S.free || [];
+    const n = i !== undefined && S.free[+i] ? S.free[+i] : null;
+    app.innerHTML = `<div class="stack">${back("#/notes", "Мои записи")}
+      <div class="stack" style="gap:6px"><h1>Свободная заметка</h1><p class="small">Мысль, совпадение, образ из дня — что угодно.</p></div>
+      <textarea id="fn" rows="7" placeholder="Что хочется записать…">${n ? esc(n.text) : ""}</textarea>
+      <button type="button" class="btn" id="fs">Сохранить</button></div>`;
+    $("#fs").onclick = () => {
+      const t = $("#fn").value.trim(); if (!t) return go("#/notes");
+      if (n) n.text = t; else S.free.push({ text: t, at: now() });
+      save(); haptic(); go("#/notes");
+    };
+  }
   let NF = "all";
   function Notes() {
     const items = [];
     Object.keys(S.days || {}).forEach((k) => { const d = S.days[k]; if (d && d.done) items.push({ kind: "day", ts: dayTs(k), k }); });
     Object.keys(S.dreams || {}).forEach((k) => { const d = S.dreams[k]; if (d && d.text) items.push({ kind: "dream", ts: dayTs(k), k }); });
     (S.catches || []).forEach((c, i) => items.push({ kind: "word", ts: c.at, i }));
+    (S.free || []).forEach((c, i) => items.push({ kind: "free", ts: c.at, i }));
     ALLP.forEach((p) => { const n = S.notes[p.id]; if (n || counted(p.id)) items.push({ kind: "dive", ts: counted(p.id) || (n && n.savedAt) || 0, p }); });
     items.sort((a, b) => b.ts - a.ts);
     const F = [["all", "Все"], ["dive", "Погружения"], ["dream", "Сны"], ["day", "Как ты"], ["word", "Чувства"]];
@@ -1717,6 +1731,7 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
       let col, kind, t, sub = "", ch = "", href = "";
       if (x.kind === "day") { const d = S.days[x.k]; col = "#8FB39A"; kind = "КАК ТЫ"; t = daySummary(x.k) || "отмечено"; sub = d.want && d.want.length ? "хочется: " + d.want.join(", ") : ""; ch = chipsOf(Object.keys(d.zones || {}).map(zoneTitle), "#33262A", "#F0C7B5"); if (x.k === dkey()) href = "#/inside"; }
       if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); if (x.k === dkey()) href = "#/dream"; }
+      if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
       if (x.kind === "word") { const c = S.catches[x.i]; col = "#C9775A"; kind = "НАЗВАННОЕ ЧУВСТВО"; t = c.word; href = "#/caught/" + x.i; }
       if (x.kind === "dive") { const n = S.notes[x.p.id] || {}; col = "#8CC4E8"; kind = "ПОГРУЖЕНИЕ"; t = x.p.title; sub = n.image ? (n.image.length > 90 ? n.image.slice(0, 90) + "…" : n.image) : ""; ch = chipsOf(n.feelings || [], "#24382F", "#D3E4D8"); href = "#/after/" + x.p.id; }
       const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span><b>${esc(t)}</b>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
@@ -1761,6 +1776,7 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
       case "dives": return Dives(id);
       case "lib": return Lib();
       case "notes": return Notes();
+      case "free": return FreeNote(id);
       case "policy": return Policy(id);
       case "dict": return Dict(id);
       case "dsec": return DSec(id);
