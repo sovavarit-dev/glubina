@@ -362,3 +362,45 @@ input[type=time]{background:var(--card2);color:var(--text);border:1px solid var(
 .cyrow.lock{background:none;border:1px dashed var(--line)}.cyrow.lock img{opacity:.5;filter:grayscale(.5)}.cyrow.lock b{color:var(--muted)}
 .fcard.lock{opacity:.6}.fcard b{font-size:15px;line-height:1.25}
 .prac.soon{border-style:dashed}
+
+/* --- макет 03.11: новая главная, библиотека, мои записи --- */
+.hello{display:flex;align-items:center;gap:4px;font-size:24px;font-weight:800;line-height:1.15;min-width:0;min-height:44px}
+.hello span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hello svg{flex-shrink:0;margin-top:2px}
+@media (max-width:359px){.sos .sos-t{display:none}.sos{width:44px;justify-content:center;padding:0}.hello{font-size:23px}}
+.introw.sage{background:var(--sage-bg);border-color:#3F5E4A}.introw.sage .dot{background:var(--sage-l)}
+.libcard.d{background:#1A2E4C;border-color:var(--line2)}
+.libcard .s{max-width:250px}
+.addbtn{width:48px;height:48px;border-radius:50%;background:var(--blue);border:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px}
+.sumcard{gap:12px;background:var(--card2)}
+.chip.feel{min-height:36px;padding:6px 12px;font-size:13px;background:#33262A;color:#F0C7B5;border-color:transparent}
+.quietlink{align-self:flex-start;font-size:14px;color:var(--muted2);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line2);padding:6px 0}
+.quietlink[hidden]{display:none}
+/* --- библиотека с акцентами (варианты) --- */
+.lb{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:20px;border:1px solid var(--line2);background:var(--card)}
+.lb-in{position:relative;display:flex;flex-direction:column;gap:6px}
+.lb-t{font-size:18px;font-weight:800;line-height:1.2}
+.lb-s{font-size:13px;line-height:1.4;color:var(--muted2)}
+.lb.hero{min-height:200px;padding:20px;justify-content:flex-end;border-color:#4A6F96}
+.lb.hero .lb-t{font-size:26px}.lb.hero .lb-s{color:#D6E4F0;max-width:250px}
+.lb-water{position:absolute;inset:0}
+.lb-tag{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#CFE6F5;opacity:.85}
+.lb-pill{align-self:flex-start;margin-top:4px;font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;background:rgba(140,196,232,.18);border:1px solid rgba(140,196,232,.45);color:#CFE6F5}
+.lb-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lb-grid .wide{grid-column:1/-1}
+.lb.wide{flex-direction:row;align-items:flex-start;gap:14px}
+.lb-ic{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-bottom:6px}
+.lb.wide .lb-ic{margin:0}
+.lb-ic.ind{background:#24476B;color:#A8D4F0}.tone-ind{background:#18324F;border-color:#2F5378}
+.lb-ic.peach{background:#3A3160;color:#CDBFF2}.tone-peach{background:#231F42;border-color:#3F3768}
+.lb-ic.sage{background:#2E4A3C;color:#A9CBB3}.tone-sage{background:#1E3330;border-color:#3F5E4A}
+.lb-meta{font-size:12px;font-weight:700;color:#A8D4F0;margin-top:2px}
+.lbi{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;min-height:190px;padding:14px;border-radius:20px;border:1px solid var(--line2)}
+.lbi.big{min-height:230px;padding:18px}.lbi.wide{grid-column:1/-1;min-height:150px}
+.lbi img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.lbi-sh{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,30,51,0) 20%,rgba(15,30,51,.55) 55%,rgba(11,23,40,.95) 100%)}
+.lbi .lb-s{color:#D6E4F0}.lbi.big .lb-t{font-size:26px}
+/* время напоминаний 24 ч, фильтры записей с мягким краем, всплывающая подсказка сверху */
+.tm{width:96px;text-align:center;font-size:16px;font-variant-numeric:tabular-nums;padding:10px 12px;border-radius:12px;border:1px solid #6684A6;background:var(--bg);color:var(--text)}
+.nfil{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+.toast{bottom:auto;top:calc(16px + env(safe-area-inset-top));pointer-events:none}
