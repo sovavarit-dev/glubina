@@ -53,7 +53,17 @@ window.startApp = function () {
 
   // ---------- правила ----------
   const CYC = C.cycles || [];
-  const FREE = C.free || [];
+  // «Перед сном» переехало в голосовое сопровождение; новые погружения — заглушками, пока нет записей
+  const FREE_SOON = [
+    { id: "ryadom", title: "Рядом", short: "Если открылось старое чувство: стыд, вина, «опять я…». Побыть рядом с собой и бережно закрыть.", tone: 1 },
+    { id: "opora", title: "Опора", short: "Для тех, кто с детства держит других и боится подвести.", tone: 0 },
+    { id: "gavan", title: "Тихая гавань", short: "Когда накрывает. Три минуты: тело, дыхание, комната.", tone: 3 },
+    { id: "storozh", title: "Сторож", short: "Встретиться со своей тревогой и узнать, что она охраняет.", tone: 2 },
+    { id: "ryukzak", title: "Рюкзак", short: "Разобрать, что несешь, и оставить чужое у дороги.", tone: 1 },
+    { id: "kritik", title: "Критик и защитник", short: "Когда внутренний голос не дает покоя.", tone: 0 },
+    { id: "dom", title: "Дом", short: "Если одиноко или пусто внутри.", tone: 3 }];
+  const FREE = (C.free || []).filter((p) => p.id !== "son" && p.title !== "Перед сном");
+  FREE_SOON.forEach((x) => { if (!FREE.some((p) => p.id === x.id)) FREE.push(Object.assign({ soon: true }, x)); });
   CYC.forEach((cy, ci) => cy.practices.forEach((p, i) => { p._cy = cy; p._ci = ci; p._i = i; }));
   FREE.forEach((p, i) => { p._cy = null; p._i = i; p._free = true; });
   const cycle = CYC[0];
@@ -510,7 +520,7 @@ window.startApp = function () {
       <p class="small" style="font-size:12px">Тестовый режим: разговор сохраняется, чтобы улучшать проводника. Если сейчас опасно — звони 112.</p></div>
       <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b" style="color:var(--muted)">…</div>` : ""}</div>
       ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}${e.origin === "гипотеза ИИ" ? " · ГИПОТЕЗА ИИ" : ""}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Мои записи»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
-      <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Напиши…" style="flex:1;resize:none"${guideBusy ? " disabled" : ""}></textarea><button class="btn" id="gsend" style="width:auto;padding:12px 16px"${guideBusy ? " disabled" : ""} aria-label="Отправить">→</button></div>
+      <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Как ты?" style="flex:1;resize:none"${guideBusy ? " disabled" : ""}></textarea><button class="btn" id="gsend" style="width:auto;padding:12px 16px"${guideBusy ? " disabled" : ""} aria-label="Отправить">→</button></div>
       ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--sage)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
     const ch = $("#gch"); if (ch && ch.lastElementChild) ch.lastElementChild.scrollIntoView({ block: "nearest" });
     const fresh = () => { S.guide = gNew(); save(); Guide(); };
@@ -765,7 +775,8 @@ window.startApp = function () {
     if (!m.voice) m.voice = { on: false, id: "relax" };
     return m;
   };
-  const track = (id) => MU.find((t) => t.id === id);
+  const track = (id) => MU.find((t) => t.id === id) || VOICES.find((t) => t.id === id && t.src && !t.soon);
+  const isVoiced = (id) => !MU.some((t) => t.id === id) && VOICES.some((t) => t.id === id);
   const voiceById = (id) => VOICES.find((v) => v.id === id);
   const queue = () => ((M.qtab || M.tab) === "mine" ? S.playlist.map(track).filter(Boolean) : MU);
   const fmtMin = (sec) => Math.round(sec / 60) + " мин";
@@ -780,7 +791,8 @@ window.startApp = function () {
   // Голос звучит один раз за сеанс: заново — после закрытия плеера или повторного включения тумблера.
   const V = window.__kartaV || (window.__kartaV = { st: "off" }); // off · play · done
   const setVol = (el, v) => { try { el.volume = Math.max(0, Math.min(1, v)); } catch (e) {} };
-  const voiceOn = () => { const vs = mset().voice, v = voiceById(vs.id); return vs.on && v && v.src ? v : null; };
+  // С 05.11 голос не накладывается поверх музыки: три трека «музыка + голос» записаны одним файлом.
+  const voiceOn = () => null;
   const voiceLeft = () => { const v = voiceById(mset().voice.id) || {}; const d = vEl.duration && isFinite(vEl.duration) ? vEl.duration : v.dur || 0; return Math.max(0, d - (vEl.currentTime || 0)) * 1000; };
   function ensureTimer() { if (M.end && V.st === "play") M.end = Math.max(M.end, Date.now() + voiceLeft() + 20000); }
   function startVoice() {
@@ -800,13 +812,14 @@ window.startApp = function () {
     if (M.end && mset().fade) { const left = M.end - Date.now(); if (left < 30000) v *= Math.max(0, left / 30000); }
     setVol(audio, v); if (V.st === "play") setVol(vEl, M.end && M.end - Date.now() < 30000 ? Math.max(0, (M.end - Date.now()) / 30000) : 1);
   }
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !audio.paused) wake(true); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !audio.paused && NOW.kind !== "music" && NOW.kind !== "pod") wake(true); });
   // Один звук на все приложение: музыка или подкаст. NOW — что сейчас в плеере.
   const NOW = window.__kartaNow || (window.__kartaNow = { kind: null, id: null });
   function playTrack(id, auto) {
     const t = track(id); if (!t) return;
     const starting = audio.paused || NOW.kind !== "music";
     if (!auto && starting) M.qtab = M.tab;
+    if (!auto) M.endless = isVoiced(id); // после трека с голосом музыка идет без конца
     if (NOW.kind !== "music" || M.cur !== id || !audio.src) { M.sw = Date.now(); audio.src = t.src; M.cur = id; }
     NOW.kind = "music"; NOW.id = id;
     audio.playbackRate = 1;
@@ -821,7 +834,7 @@ window.startApp = function () {
     audio.play().catch(() => toast("Нажми ▶ еще раз"));
     try { if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: "Карта Глубины" }); } catch (e) {}
     sessionFor("music");
-    wake(true); paintMini();
+    wake(false); paintMini(); // во время музыки экран может гаснуть
   }
   function stopMusic(full) {
     audio.pause(); M.end = 0; wake(false);
@@ -837,7 +850,9 @@ window.startApp = function () {
   }
   audio.onended = () => {
     if (NOW.kind === "pod") { const st = podSt(NOW.id); st.done = true; st.pos = 0; save(); paint(); paintMini(); return; }
-    const r = mset().repeat, q = queue(), i = q.findIndex((t) => t.id === M.cur);
+    const q = queue(), i = q.findIndex((t) => t.id === M.cur);
+    if (isVoiced(M.cur)) { if (q.length) playTrack(q[0].id, true); else { stopMusic(true); paint(); paintMini(); } return; }
+    let r = mset().repeat; if (M.endless && r === "none") r = "list";
     if (r === "one") { audio.currentTime = 0; audio.play(); return; }
     const nx = q[i + 1] || (r === "list" ? q[0] : null);
     if (nx) playTrack(nx.id, true);
@@ -904,7 +919,7 @@ window.startApp = function () {
     if (NOW.kind === "music") {
       const t = track(NOW.id) || {}; title = t.title || "Музыка"; href = "#/music";
       const left = M.end ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : 0;
-      sub = audio.paused ? "пауза" : (V.st === "play" ? "с голосом · " : "") + (left ? "таймер " + left + " мин" : "играет");
+      sub = audio.paused ? "пауза" : (isVoiced(NOW.id) ? "с голосом · " : "") + (left ? "таймер " + left + " мин" : "играет");
     } else {
       const e = epById(NOW.id) || {}; title = e.title || "Подкаст"; href = "#/ep/" + NOW.id;
       const d = audio.duration || e.dur || 0, c = audio.currentTime || 0;
@@ -987,70 +1002,64 @@ window.startApp = function () {
   }
   function Music() {
     const st = mset();
+    const WAVE = `<svg class="mwave" viewBox="0 0 360 18" preserveAspectRatio="none" aria-hidden="true"><path d="M0 9 Q 22.5 1 45 9 T 90 9 T 135 9 T 180 9 T 225 9 T 270 9 T 315 9 T 360 9 T 405 9 T 450 9" fill="none" stroke="#3F5E80" stroke-width="1.6" stroke-linecap="round"><animateTransform attributeName="transform" type="translate" from="0 0" to="-90 0" dur="6s" repeatCount="indefinite"/></path></svg>`;
     const draw = () => {
       const mine = M.tab === "mine";
       const q = mine ? S.playlist.map(track).filter(Boolean) : MU;
-      const vs = st.voice, vv = vs.on ? voiceById(vs.id) : null, r = st.repeat || "list";
+      const r = st.repeat || "list";
+      const playing = (id) => M.cur === id && NOW.kind === "music" && !audio.paused;
       app.innerHTML = `<div class="stack" style="gap:14px">${back("#/lib", "Библиотека")}
         <div class="stack" style="gap:4px"><h1>Музыкальное сопровождение</h1><div class="small">Для сна, практик и чтобы побыть с собой</div></div>
-        <div class="vplate"><button type="button" class="vbody" id="vpick">${MIC}<span class="t"><b>С голосом</b>${vv ? `<span class="on">${esc(vv.title)} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>` : `<span>выбрать, что будет звучать</span>`}</span></button>
-          <button type="button" class="tgl${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></div>
-        <div class="seg2"><a href="#" data-tab="all" class="${!mine ? "on" : ""}">Вся музыка</a><a href="#" data-tab="mine" class="${mine ? "on" : ""}">Мой плейлист · ${S.playlist.length}</a></div>
+        ${VOICES.length ? `<div class="stack" style="gap:8px"><span class="kicker" style="letter-spacing:.08em;font-size:11px;color:var(--sage)">С ГОЛОСОМ</span>
+          ${VOICES.map((v) => `<button type="button" class="vtrk${M.cur === v.id ? " cur" : ""}${v.src && !v.soon ? "" : " soon"}" data-vplay="${v.id}">${MIC}<span class="t"><b>${esc(v.title)}</b><span>${v.src && !v.soon ? (v.dur ? fmtMin(v.dur) + " · " : "") + "дальше музыка без голоса" : "скоро"}</span></span>${v.src && !v.soon ? `<span class="ti">${playing(v.id) ? icon.pauseS : '<svg width="14" height="14" viewBox="0 0 24 24" fill="#A9CBB3" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>'}</span>` : ""}</button>`).join("")}</div>` : ""}
         <div id="now"></div>
-        ${q.length ? `<div class="playrow"><button type="button" class="btn" id="pall"><svg width="14" height="14" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Слушать все</button>
-          <button type="button" class="pchip${r !== "none" ? " on" : ""}" id="rep" aria-label="Повтор: ${REP_LABEL[r]}">${REP(r !== "none" ? "#8CC4E8" : "#9FB2C8", r === "one")}<span>${REP_LABEL[r]}</span></button>
-          <button type="button" class="pchip${st.timer ? " on" : ""}" id="tmr">${MOONS(st.timer ? "#8CC4E8" : "#9FB2C8")}<span>${st.timer ? (M.end && !audio.paused && NOW.kind === "music" ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : st.timer) + " мин" : "без таймера"}</span></button></div>` : ""}
+        ${q.length ? `<div class="mquiet"><button type="button" id="pall">${NOW.kind === "music" && !audio.paused ? "Остановить" : "Слушать все"}</button><span>·</span>
+          <button type="button" id="rep" aria-label="Повтор: ${REP_LABEL[r]}">${REP_LABEL[r]}</button><span>·</span>
+          <button type="button" id="tmr">${st.timer ? "таймер " + (M.end && !audio.paused && NOW.kind === "music" ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : st.timer) + " мин" : "без таймера"}</button></div>` : ""}
+        ${WAVE}
+        <div class="seg2"><a href="#" data-tab="all" class="${!mine ? "on" : ""}">Вся музыка</a><a href="#" data-tab="mine" class="${mine ? "on" : ""}">Мой плейлист · ${S.playlist.length}</a></div>
         <div class="stack" style="gap:8px">${q.length ? q.map((t, i) => `<div class="trk${M.cur === t.id ? " cur" : ""}">
-          <button type="button" class="tbody" data-play="${t.id}"><span class="ti">${M.cur === t.id && !audio.paused ? icon.pauseS : icon.note}</span><span class="t"><b>${esc(t.title)}</b><span>${fmtMin(t.dur)}${t.tag ? " · " + esc(t.tag) : ""}</span></span></button>
+          <button type="button" class="tbody" data-play="${t.id}"><span class="ti">${playing(t.id) ? icon.pauseS : icon.note}</span><span class="t"><b>${esc(t.title)}</b><span>${fmtMin(t.dur)}${t.tag ? " · " + esc(t.tag) : ""}</span></span></button>
           ${mine ? `<span class="ord"><button type="button" data-up="${i}" aria-label="Выше"${i ? "" : " disabled"}>↑</button><button type="button" data-dn="${i}" aria-label="Ниже"${i < q.length - 1 ? "" : " disabled"}>↓</button></span>` : ""}
           <button type="button" class="add${S.playlist.includes(t.id) ? " in" : ""}" data-add="${t.id}" aria-label="${S.playlist.includes(t.id) ? "Убрать из плейлиста" : "Добавить в плейлист"}">${S.playlist.includes(t.id) ? (mine ? "×" : icon.checkS) : icon.plus}</button></div>`).join("") : `<div class="card dashed"><div class="small">Плейлист пока пуст. Во вкладке «Вся музыка» нажми «+» у треков, которые хочешь сюда.</div></div>`}</div>
         <div class="small center" style="font-size:12px;color:var(--dim)">${mine ? "Стрелками можно выстроить свой порядок" : "Нажми «+», чтобы собрать свой плейлист"}</div>
         <a class="small center" href="#" id="chan" style="min-height:44px;display:flex;align-items:center;justify-content:center">Эта музыка есть и в канале ↗</a>
       </div>`;
+      const toggle = (id) => { if (playing(id)) stopMusic(); else { if (M.cur !== id || audio.paused) M.qtab = M.tab; playTrack(id); } draw(); };
+      app.querySelectorAll("[data-vplay]").forEach((b) => b.onclick = () => { const v = voiceById(b.dataset.vplay); if (!v || !v.src || v.soon) { toast("Эта запись появится скоро"); return; } toggle(v.id); });
       app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = (e) => { e.preventDefault(); M.tab = b.dataset.tab; draw(); });
-      app.querySelectorAll("[data-play]").forEach((b) => b.onclick = () => { const id = b.dataset.play; if (M.cur === id && !audio.paused) stopMusic(); else { if (M.cur !== id || audio.paused) M.qtab = M.tab; playTrack(id); } draw(); });
+      app.querySelectorAll("[data-play]").forEach((b) => b.onclick = () => toggle(b.dataset.play));
       app.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { const id = b.dataset.add, i = S.playlist.indexOf(id); i >= 0 ? S.playlist.splice(i, 1) : S.playlist.push(id); save(); haptic(); draw(); });
       const mv = (i, k) => { const a = S.playlist, j = i + k; if (j < 0 || j >= a.length) return; const x = a[i]; a[i] = a[j]; a[j] = x; save(); draw(); };
       app.querySelectorAll("[data-up]").forEach((b) => b.onclick = () => mv(Number(b.dataset.up), -1));
       app.querySelectorAll("[data-dn]").forEach((b) => b.onclick = () => mv(Number(b.dataset.dn), 1));
       if ($("#pall")) {
-        $("#pall").onclick = () => { if (!audio.paused && NOW.kind === "music") stopMusic(); M.qtab = M.tab; playTrack(q[0].id); draw(); };
+        $("#pall").onclick = () => { if (!audio.paused && NOW.kind === "music") stopMusic(); else { M.qtab = M.tab; playTrack(q[0].id); } draw(); };
         $("#rep").onclick = () => { st.repeat = { none: "list", list: "one", one: "none" }[r]; save(); haptic(); draw(); };
         $("#tmr").onclick = () => timerSheet(draw);
       }
-      $("#vpick").onclick = () => voiceSheet(draw);
-      $("#vtgl").onclick = () => {
-        if (vs.on) { vs.on = false; save(); voiceOff(); V.st = "off"; draw(); }
-        else voiceSheet(draw);
-      };
       $("#chan").onclick = (e) => { e.preventDefault(); toast("Ссылку на канал добавим перед запуском"); };
+      try { if (matchMedia("(prefers-reduced-motion: reduce)").matches) app.querySelector(".mwave").pauseAnimations(); } catch (e) {}
       paint = () => {
         const el = $("#now"); if (!el || M.drag) return;
-        const t = track(M.cur); if (!t || NOW.kind !== "music") { el.innerHTML = ""; return; }
-        const pq = queue(), pi = pq.findIndex((x) => x.id === t.id);
-        const d = audio.duration && isFinite(audio.duration) ? audio.duration : t.dur, c = audio.currentTime || 0;
+        const t = track(M.cur);
+        if (!t || NOW.kind !== "music") { el.innerHTML = `<div class="mplayer idle"><span class="small">Выбери трек — плеер появится здесь</span></div>`; return; }
+        const pq = queue(), pi = pq.findIndex((x) => x.id === t.id), vo = isVoiced(t.id);
+        const d = audio.duration && isFinite(audio.duration) ? audio.duration : t.dur || 0, c = audio.currentTime || 0;
         const left = M.end ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : 0;
-        const sub = (pq.length > 1 && pi >= 0 ? pi + 1 + " из " + pq.length + " · " : "") + (audio.paused ? "пауза" : left ? "затихнет через " + left + " мин" : "играет");
-        let vrow = "";
-        if (V.st === "play") {
-          const vc = vEl.currentTime || 0, vd = vEl.duration && isFinite(vEl.duration) ? vEl.duration : (voiceById(st.voice.id) || {}).dur || 0;
-          const txt = vc < 20 ? "Голос начнется через " + fmt(20 - vc) : "Голос · " + fmt(vc - 20) + " из " + fmt(Math.max(0, vd - 20));
-          vrow = `<div class="vrow"><span class="eq${vc >= 20 && !audio.paused ? " live" : ""}"><i></i><i></i><i></i><i></i><i></i></span><span style="flex:1">${txt}</span><button type="button" id="vonly">Только музыка</button></div>`;
-        }
-        el.innerHTML = `<div class="mplayer"><div class="stack" style="gap:2px"><b style="font-size:17px">${esc(t.title)}</b><span class="small" style="font-size:12px;color:var(--blue)">${sub}</span></div>
-          ${vrow}
-          <input id="ms" type="range" min="0" max="${Math.floor(d)}" value="${Math.floor(c)}" aria-label="Перемотка"><div class="times"><span>${fmt(c)}</span><span>${fmt(d)}</span></div>
-          <div class="mctl c3"><button type="button" class="nav" id="mprev" aria-label="Предыдущий"><svg width="24" height="24" viewBox="0 0 24 24" fill="#C3D0DE"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
-          <button type="button" class="big" id="mp" aria-label="${audio.paused ? "Играть" : "Пауза"}">${audio.paused ? icon.play : icon.pause}</button>
-          <button type="button" class="nav" id="mnext" aria-label="Следующий"><svg width="24" height="24" viewBox="0 0 24 24" fill="#C3D0DE"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button></div></div>`;
+        const sub = (vo ? "с голосом, дальше музыка · " : pq.length > 1 && pi >= 0 ? pi + 1 + " из " + pq.length + " · " : "") + (audio.paused ? "пауза" : left ? "затихнет через " + left + " мин" : "играет");
+        el.innerHTML = `<div class="mplayer"><div class="row" style="gap:10px;align-items:center">
+            <button type="button" class="big" id="mp" aria-label="${audio.paused ? "Играть" : "Пауза"}">${audio.paused ? icon.play : icon.pause}</button>
+            <div class="stack" style="gap:1px;flex:1;min-width:0"><b style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</b><span class="small" style="font-size:12px;color:var(--blue)">${sub}</span></div>
+            ${vo ? "" : `<button type="button" class="nav" id="mprev" aria-label="Предыдущий"><svg width="20" height="20" viewBox="0 0 24 24" fill="#C3D0DE"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button><button type="button" class="nav" id="mnext" aria-label="Следующий"><svg width="20" height="20" viewBox="0 0 24 24" fill="#C3D0DE"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>`}</div>
+          <input id="ms" type="range" min="0" max="${Math.floor(d)}" value="${Math.floor(c)}" aria-label="Перемотка"><div class="times"><span>${fmt(c)}</span><span>${fmt(d)}</span></div></div>`;
         const ms = $("#ms");
         ms.oninput = () => { M.drag = true; };
         ms.onchange = (e) => { audio.currentTime = Number(e.target.value); M.drag = false; };
         $("#mp").onclick = () => { if (audio.paused) playTrack(M.cur); else stopMusic(); draw(); };
-        const step = (k) => { if (!pq.length) return; const j = (pi + k + pq.length) % pq.length; const was = !audio.paused; playTrack(pq[j].id, true); if (!was) { M.end = st.timer ? Date.now() + st.timer * 60000 : 0; if (V.st === "play") vEl.play().catch(() => {}); } draw(); };
-        $("#mprev").onclick = () => { if (c > 5) { audio.currentTime = 0; return; } step(-1); };
-        $("#mnext").onclick = () => step(1);
-        if ($("#vonly")) $("#vonly").onclick = () => { voiceOff(); haptic(); paint(); };
+        const step = (k) => { if (!pq.length) return; const j = (pi + k + pq.length) % pq.length; const was = !audio.paused; playTrack(pq[j].id, true); if (!was) M.end = st.timer ? Date.now() + st.timer * 60000 : 0; draw(); };
+        if ($("#mprev")) $("#mprev").onclick = () => { if (c > 5) { audio.currentTime = 0; return; } step(-1); };
+        if ($("#mnext")) $("#mnext").onclick = () => step(1);
       };
       paint();
     };
@@ -1431,7 +1440,7 @@ window.startApp = function () {
   function todayBlock() {
     let h = "";
     if (isNight()) h += `<a class="night" href="#/music"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true" style="flex-shrink:0"><circle cx="22" cy="22" r="21" fill="#0F1E33"/><path d="M28 27.5A9 9 0 1 1 18.5 15a7 7 0 0 0 9.5 12.5z" fill="#CFE6F5"/><circle cx="31" cy="13" r="1.2" fill="#E8EEF4"/><circle cx="12" cy="31" r="1" fill="#E8EEF4" opacity=".7"/></svg>
-      <span class="t"><span class="small">Если сложно заснуть</span><b>Музыкальное сопровождение</b><span class="small" style="color:var(--blue)">${mset().timer ? "таймер " + mset().timer + " мин · " : ""}экран не гаснет</span></span>${icon.chev}</a>`;
+      <span class="t"><span class="small">Если сложно заснуть</span><b>Музыкальное сопровождение</b><span class="small" style="color:var(--blue)">${mset().timer ? "таймер " + mset().timer + " мин · " : ""}можно свернуть</span></span>${icon.chev}</a>`;
     const d = S.days[dkey()];
     if (d && d.done) {
       h += `<a class="done-row" href="#/inside"><span class="ok">${icon.check}</span><span class="t"><b>Заглянуть в себя</b><span>сегодня: ${esc(daySummary())}</span></span>${icon.chev}</a>`;
@@ -1449,8 +1458,8 @@ window.startApp = function () {
     const l = $("#lnk"); if (l) l.oninput = () => { D.link = l.value; save(); };
   }
   // «Как я сегодня»: тело → ощущение → чувство → хочется → откуда
-  const SENS_GROUPS = [["ДАВЛЕНИЕ", ["тяжесть", "сжатие", "ком", "распирание"]], ["ТЕМПЕРАТУРА", ["тепло", "жар", "холод"]], ["ДВИЖЕНИЕ", ["дрожь", "пульсация", "покалывание", "хочется двигаться"]], ["ПУСТОТА", ["онемение", "пустота", "как будто не мое"]], ["ПРОСТОР", ["легкость", "расслабление", "мягкость"]]];
-  const FEEL_BASE = { "злость": ["раздражение", "досада", "гнев", "ярость", "возмущение", "ревность"], "страх": ["тревога", "беспокойство", "испуг", "растерянность", "опасение", "ужас"], "грусть": ["печаль", "обида", "одиночество", "тоска", "разочарование", "сожаление", "бессилие"], "стыд": ["вина", "смущение", "неловкость", "унижение"], "радость": ["облегчение", "спокойствие", "воодушевление", "благодарность", "интерес"], "нежность": ["тепло", "любовь", "жалость", "трогательность"] };
+  const SENS_GROUPS = [["Давление", ["тяжесть", "давит", "сжатие", "ком", "зажим", "стянуто", "тесно", "тянет", "распирание", "будто что-то держит"]], ["Температура", ["тепло", "жар", "горячая волна", "жжение", "холод", "прохлада", "озноб"]], ["Движение", ["дрожь", "пульсация", "покалывание", "мурашки", "вибрация", "щекотка", "трепет", "волны", "колотится", "хочется двигаться"]], ["Пустота", ["пустота", "онемение", "ватность", "провал", "как будто не мое", "почти не чувствую"]], ["Простор", ["легкость", "расслабление", "мягкость", "свобода", "раскрытость", "тепло разливается"]]];
+  const FEEL_BASE = { "злость": ["раздражение", "досада", "недовольство", "нетерпение", "гнев", "ярость", "возмущение", "протест", "ревность", "зависть"], "страх": ["тревога", "беспокойство", "волнение", "опасение", "неуверенность", "растерянность", "беззащитность", "испуг", "паника", "ужас"], "грусть": ["печаль", "обида", "одиночество", "тоска", "разочарование", "сожаление", "бессилие", "безнадежность", "горе", "скука"], "стыд": ["вина", "смущение", "неловкость", "уязвимость", "унижение", "никчемность"], "отвращение": ["неприязнь", "брезгливость", "отторжение", "презрение", "пресыщение"], "оцепенение": ["пустота", "безразличие", "апатия", "отстраненность", "ступор", "усталость"], "удивление": ["изумление", "недоумение", "замешательство", "любопытство"], "радость": ["облегчение", "спокойствие", "удовлетворение", "интерес", "воодушевление", "надежда", "гордость", "благодарность", "восторг"], "нежность": ["тепло", "любовь", "забота", "сочувствие", "жалость", "трогательность", "близость", "принятие"] };
   const WANTS = ["отдохнуть", "сказать вслух", "тепла", "тишины", "подвигаться", "поплакать", "чтобы обняли", "выйти на воздух", "побыть в одиночестве"];
   const chipSel = (list, sel, attr, cls) => list.map((x) => `<button type="button" class="chip${sel.includes(x) ? " " + (cls || "terraon") : ""}" data-${attr}="${esc(x)}">${esc(x)}</button>`).join("");
   function Today(step, i) {
@@ -1474,15 +1483,18 @@ window.startApp = function () {
       const ks = Object.keys(D.zones), n = Number(i) || 0, z = ks[n];
       if (!z) return go("#/today/feel");
       const Z = D.zones[z], name = zoneTitle(z);
+      if (M.rubZ !== z) { M.rubZ = z; M.rub = -1; }
       app.innerHTML = `<div class="stack">${back(n ? "#/today/z/" + (n - 1) : "#/today/body/front", n ? "Назад" : "Тело")}
         <div class="stack" style="gap:6px"><div class="kicker terra">${esc(name)} · ${n + 1} из ${ks.length}</div><h1 style="font-size:26px">Как ощущается здесь?</h1><p class="small">Трудно назвать — это нормально. Выбери то, что хоть немного похоже. Можно несколько.</p></div>
-        ${SENS_GROUPS.map((g) => `<div class="stack" style="gap:8px"><span class="kicker" style="letter-spacing:.08em;font-size:11px">${g[0]}</span><div class="chips">${chipSel(g[1], Z.sense, "s")}</div></div>`).join("")}
+        <div class="stack" style="gap:10px"><div class="chips" id="rubs">${SENS_GROUPS.map((g, gi) => { const n = g[1].filter((x) => Z.sense.includes(x)).length; return `<button type="button" class="chip rub${M.rub === gi ? " open" : ""}${n ? " has" : ""}" data-rub="${gi}" aria-expanded="${M.rub === gi}">${g[0]}${n ? " · " + n : ""}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="${M.rub === gi ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"}"/></svg></button>`; }).join("")}</div>
+          ${M.rub >= 0 && SENS_GROUPS[M.rub] ? `<div class="chips rubl">${chipSel(SENS_GROUPS[M.rub][1], Z.sense, "s")}</div>` : `<span class="small" style="font-size:12px">Открой рубрику, чтобы выбрать ощущение</span>`}</div>
         <div class="stack" style="gap:8px"><span class="kicker" style="letter-spacing:.08em;font-size:11px">СВОИ СЛОВА</span>${(S.ownSense || []).length ? `<div class="chips">${chipSel(S.ownSense, Z.sense, "s")}</div>` : ""}
           <div class="row"><input class="inp" id="sadd" placeholder="+ свое ощущение" maxlength="30"><button type="button" class="pill" id="saddb" style="min-height:48px">Добавить</button></div></div>
         <div class="stack" style="gap:8px"><b style="font-size:15px">Насколько сильно</b><div class="seg3">${["едва", "заметно", "очень сильно"].map((x) => `<button type="button" data-pw="${x}" class="${Z.power === x ? "on" : ""}">${x}</button>`).join("")}</div></div>
         <label class="q"><b>Если бы у ощущения была форма или цвет</b><input class="inp" id="form" value="${esc(Z.form)}" placeholder="тугой узел, темно-синий…"></label>
         <a class="btn" href="#/today/z/${n + 1}">Дальше</a></div>`;
-      app.querySelectorAll("[data-s]").forEach((b) => b.onclick = () => { const x = b.dataset.s, k = Z.sense.indexOf(x); k >= 0 ? Z.sense.splice(k, 1) : Z.sense.push(x); b.classList.toggle("terraon"); save(); });
+      app.querySelectorAll("[data-s]").forEach((b) => b.onclick = () => { const x = b.dataset.s, k = Z.sense.indexOf(x); k >= 0 ? Z.sense.splice(k, 1) : Z.sense.push(x); save(); const y = scrollY; Today("z", String(n)); scrollTo(0, y); });
+      app.querySelectorAll("[data-rub]").forEach((b) => b.onclick = () => { const gi = Number(b.dataset.rub); M.rub = M.rub === gi ? -1 : gi; Today("z", String(n)); });
       app.querySelectorAll("[data-pw]").forEach((b) => b.onclick = () => { Z.power = b.dataset.pw; app.querySelectorAll("[data-pw]").forEach((x) => x.classList.toggle("on", x === b)); save(); });
       $("#form").oninput = (e) => { Z.form = e.target.value; save(); };
       const addS = () => { const v = $("#sadd").value.trim().toLowerCase(); if (!v) return; S.ownSense = Array.from(new Set((S.ownSense || []).concat(v))); if (!Z.sense.includes(v)) Z.sense.push(v); save(); Today("z", String(n)); };
@@ -1611,10 +1623,10 @@ window.startApp = function () {
     app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
       <div class="stack" style="align-items:center">${cardFace(c)}</div>
       <label class="q"><b>Что откликается в этом образе сегодня?</b><textarea id="snote" rows="3" placeholder="Первое, что приходит…">${esc(st.note || "")}</textarea></label>
-      ${y ? `<a class="quietlink" id="sdict" href="#/sym/${y.id}"${(st.note || "").trim() ? "" : " hidden"}>${esc(c.title)} в словаре символов →</a>` : ""}
+      ${y ? `<a class="quietlink" id="sdict" href="#/sym/${y.id}">${esc(c.title)} в словаре символов →</a>` : ""}
       <button class="link-row" id="shr" style="justify-content:center;color:var(--blue)">Поделиться картой в сторис</button>
       <p class="small center">Новая карта — завтра.</p></div>`;
-    $("#snote").oninput = (e) => { st.note = e.target.value; save(); const l = $("#sdict"); if (l) l.hidden = !st.note.trim(); };
+    $("#snote").oninput = (e) => { st.note = e.target.value; save(); };
     $("#shr").onclick = () => shareCard(c);
   }
 
@@ -1701,7 +1713,7 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
     let now2 = "";
     if (isNight()) {
       const m = mset();
-      now2 = `<a class="nowcard" href="#/music"><span class="pl" style="background:#0F1E33"><svg width="30" height="30" viewBox="0 0 44 44" aria-hidden="true"><path d="M28 27.5A9 9 0 1 1 18.5 15a7 7 0 0 0 9.5 12.5z" fill="#CFE6F5"/></svg></span><span class="t"><span class="small" style="font-size:12px">Если сложно заснуть</span><b style="font-size:16px">Музыкальное сопровождение</b><span class="small" style="font-size:12px;color:var(--blue)">${m.timer ? "таймер " + m.timer + " мин · " : ""}экран не гаснет</span></span>${icon.chev}</a>`;
+      now2 = `<a class="nowcard" href="#/music"><span class="pl" style="background:#0F1E33"><svg width="30" height="30" viewBox="0 0 44 44" aria-hidden="true"><path d="M28 27.5A9 9 0 1 1 18.5 15a7 7 0 0 0 9.5 12.5z" fill="#CFE6F5"/></svg></span><span class="t"><span class="small" style="font-size:12px">Если сложно заснуть</span><b style="font-size:16px">Музыкальное сопровождение</b><span class="small" style="font-size:12px;color:var(--blue)">${m.timer ? "таймер " + m.timer + " мин · " : ""}можно свернуть</span></span>${icon.chev}</a>`;
     } else if (nx) {
       const open = isOpen(nx.id);
       now2 = `<a class="nowcard" href="${open ? "#/prep/" + nx.id : "#/cycle/" + nx._cy.id}"><span class="pl${open ? "" : " off"}">${open ? PLAY("#0F1E33") : icon.lock}</span><span class="t"><span class="small" style="font-size:12px">${esc(where(nx))}</span><b>${esc(nx.title)}</b><span class="small" style="font-size:12px;color:${open ? "var(--blue)" : "var(--muted)"}">${open ? "погружение" + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : "") : esc(lockHint(nx))}</span></span></a>`;
@@ -1830,8 +1842,11 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
     clearInterval(timer); timer = null;
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
-    const tabI = r ? ["lib", "guide", "notes"].indexOf(r) + 1 || -1 : 0;
-    if (tg && tg.BackButton) { tabI < 0 ? tg.BackButton.show() : tg.BackButton.hide(); }
+    // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
+    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export"];
+    const top = !r || r === "lib" || r === "guide" || r === "notes";
+    const tabI = ["player", "after", "return", "hello", "adult"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) ? 3 : 0;
+    if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
     if (r !== "policy" && (!S.profile || S.profile.minor)) { paintTabs(-1); setWater(false); }
     if (r !== "policy") {
       if (!S.profile) return r === "hello" && id === "2" ? Know() : Welcome();
@@ -1839,7 +1854,7 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
     }
     paint = () => {};
     paintMini();
-    paintTabs(tabI); setWater(tabI === 0);
+    paintTabs(tabI); setWater(!r);
     switch (r) {
       case "dives": return Dives(id);
       case "lib": return Lib();
