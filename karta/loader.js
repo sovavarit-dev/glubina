@@ -12,6 +12,7 @@
   const headers = {};
   if (tg && tg.initData) headers["X-Telegram-Init-Data"] = tg.initData;
   if (key) headers["X-Preview-Key"] = key;
+  window.KARTA_HEADERS = headers; // для проводника
   if (api && Object.keys(headers).length) {
     try {
       const r = await fetch(api, { headers });

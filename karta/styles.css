@@ -404,3 +404,10 @@ input[type=time]{background:var(--card2);color:var(--text);border:1px solid var(
 .tm{width:96px;text-align:center;font-size:16px;font-variant-numeric:tabular-nums;padding:10px 12px;border-radius:12px;border:1px solid #6684A6;background:var(--bg);color:var(--text)}
 .nfil{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
 .toast{bottom:auto;top:calc(16px + env(safe-area-inset-top));pointer-events:none}
+
+/* иллюстрации циклов */
+.cyart{border-radius:20px;overflow:hidden;border:1px solid var(--line2);line-height:0;background:#0F1E33}
+.cyart svg{display:block;width:100%;height:auto}
+.cyic{flex-shrink:0;line-height:0}
+.cyrow.lock .cyic{opacity:.45;filter:grayscale(.4)}
+@media (prefers-reduced-motion:reduce){.cyart svg *{animation:none!important}}

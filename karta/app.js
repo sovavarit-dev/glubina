@@ -96,10 +96,11 @@ window.startApp = function () {
   // ---------- экраны ----------
   function confirmReset() { return window.confirm ? window.confirm("Стереть все записи на этом устройстве?") : true; }
 
+  const artOf = (cy) => (window.CYCLE_ART || [])[CYC.indexOf(cy)];
   function Cycle(cid) {
     const cy = CYC.find((x) => x.id === cid) || cycle;
     let h = `<div class="stack">${back("#/dives", "Погружения")}
-      ${cy.img ? `<img class="illu" src="${cy.img}" alt="">` : ""}
+      ${artOf(cy) ? `<div class="cyart">${artOf(cy).hero}</div>` : cy.img ? `<img class="illu" src="${cy.img}" alt="">` : ""}
       <div class="stack" style="gap:6px"><div class="kicker" style="color:var(--sage);font-weight:600;letter-spacing:.08em">ЦИКЛ ${cy.n || CYC.indexOf(cy) + 1}</div><h1>${esc(cy.title)}</h1><p class="lead" style="font-size:14px">${esc(cy.desc)}</p>${cy.note ? `<p class="small">${esc(cy.note)}</p>` : ""}</div>
       <div class="stack" style="gap:10px">`;
     cy.practices.forEach((p, i) => {
@@ -114,6 +115,7 @@ window.startApp = function () {
     });
     h += `</div></div>`;
     app.innerHTML = h;
+    try { if (matchMedia("(prefers-reduced-motion: reduce)").matches) app.querySelectorAll(".cyart svg").forEach((x) => { x.pauseAnimations(); x.setCurrentTime(9); }); } catch (e) {}
   }
 
   function Prep(id) {
@@ -477,8 +479,74 @@ window.startApp = function () {
     });
     app.querySelector("[data-reset]").onclick = () => { if (confirmReset()) { S = blank(); save(); go("#/"); render(); } };
   }
-  // ИИ-проводник: пока заглушка с объяснением, как он будет работать
+  // ИИ-проводник (тест): чат с YandexGPT через облачную функцию. Открыт только по ключу предпросмотра и тестировщикам.
+  let guideOK = null, guideBusy = false;
+  const gApi = (body) => fetch(window.KARTA_API, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS || {}), body: JSON.stringify(body) })
+    .then((r) => r.json().then((j) => ({ ok: r.ok, status: r.status, j })), () => ({ ok: false, status: 0, j: {} }));
+  const gNew = () => ({ conv: Math.random().toString(36).slice(2, 10) + Date.now().toString(36), msgs: [], entries: null });
+  function gText(t) {
+    return esc(t).replace(/\[([^\]]{1,40})\]\((#\/[a-z\/]+)\)/g, (m, label, href) => {
+      const r = href.split("/")[1], id = href.split("/")[2];
+      const ok = r === "catch" || r === "observer" || (r === "prep" && ALLP.some((p) => p.id === id && !p.soon));
+      return ok ? `<a href="${href}" style="color:var(--sage);font-weight:600">${label} ›</a>` : `«${label}»`;
+    }).replace(/\n/g, "<br>");
+  }
   function Guide() {
+    if (!window.KARTA_API || !window.KARTA_HEADERS || !Object.keys(window.KARTA_HEADERS).length) return GuideSoon();
+    if (guideOK === false) return GuideSoon();
+    if (guideOK === null) {
+      app.innerHTML = `<div class="stack"><h1>Проводник</h1><p class="small">Открываю…</p></div>`;
+      gApi({ action: "hello" }).then((r) => { guideOK = !!(r.ok && r.j.ok); if (location.hash.startsWith("#/guide")) Guide(); });
+      return;
+    }
+    const G = S.guide || (S.guide = gNew());
+    const g = (S.profile && S.profile.gender) || "n";
+    const bubbles = G.msgs.map((m, i) => m.r === "u" ? `<div class="b me">${esc(m.t)}</div>` :
+      `<div class="b">${gText(m.t)}</div>${m.mark ? `<span class="small" style="font-size:11px;margin:-4px 0 0 6px">${m.mark.ok ? "отмечено: хорошо" : "отмечено: не так"}</span>` : `<span class="gmk" style="display:flex;gap:14px;margin:-2px 0 0 6px;font-size:12px"><a href="#" data-ok="${i}" style="color:var(--muted)">хорошо</a><a href="#" data-no="${i}" style="color:var(--muted)">не так</a></span>`}`).join("");
+    const ent = G.entries;
+    app.innerHTML = `<div class="stack">
+      <div class="stack" style="gap:6px"><div class="kicker" style="color:var(--sage);font-weight:700;letter-spacing:.08em">ТЕСТ</div><h1>Проводник</h1>
+      ${G.msgs.length ? "" : `<p class="lead" style="font-size:14px">Напиши, что сейчас происходит: чувство, сон, образ из погружения. Проводник задает вопросы и не толкует за тебя.</p>`}
+      <p class="small" style="font-size:12px">Тестовый режим: разговор сохраняется, чтобы улучшать проводника. Если сейчас опасно — звони 112.</p></div>
+      <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b" style="color:var(--muted)">…</div>` : ""}</div>
+      ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}${e.origin === "гипотеза ИИ" ? " · ГИПОТЕЗА ИИ" : ""}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Мои записи»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
+      <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Напиши…" style="flex:1;resize:none"${guideBusy ? " disabled" : ""}></textarea><button class="btn" id="gsend" style="width:auto;padding:12px 16px"${guideBusy ? " disabled" : ""} aria-label="Отправить">→</button></div>
+      ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--sage)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
+    const ch = $("#gch"); if (ch && ch.lastElementChild) ch.lastElementChild.scrollIntoView({ block: "nearest" });
+    const fresh = () => { S.guide = gNew(); save(); Guide(); };
+    const send = () => {
+      const inp = $("#gin"), t = inp ? inp.value.trim() : "";
+      if (!t || guideBusy) return;
+      G.msgs.push({ r: "u", t }); guideBusy = true; save(); Guide();
+      gApi({ action: "say", conv: G.conv, text: t, gender: g }).then((r) => {
+        guideBusy = false;
+        if (r.ok && r.j.text) G.msgs.push({ r: "a", t: r.j.text, i: r.j.i });
+        else { G.msgs.pop(); toast(r.status === 429 ? "Разговор получился длинным — начни новый" : "Проводник не ответил. Попробуй еще раз"); setTimeout(() => { const x = $("#gin"); if (x) x.value = t; }, 0); }
+        save(); if (location.hash.startsWith("#/guide")) Guide();
+      });
+    };
+    if ($("#gsend")) { $("#gsend").onclick = send; $("#gin").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }; }
+    if ($("#gnew")) $("#gnew").onclick = (e) => { e.preventDefault(); fresh(); };
+    if ($("#gnew2")) $("#gnew2").onclick = fresh;
+    if ($("#gend")) $("#gend").onclick = (e) => {
+      e.preventDefault(); if (guideBusy) return; guideBusy = true; Guide();
+      gApi({ action: "finish", conv: G.conv }).then((r) => { guideBusy = false; G.entries = r.ok ? r.j.entries || [] : []; if (!r.ok) toast("Не получилось собрать записи"); save(); Guide(); });
+    };
+    if ($("#gsave")) $("#gsave").onclick = () => {
+      S.free = S.free || [];
+      app.querySelectorAll("[data-e]").forEach((c) => { if (c.checked) { const e = ent[+c.dataset.e]; S.free.push({ text: e.type[0].toUpperCase() + e.type.slice(1) + ": " + e.text + (e.origin === "гипотеза ИИ" ? " (гипотеза ИИ)" : ""), at: now(), src: "guide" }); } });
+      toast("Сохранено в «Мои записи»"); fresh();
+    };
+    const mark = (i, ok, note) => { const m = G.msgs[i]; gApi({ action: "mark", conv: G.conv, i: m.i, ok, note }).then((r) => { if (r.ok) { m.mark = { ok }; save(); toast("Спасибо, отмечено"); if (location.hash.startsWith("#/guide")) Guide(); } else toast("Не получилось отметить"); }); };
+    app.querySelectorAll("[data-ok]").forEach((a) => a.onclick = (e) => { e.preventDefault(); mark(+a.dataset.ok, true, ""); });
+    app.querySelectorAll("[data-no]").forEach((a) => a.onclick = (e) => {
+      e.preventDefault(); const i = +a.dataset.no, box = a.parentElement;
+      box.outerHTML = `<div class="stack" style="gap:6px;margin-left:6px" id="gm"><textarea class="inp" rows="2" placeholder="Как ответить лучше?" id="gmt"></textarea><button class="btn ghost" id="gms" style="padding:10px">Отправить</button></div>`;
+      $("#gmt").focus(); $("#gms").onclick = () => mark(i, false, $("#gmt").value.trim());
+    });
+  }
+  // заглушка проводника для всех, кроме тестировщиков
+  function GuideSoon() {
     app.innerHTML = `<div class="stack">
       <div class="stack" style="gap:6px"><div class="kicker" style="color:var(--sage);font-weight:700;letter-spacing:.08em">СКОРО</div><h1>Проводник</h1>
       <p class="lead">Помогает разобраться в образах, снах и чувствах так, как это делает юнгианский аналитик и символдраматист: задает вопросы, а не выдает толкования.</p></div>
@@ -1662,7 +1730,7 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
     h += `<div class="stack" style="gap:8px"><div class="row" style="justify-content:flex-end;align-items:baseline">${ALLP.some((p) => counted(p.id)) ? `<a class="small" href="#/journal" style="color:var(--blue);font-weight:700;font-size:12px">пройденные →</a>` : ""}</div><div class="cycl">`;
     CYC.forEach((cy, i) => {
       const first = cy.practices[0], open = isOpen(first.id) || cyCount(cy) > 0;
-      h += `<a class="cyrow${open ? "" : " lock"}" href="#/cycle/${cy.id}">${cy.img ? `<img src="${cy.img}" alt="">` : ""}<span class="t"><span class="small" style="font-size:11px;letter-spacing:.06em">ЦИКЛ ${cy.n || i + 1}</span><b>${esc(cy.title)}</b><span class="small" style="font-size:12px">${open ? cyCount(cy) + " из " + real(cy).length : esc(lockHint(first))}</span></span>${open ? icon.chev : icon.lock}</a>`;
+      h += `<a class="cyrow${open ? "" : " lock"}" href="#/cycle/${cy.id}">${artOf(cy) ? `<span class="cyic">${artOf(cy).icon}</span>` : cy.img ? `<img src="${cy.img}" alt="">` : ""}<span class="t"><span class="small" style="font-size:11px;letter-spacing:.06em">ЦИКЛ ${cy.n || i + 1}</span><b>${esc(cy.title)}</b><span class="small" style="font-size:12px">${open ? cyCount(cy) + " из " + real(cy).length : esc(lockHint(first))}</span></span>${open ? icon.chev : icon.lock}</a>`;
     });
     h += `</div></div></div>`;
     app.innerHTML = h;
@@ -1731,7 +1799,7 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
       let col, kind, t, sub = "", ch = "", href = "";
       if (x.kind === "day") { const d = S.days[x.k]; col = "#8FB39A"; kind = "КАК ТЫ"; t = daySummary(x.k) || "отмечено"; sub = d.want && d.want.length ? "хочется: " + d.want.join(", ") : ""; ch = chipsOf(Object.keys(d.zones || {}).map(zoneTitle), "#33262A", "#F0C7B5"); if (x.k === dkey()) href = "#/inside"; }
       if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); if (x.k === dkey()) href = "#/dream"; }
-      if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
+      if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = c.src === "guide" ? "ПРОВОДНИК" : "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
       if (x.kind === "word") { const c = S.catches[x.i]; col = "#C9775A"; kind = "НАЗВАННОЕ ЧУВСТВО"; t = c.word; href = "#/caught/" + x.i; }
       if (x.kind === "dive") { const n = S.notes[x.p.id] || {}; col = "#8CC4E8"; kind = "ПОГРУЖЕНИЕ"; t = x.p.title; sub = n.image ? (n.image.length > 90 ? n.image.slice(0, 90) + "…" : n.image) : ""; ch = chipsOf(n.feelings || [], "#24382F", "#D3E4D8"); href = "#/after/" + x.p.id; }
       const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span><b>${esc(t)}</b>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
