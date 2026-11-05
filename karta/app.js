@@ -1024,7 +1024,6 @@ window.startApp = function () {
           ${mine ? `<span class="ord"><button type="button" data-up="${i}" aria-label="Выше"${i ? "" : " disabled"}>↑</button><button type="button" data-dn="${i}" aria-label="Ниже"${i < q.length - 1 ? "" : " disabled"}>↓</button></span>` : ""}
           <button type="button" class="add${S.playlist.includes(t.id) ? " in" : ""}" data-add="${t.id}" aria-label="${S.playlist.includes(t.id) ? "Убрать из плейлиста" : "Добавить в плейлист"}">${S.playlist.includes(t.id) ? (mine ? "×" : icon.checkS) : icon.plus}</button></div>`).join("") : `<div class="card dashed"><div class="small">Плейлист пока пуст. Во вкладке «Вся музыка» нажми «+» у треков, которые хочешь сюда.</div></div>`}</div>
         <div class="small center" style="font-size:12px;color:var(--dim)">${mine ? "Стрелками можно выстроить свой порядок" : "Нажми «+», чтобы собрать свой плейлист"}</div>
-        <a class="small center" href="#" id="chan" style="min-height:44px;display:flex;align-items:center;justify-content:center">Эта музыка есть и в канале ↗</a>
       </div>`;
       // если включено «С голосом»: при первом запуске сначала запись с голосом, потом выбранная музыка без конца
       const start = (id) => {
@@ -1047,7 +1046,6 @@ window.startApp = function () {
         $("#rep").onclick = () => { st.repeat = { none: "list", list: "one", one: "none" }[r]; save(); haptic(); draw(); };
         $("#tmr").onclick = () => timerSheet(draw);
       }
-      $("#chan").onclick = (e) => { e.preventDefault(); toast("Ссылку на канал добавим перед запуском"); };
       try { if (matchMedia("(prefers-reduced-motion: reduce)").matches) app.querySelector(".mwave").pauseAnimations(); } catch (e) {}
       paint = () => {
         const el = $("#now"); if (!el || M.drag) return;
