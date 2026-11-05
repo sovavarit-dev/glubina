@@ -431,3 +431,7 @@ body.tabs .bodybar{bottom:calc(64px + env(safe-area-inset-bottom));padding-botto
 .chip.rub.open{border-color:var(--terra-line);color:var(--terra-l)}
 .chip.rub.has{border-color:var(--terra-line)}
 .chips.rubl{padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+
+/* Наблюдатель */
+.obs{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:12px;font-size:16px;line-height:1.55}
+.obs i{color:var(--muted)}
