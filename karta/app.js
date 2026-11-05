@@ -842,7 +842,7 @@ window.startApp = function () {
     if (full) { vEl.pause(); if (V.st === "play") V.st = "done"; }
     setVol(audio, 1);
   }
-  function closeAudio() {
+  function closeAudio() { M.voicedOnce = false; M.after = null;
     audio.pause(); M.end = 0; wake(false); vEl.pause(); V.st = "off"; setVol(audio, 1);
     if (NOW.kind === "pod") podSave(true);
     audio.removeAttribute("src"); try { audio.load(); } catch (e) {}
@@ -851,7 +851,7 @@ window.startApp = function () {
   audio.onended = () => {
     if (NOW.kind === "pod") { const st = podSt(NOW.id); st.done = true; st.pos = 0; save(); paint(); paintMini(); return; }
     const q = queue(), i = q.findIndex((t) => t.id === M.cur);
-    if (isVoiced(M.cur)) { if (q.length) playTrack(q[0].id, true); else { stopMusic(true); paint(); paintMini(); } return; }
+    if (isVoiced(M.cur)) { const nx = (M.after && track(M.after)) || q[0]; M.after = null; if (nx) playTrack(nx.id, true); else { stopMusic(true); paint(); paintMini(); } return; }
     let r = mset().repeat; if (M.endless && r === "none") r = "list";
     if (r === "one") { audio.currentTime = 0; audio.play(); return; }
     const nx = q[i + 1] || (r === "list" ? q[0] : null);
@@ -959,7 +959,7 @@ window.startApp = function () {
     const draw = () => {
       bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="vsh"><div class="grip"></div>
         <h2 id="vsh" style="font-size:19px">Голосовое сопровождение</h2>
-        <p class="small" style="margin-top:-6px">Ляжет поверх любой музыки один раз: сначала немного музыки, потом голос, потом только музыка.</p>
+        <p class="small" style="margin-top:-6px">Сначала прозвучит запись с голосом, потом музыка без голоса — без остановки.</p>
         <div class="stack" style="gap:8px">${VOICES.map((v) => `<button type="button" class="vopt${v.id === pick ? " on" : ""}${v.soon ? " soon" : ""}" data-v="${v.id}"><span class="rad"></span><span class="t"><b>${esc(v.title)}</b><span>${esc(v.sub || "")}${v.soon ? " · скоро" : v.dur ? " · " + fmtMin(v.dur) : ""}</span></span></button>`).join("")}</div>
         <button class="btn" id="von"${pick ? "" : " disabled"}>Включить</button></div>`;
       bg.querySelectorAll("[data-v]").forEach((b) => b.onclick = () => {
@@ -971,7 +971,7 @@ window.startApp = function () {
       if (on) on.onclick = () => {
         const changed = vs.id !== pick || !vs.on;
         vs.id = pick; vs.on = true; save(); haptic(); bg.remove();
-        if (changed) { vEl.pause(); V.st = "off"; if (NOW.kind === "music" && !audio.paused) startVoice(); }
+        if (changed) M.voicedOnce = false;
         onDone();
       };
     };
@@ -1007,11 +1007,12 @@ window.startApp = function () {
       const mine = M.tab === "mine";
       const q = mine ? S.playlist.map(track).filter(Boolean) : MU;
       const r = st.repeat || "list";
+      const vs = st.voice, vv = vs.on ? voiceById(vs.id) : null;
       const playing = (id) => M.cur === id && NOW.kind === "music" && !audio.paused;
       app.innerHTML = `<div class="stack" style="gap:14px">${back("#/lib", "Библиотека")}
         <div class="stack" style="gap:4px"><h1>Музыкальное сопровождение</h1><div class="small">Для сна, практик и чтобы побыть с собой</div></div>
-        ${VOICES.length ? `<div class="stack" style="gap:8px"><span class="kicker" style="letter-spacing:.08em;font-size:11px;color:var(--sage)">С ГОЛОСОМ</span>
-          ${VOICES.map((v) => `<button type="button" class="vtrk${M.cur === v.id ? " cur" : ""}${v.src && !v.soon ? "" : " soon"}" data-vplay="${v.id}">${MIC}<span class="t"><b>${esc(v.title)}</b><span>${v.src && !v.soon ? (v.dur ? fmtMin(v.dur) + " · " : "") + "дальше музыка без голоса" : "скоро"}</span></span>${v.src && !v.soon ? `<span class="ti">${playing(v.id) ? icon.pauseS : '<svg width="14" height="14" viewBox="0 0 24 24" fill="#A9CBB3" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>'}</span>` : ""}</button>`).join("")}</div>` : ""}
+        <div class="vplate"><button type="button" class="vbody" id="vpick">${MIC}<span class="t"><b>С голосом</b>${vv ? `<span class="on">${esc(vv.title)} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>` : `<span>выбрать, что будет звучать</span>`}</span></button>
+          <button type="button" class="tgl${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></div>
         <div id="now"></div>
         ${q.length ? `<div class="mquiet"><button type="button" id="pall">${NOW.kind === "music" && !audio.paused ? "Остановить" : "Слушать все"}</button><span>·</span>
           <button type="button" id="rep" aria-label="Повтор: ${REP_LABEL[r]}">${REP_LABEL[r]}</button><span>·</span>
@@ -1025,8 +1026,16 @@ window.startApp = function () {
         <div class="small center" style="font-size:12px;color:var(--dim)">${mine ? "Стрелками можно выстроить свой порядок" : "Нажми «+», чтобы собрать свой плейлист"}</div>
         <a class="small center" href="#" id="chan" style="min-height:44px;display:flex;align-items:center;justify-content:center">Эта музыка есть и в канале ↗</a>
       </div>`;
-      const toggle = (id) => { if (playing(id)) stopMusic(); else { if (M.cur !== id || audio.paused) M.qtab = M.tab; playTrack(id); } draw(); };
-      app.querySelectorAll("[data-vplay]").forEach((b) => b.onclick = () => { const v = voiceById(b.dataset.vplay); if (!v || !v.src || v.soon) { toast("Эта запись появится скоро"); return; } toggle(v.id); });
+      // если включено «С голосом»: при первом запуске сначала запись с голосом, потом выбранная музыка без конца
+      const start = (id) => {
+        M.qtab = M.tab;
+        const fromStop = NOW.kind !== "music" || audio.paused && !(M.cur === id && audio.currentTime > 0);
+        if (vv && vv.src && !vv.soon && !M.voicedOnce && fromStop && !isVoiced(id)) { M.voicedOnce = true; M.after = id; playTrack(vv.id); }
+        else playTrack(id);
+      };
+      const toggle = (id) => { if (playing(id)) stopMusic(); else if (M.cur === id && audio.paused && NOW.kind === "music") playTrack(id); else start(id); draw(); };
+      $("#vpick").onclick = () => voiceSheet(draw);
+      $("#vtgl").onclick = () => { if (vs.on) { vs.on = false; save(); haptic(); draw(); } else voiceSheet(draw); };
       app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = (e) => { e.preventDefault(); M.tab = b.dataset.tab; draw(); });
       app.querySelectorAll("[data-play]").forEach((b) => b.onclick = () => toggle(b.dataset.play));
       app.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { const id = b.dataset.add, i = S.playlist.indexOf(id); i >= 0 ? S.playlist.splice(i, 1) : S.playlist.push(id); save(); haptic(); draw(); });
@@ -1034,7 +1043,7 @@ window.startApp = function () {
       app.querySelectorAll("[data-up]").forEach((b) => b.onclick = () => mv(Number(b.dataset.up), -1));
       app.querySelectorAll("[data-dn]").forEach((b) => b.onclick = () => mv(Number(b.dataset.dn), 1));
       if ($("#pall")) {
-        $("#pall").onclick = () => { if (!audio.paused && NOW.kind === "music") stopMusic(); else { M.qtab = M.tab; playTrack(q[0].id); } draw(); };
+        $("#pall").onclick = () => { if (!audio.paused && NOW.kind === "music") stopMusic(); else start(q[0].id); draw(); };
         $("#rep").onclick = () => { st.repeat = { none: "list", list: "one", one: "none" }[r]; save(); haptic(); draw(); };
         $("#tmr").onclick = () => timerSheet(draw);
       }
