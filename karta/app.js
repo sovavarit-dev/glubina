@@ -515,19 +515,19 @@ window.startApp = function () {
       `<div class="b">${gText(m.t)}</div>${m.mark ? `<span class="small" style="font-size:11px;margin:-4px 0 0 6px">${m.mark.ok ? "отмечено: хорошо" : "отмечено: не так"}</span>` : `<span class="gmk" style="display:flex;gap:14px;margin:-2px 0 0 6px;font-size:12px"><a href="#" data-ok="${i}" style="color:var(--muted)">хорошо</a><a href="#" data-no="${i}" style="color:var(--muted)">не так</a></span>`}`).join("");
     const ent = G.entries;
     app.innerHTML = `<div class="stack">
-      <div class="stack" style="gap:6px"><div class="kicker" style="color:var(--sage);font-weight:700;letter-spacing:.08em">ТЕСТ</div><h1>Проводник</h1>
+      <div class="stack hd-top" style="gap:6px"><div class="kicker" style="color:var(--blue);font-weight:700;letter-spacing:.08em">ТЕСТ</div><h1>Проводник</h1>
       ${G.msgs.length ? "" : `<p class="lead" style="font-size:14px">Напиши, что сейчас происходит: чувство, сон, образ из погружения. Проводник задает вопросы и не толкует за тебя.</p>`}
       <p class="small" style="font-size:12px">Тестовый режим: разговор сохраняется, чтобы улучшать проводника. Если сейчас опасно — звони 112.</p></div>
-      <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b" style="color:var(--muted)">…</div>` : ""}</div>
-      ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}${e.origin === "гипотеза ИИ" ? " · ГИПОТЕЗА ИИ" : ""}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Мои записи»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
-      <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Как ты?" style="flex:1;resize:none"${guideBusy ? " disabled" : ""}></textarea><button class="btn" id="gsend" style="width:auto;padding:12px 16px"${guideBusy ? " disabled" : ""} aria-label="Отправить">→</button></div>
-      ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--sage)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
+      <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b typing" aria-label="Проводник пишет"><i></i><i></i><i></i></div>` : ""}</div>
+      ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}${e.origin === "гипотеза ИИ" ? " · ГИПОТЕЗА ИИ" : ""}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Моя карта»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
+      <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Как ты?" style="flex:1;resize:none"${guideBusy ? " disabled" : ""}>${esc(S.guideDraft || "")}</textarea><button class="sendb" id="gsend"${guideBusy ? " disabled" : ""} aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+      ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--blue)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
     const ch = $("#gch"); if (ch && ch.lastElementChild) ch.lastElementChild.scrollIntoView({ block: "nearest" });
     const fresh = () => { S.guide = gNew(); save(); Guide(); };
     const send = () => {
       const inp = $("#gin"), t = inp ? inp.value.trim() : "";
       if (!t || guideBusy) return;
-      G.msgs.push({ r: "u", t }); guideBusy = true; save(); Guide();
+      G.msgs.push({ r: "u", t }); guideBusy = true; S.guideDraft = ""; save(); Guide();
       gApi({ action: "say", conv: G.conv, text: t, gender: g }).then((r) => {
         guideBusy = false;
         if (r.ok && r.j.text) G.msgs.push({ r: "a", t: r.j.text, i: r.j.i });
@@ -545,7 +545,7 @@ window.startApp = function () {
     if ($("#gsave")) $("#gsave").onclick = () => {
       S.free = S.free || [];
       app.querySelectorAll("[data-e]").forEach((c) => { if (c.checked) { const e = ent[+c.dataset.e]; S.free.push({ text: e.type[0].toUpperCase() + e.type.slice(1) + ": " + e.text + (e.origin === "гипотеза ИИ" ? " (гипотеза ИИ)" : ""), at: now(), src: "guide" }); } });
-      toast("Сохранено в «Мои записи»"); fresh();
+      toast("Сохранено в «Моя карта»"); fresh();
     };
     const mark = (i, ok, note) => { const m = G.msgs[i]; gApi({ action: "mark", conv: G.conv, i: m.i, ok, note }).then((r) => { if (r.ok) { m.mark = { ok }; save(); toast("Спасибо, отмечено"); if (location.hash.startsWith("#/guide")) Guide(); } else toast("Не получилось отметить"); }); };
     app.querySelectorAll("[data-ok]").forEach((a) => a.onclick = (e) => { e.preventDefault(); mark(+a.dataset.ok, true, ""); });
@@ -558,7 +558,7 @@ window.startApp = function () {
   // заглушка проводника для всех, кроме тестировщиков
   function GuideSoon() {
     app.innerHTML = `<div class="stack">
-      <div class="stack" style="gap:6px"><div class="kicker" style="color:var(--sage);font-weight:700;letter-spacing:.08em">СКОРО</div><h1>Проводник</h1>
+      <div class="stack hd-top" style="gap:6px"><div class="kicker" style="color:var(--blue);font-weight:700;letter-spacing:.08em">СКОРО</div><h1>Проводник</h1>
       <p class="lead">Помогает разобраться в образах, снах и чувствах так, как это делает юнгианский аналитик и символдраматист: задает вопросы, а не выдает толкования.</p></div>
       <div class="chat"><div class="b me">Снилось, что ищу дверь наверх в старом доме, а внизу вода.</div>
         <div class="b">Какое чувство было, пока шел поиск двери? И какая была вода — спокойная, темная, прибывающая?</div>
@@ -592,13 +592,12 @@ window.startApp = function () {
     $("#cp").onclick = () => { const t = $("#ex"); t.select(); try { navigator.clipboard.writeText(t.value).then(() => toast("Скопировано"), () => { document.execCommand("copy"); toast("Скопировано"); }); } catch (e) { document.execCommand("copy"); toast("Скопировано"); } };
     $("#dl").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/plain;charset=utf-8" })); a.download = "karta-glubiny.txt"; document.body.appendChild(a); a.click(); a.remove(); };
   }
-  // повторяющиеся образы: сны, символ дня, названные чувства, образы погружений
+  // повторяющиеся образы: сны, символ дня, образы погружений (чувства считаются отдельно)
   function recurring() {
     const m = {};
     const add = (w) => { w = String(w || "").trim().toLowerCase(); if (w) m[w] = (m[w] || 0) + 1; };
     Object.values(S.dreams || {}).forEach((d) => (d.images || []).forEach(add));
     Object.values(S.sym || {}).forEach((y) => { const c = cardById(y.id); if (c) add(c.title); });
-    (S.catches || []).forEach((c) => add(c.word));
     ALLP.forEach((p) => { if (S.notes[p.id]) (p.images || []).forEach(add); });
     return Object.keys(m).map((k) => [k, m[k]]).filter((x) => x[1] > 1).sort((a, b) => b[1] - a[1]).slice(0, 12);
   }
@@ -1419,6 +1418,15 @@ window.startApp = function () {
   if (!S.days) S.days = {}; if (!S.dreams) S.dreams = {}; if (!S.sym) S.sym = {};
   const today = () => S.days[dkey()] || (S.days[dkey()] = { zones: {}, feel: {}, want: [], before: [] });
   const isNight = () => { const h = new Date(now()).getHours(); return h >= 22 || h < 5; };
+  // время суток для цвета воды: утро · день · вечер · ночь
+  const phase = () => { const h = new Date(now()).getHours(); return h >= 22 || h < 5 ? "night" : h < 11 ? "morning" : h < 17 ? "day" : "evening"; };
+  const PAL = {
+    morning: [[0, "#F2D3CB"], [13, "#B9D5D6"], [30, "#5E93AE"], [55, "#24456B"], [80, "#13284A"], [100, "#0B1728"]],
+    day: [[0, "#CFEAF0"], [14, "#9CCFDC"], [32, "#4F8DB0"], [56, "#24456B"], [80, "#13284A"], [100, "#0B1728"]],
+    evening: [[0, "#D9BFD3"], [14, "#A7A6C8"], [32, "#56769F"], [56, "#22406A"], [80, "#13284A"], [100, "#0B1728"]],
+    night: [[0, "#1A2F50"], [30, "#13284A"], [70, "#0E1F38"], [100, "#081220"]]
+  };
+  const SUN = { morning: "rgba(255,241,236,.8)", day: "rgba(255,255,255,.55)", evening: "rgba(244,222,236,.6)", night: "rgba(207,230,245,.14)" };
   const DECK = (C.deck && C.deck.cards) || [];
   const cardById = (id) => DECK.find((c) => c.id === id);
   const ICN = {
@@ -1638,7 +1646,7 @@ window.startApp = function () {
   }
 
   // ---------- «Сегодня» и вкладки ----------
-  const TABS = [["", "Сегодня", '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'], ["lib", "Библиотека", '<path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/>'], ["guide", "Проводник", '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'], ["notes", "Мои записи", '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>']];
+  const TABS = [["", "Сегодня", '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'], ["lib", "Библиотека", '<path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/>'], ["guide", "Проводник", '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'], ["notes", "Моя карта", '<circle cx="6" cy="7" r="2"/><circle cx="17" cy="6" r="2.5"/><circle cx="12" cy="17" r="3"/><path d="M7.6 8.4l3 6M15.6 8l-2.4 6.5M8 7l6.5-.6"/>']];
   const tabsEl = document.getElementById("tabs") || (() => { const d = document.createElement("nav"); d.id = "tabs"; d.setAttribute("aria-label", "Разделы"); document.body.appendChild(d); return d; })();
   const waterEl = document.getElementById("water") || (() => { const d = document.createElement("div"); d.id = "water"; d.setAttribute("aria-hidden", "true"); document.body.insertBefore(d, document.body.firstChild); return d; })();
   function paintTabs(active) {
@@ -1669,12 +1677,21 @@ window.startApp = function () {
 ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fish(440, 64, 1, .55, "#F0C7B5", 40)}
 <path d="M0 ${H - 110} Q 60 ${H - 140} 120 ${H - 118} T 240 ${H - 126} T 390 ${H - 120} V${H} H0Z" fill="#132845"/>
 <path d="M0 ${H - 70} Q 80 ${H - 92} 160 ${H - 74} T 300 ${H - 80} T 390 ${H - 72} V${H} H0Z" fill="#0E1E36"/>
-${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d="M200 ${H} q3 -50 18 -66 q5 26 -8 66z" fill="#4A3036"/><circle cx="218" cy="${H - 66}" r="3.5" fill="#C9775A" opacity=".7"/></g>${b}</svg>`;
+<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d="M200 ${H} q3 -50 18 -66 q5 26 -8 66z" fill="#4A3036"/><circle cx="218" cy="${H - 66}" r="3.5" fill="#C9775A" opacity=".7"/></g>${b}</svg>`;
   }
-  function setWater(on) {
-    document.body.classList.toggle("water", on);
-    if (on && !waterEl.innerHTML) waterEl.innerHTML = waterSVG();
-    try { tg && tg.setHeaderColor && tg.setHeaderColor(on ? "#24456B" : "#0F1E33"); } catch (e) {}
+  // mode: "full" — вода с анимацией; "tint" — оттенок времени суток только сверху; иначе — темный фон
+  function setWater(mode) {
+    const ph = phase(), pal = PAL[ph], B = document.body;
+    B.classList.toggle("water", mode === "full");
+    B.classList.toggle("tint", mode === "tint");
+    B.classList.toggle("light", mode === "full" && ph !== "night");
+    if (mode === "full") {
+      B.style.setProperty("--wbg", "linear-gradient(180deg," + pal.map((x) => x[1] + " " + x[0] + "%").join(",") + ")");
+      B.style.setProperty("--wsun", "radial-gradient(ellipse 70% 60% at 70% 0," + SUN[ph] + ",rgba(255,255,255,0))");
+      if (!waterEl.innerHTML) waterEl.innerHTML = waterSVG();
+    }
+    if (mode === "tint") B.style.setProperty("--tbg", "linear-gradient(180deg," + (ph === "night" ? "#1A2F50" : pal[2][1] + "99") + " 0,rgba(15,30,51,0) 360px)");
+    try { tg && tg.setHeaderColor && tg.setHeaderColor(mode === "full" ? pal[0][1] : "#0F1E33"); } catch (e) {}
   }
   const dayTs = (k) => new Date(k + "T12:00:00").getTime();
   const dayLabel = (ts) => {
@@ -1704,33 +1721,59 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
     return h + `</div><div class="legend"><span><i style="background:#8FB39A"></i>как ты</span><span><i style="background:#8CC4E8"></i>погружение</span><span><i style="background:#CFE6F5"></i>сон</span><span><i style="background:#C9775A"></i>чувство</span></div></div>`;
   }
   const PLAY = (c) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="${c}" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>`;
+  // образы человека: сколько раз, откуда пришли, с какими образами рядом
+  function imgIndex() {
+    const M = {}, byDay = {};
+    const norm = (w) => String(w || "").trim().toLowerCase();
+    const put = (w, ref) => { w = norm(w); if (!w) return; const x = M[w] || (M[w] = { w, n: 0, src: {}, refs: [], co: {}, feel: {} }); x.n++; x.src[ref.kind] = 1; x.refs.push(ref); (ref.feel || []).forEach((f) => { x.feel[f] = 1; }); };
+    const link = (ws) => { ws = ws.map(norm).filter(Boolean); ws.forEach((a) => ws.forEach((b) => { if (a !== b && M[a]) M[a].co[b] = (M[a].co[b] || 0) + 1; })); };
+    const day = (k, ws) => { (byDay[k] = byDay[k] || []).push(...ws); };
+    Object.keys(S.dreams || {}).forEach((k) => { const d = S.dreams[k]; if (!d || !(d.images || []).length) return; d.images.forEach((w) => put(w, { kind: "dream", ts: dayTs(k), k, text: d.text, feel: d.feel })); day(k, d.images); });
+    Object.keys(S.sym || {}).forEach((k) => { const y = S.sym[k], c = cardById(y.id); if (!c) return; put(c.title, { kind: "sym", ts: y.at || dayTs(k), k, text: y.note }); day(k, [c.title]); });
+    ALLP.forEach((p) => { const n = S.notes[p.id]; if (!n || !(p.images || []).length) return; const ts = n.savedAt || counted(p.id) || 0, k = dkey(ts); p.images.forEach((w) => put(w, { kind: "dive", ts, k, p, text: n.image, feel: n.feelings })); day(k, p.images); });
+    Object.values(byDay).forEach(link);
+    return M;
+  }
+  const topImgs = (idx, n) => Object.values(idx).sort((a, b) => b.n - a.n || Math.max(...b.refs.map((r) => r.ts)) - Math.max(...a.refs.map((r) => r.ts))).slice(0, n);
+  const imgHref = (w) => "#/img/" + encodeURIComponent(w);
+  // светящиеся образы на дне главного экрана
+  function seabed() {
+    const L = topImgs(imgIndex(), 5), SL = [[24, 50], [52, 28], [78, 54], [40, 102], [86, 106]];
+    return `<div class="seabed" aria-label="Твои образы">${L.map((x, i) => { const d = 30 + Math.min(x.n, 6) * 8; return `<a class="${x.src.sym && !x.src.dream && !x.src.dive ? "t" : ""}" href="${imgHref(x.w)}" style="left:${SL[i][0]}%;top:${SL[i][1]}px"><i style="width:${d}px;height:${d}px;animation-delay:-${i * 1.3}s"></i><span>${esc(x.w)}</span></a>`; }).join("")}</div>`;
+  }
+  const MAIN_BACK = "img/back-main.jpg";
+  const HELLO = { morning: "Доброе утро", day: "Добрый день", evening: "Добрый вечер", night: "Доброй ночи" };
+  const WDAY = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"], MONS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+  const WH = (x) => x.replace(/stroke="#0F1E33"/g, 'stroke="#E8EEF4"').replace(/width="18" height="18"/, 'width="24" height="24"');
+  const ICN_PEN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+  const ICN_RUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/></svg>';
   function Main() {
     const pendingInt = ALLP.filter((p) => integrOpen(p.id) && !integrDone(p.id));
     const waitingInt = ALLP.filter((p) => counted(p.id) && hasInt(p) && !integrOpen(p.id) && !integrDone(p.id));
-    const nx = nextStep(), done = anyToday(), k = dkey(), nm = S.profile && S.profile.name;
-    let h = `<div class="stack" style="gap:18px">
-      <div class="row" style="justify-content:space-between;gap:12px"><a class="hello" href="#/me" aria-label="Профиль и настройки"><span>Привет${nm ? ", " + esc(nm) : ""}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9FB2C8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a><a class="sos" href="#/aid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F0C7B5" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="sos-t">Если сложно</span></a></div>`;
-    if (!done) {
-      const tile = (href, ic, t) => `<a class="tile" href="${href}"><span class="ic">${ic}</span>${t}</a>`;
-      h += `<div class="howcard"><svg class="rings" width="140" height="140" viewBox="0 0 140 140" aria-hidden="true"><circle cx="70" cy="70" r="60"/><circle cx="70" cy="70" r="42"/><circle cx="70" cy="70" r="24"/></svg>
-        <span style="font-size:28px;font-weight:800;line-height:1.1;position:relative">Как ты?</span>
-        <div class="tiles">${tile("#/today", ICN.body, "Тело<br>и чувства")}${tile("#/dream", ICN.moon, "Что<br>снилось")}${tile("#/symbol", ICN.card, "Символ<br>дня")}</div>
-        <a class="quick" href="#/quick">Нет времени? Одно чувство за 20 секунд ${icon.chev}</a></div>`;
-    }
+    const nx = nextStep(), k = dkey(), nm = S.profile && S.profile.name, ph = phase(), late = ph === "evening" || ph === "night", d0 = new Date(now());
+    let h = `<div class="mainwrap">
+      <div class="row hd-top" style="justify-content:space-between;gap:12px;align-items:flex-start"><a class="hello" href="#/me" aria-label="Профиль и настройки"><span>${HELLO[ph]}${nm ? ", " + esc(nm) : ""}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9FB2C8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg><span class="hsub">${WDAY[d0.getDay()]}, ${d0.getDate()} ${MONS[d0.getMonth()]}</span></a><a class="sos" href="#/aid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F0C7B5" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="sos-t">Если сложно</span></a></div>`;
+    const sy = S.sym[k], c = sy && cardById(sy.id);
+    if (DECK.length) h += c
+      ? `<a class="glass symrow" href="#/symbol"><span class="th"><img src="${c.img}" alt=""></span><span class="t"><span class="lbl">СИМВОЛ ДНЯ</span><b>${esc(c.title)}</b><span>${sy.note ? "откликнулось: «" + esc(sy.note.length > 70 ? sy.note.slice(0, 70) + "…" : sy.note) + "»" : "что откликается в этом образе? →"}</span></span></a>`
+      : `<a class="symfloat" href="#/symbol" aria-label="Открыть символ дня"><span class="cb"><img src="${MAIN_BACK}" alt="" onerror="this.onerror=null;this.src='${esc(C.deck.back || "")}'"></span><span><b>Символ дня всплыл</b><br><span class="small">коснись, когда захочется</span></span></a>`;
+    const D = S.days[k], bub = (href, ic, t) => `<a class="hbub" href="${href}"><i>${WH(ic)}</i>${t}</a>`;
+    h += `<div class="glass howg"><div class="hrow"><b>${late ? "Как прошел день?" : "Как ты?"}</b></div>
+      <div class="bubs">${bub("#/today", ICN.body, "Тело<br>и чувства")}${late ? bub("#/free", ICN_PEN, "Записать<br>вечер") : bub("#/dream", ICN.moon, "Что<br>снилось")}${bub("#/quick", ICN_RUN, "На бегу")}</div>
+      ${D && D.done ? `<a class="donerow" href="#/inside"><b>✓</b><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">сегодня: ${esc(daySummary(k))}</span>${icon.chev}</a>` : ""}</div>`;
     let now2 = "";
     if (isNight()) {
       const m = mset();
-      now2 = `<a class="nowcard" href="#/music"><span class="pl" style="background:#0F1E33"><svg width="30" height="30" viewBox="0 0 44 44" aria-hidden="true"><path d="M28 27.5A9 9 0 1 1 18.5 15a7 7 0 0 0 9.5 12.5z" fill="#CFE6F5"/></svg></span><span class="t"><span class="small" style="font-size:12px">Если сложно заснуть</span><b style="font-size:16px">Музыкальное сопровождение</b><span class="small" style="font-size:12px;color:var(--blue)">${m.timer ? "таймер " + m.timer + " мин · " : ""}можно свернуть</span></span>${icon.chev}</a>`;
+      now2 = `<a class="nowcard glass" href="#/music"><span class="pl" style="background:#0F1E33"><svg width="30" height="30" viewBox="0 0 44 44" aria-hidden="true"><path d="M28 27.5A9 9 0 1 1 18.5 15a7 7 0 0 0 9.5 12.5z" fill="#CFE6F5"/></svg></span><span class="t"><span class="small" style="font-size:12px">Если сложно заснуть</span><b style="font-size:16px">Музыкальное сопровождение</b><span class="small" style="font-size:12px;color:var(--blue)">${m.timer ? "таймер " + m.timer + " мин · " : ""}можно свернуть</span></span>${icon.chev}</a>`;
     } else if (nx) {
       const open = isOpen(nx.id);
-      now2 = `<a class="nowcard" href="${open ? "#/prep/" + nx.id : "#/cycle/" + nx._cy.id}"><span class="pl${open ? "" : " off"}">${open ? PLAY("#0F1E33") : icon.lock}</span><span class="t"><span class="small" style="font-size:12px">${esc(where(nx))}</span><b>${esc(nx.title)}</b><span class="small" style="font-size:12px;color:${open ? "var(--blue)" : "var(--muted)"}">${open ? "погружение" + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : "") : esc(lockHint(nx))}</span></span></a>`;
+      now2 = `<a class="nowcard glass" href="${open ? "#/prep/" + nx.id : "#/cycle/" + nx._cy.id}">${nx.img ? `<img class="thumb" src="${nx.img}" alt="">` : ""}<span class="t"><span class="small" style="font-size:12px">${esc(where(nx))}</span><b>${esc(nx.title)}</b><span class="small" style="font-size:12px;color:${open ? "var(--blue)" : "var(--muted)"}">${open ? "погружение" + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : "") : esc(lockHint(nx))}</span></span><span class="pl${open ? "" : " off"}">${open ? PLAY("#0F1E33") : icon.lock}</span></a>`;
     }
     if (pendingInt.length === 1) now2 += `<a class="introw sage" href="#/integr/${pendingInt[0].id}"><span class="dot"></span><span style="flex:1">Открыта интеграция к «${esc(pendingInt[0].title)}»</span>${icon.chev}</a>`;
     else if (pendingInt.length > 1) now2 += `<a class="introw sage" href="#/journal"><span class="dot"></span><span style="flex:1">Открыто интеграций: ${pendingInt.length}</span>${icon.chev}</a>`;
     else if (waitingInt.length) now2 += `<div class="introw wait"><span class="dot"></span><span style="flex:1">Интеграция к «${esc(waitingInt[0].title)}» — ${fmtWhen(integrAt(waitingInt[0].id))}</span></div>`;
-    if (now2) h += `<div class="stack" style="gap:8px"><span class="lbl">${isNight() ? "НА НОЧЬ" : "СЕЙЧАС"}</span>${now2}</div>`;
-    h += `</div>`;
-    if (done) h += `<a class="lookpill" href="#/inside"><span class="dot"></span><span class="t"><b>Заглянуть в себя</b><span>${esc(daySummary(k))}</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>`;
+    if (now2) h += `<div class="stack" style="gap:8px">${now2}</div>`;
+    h += seabed() + `</div>`;
     app.innerHTML = h;
   }
   function Dives(part) {
@@ -1761,7 +1804,7 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
     const nx0 = nextStep(), cyN = nx0 ? nx0._cy : cycle;
     const st = nx0 ? "«" + esc(cyN.title) + "» · " + cyCount(cyN) + " из " + real(cyN).length : "все циклы пройдены";
     {
-      app.innerHTML = `<div class="stack" style="gap:12px"><h1>Библиотека</h1>
+      app.innerHTML = `<div class="stack" style="gap:12px"><h1 class="hd-top">Библиотека</h1>
       <a class="lb hero" href="#" id="dvs"><span class="lb-water"><svg viewBox="0 0 360 200" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"><defs><linearGradient id="lbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3D6A93"/><stop offset="1" stop-color="#13284A"/></linearGradient><linearGradient id="lbr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFE6F5" stop-opacity=".22"/><stop offset="1" stop-color="#CFE6F5" stop-opacity="0"/></linearGradient></defs><rect width="360" height="200" fill="url(#lbg)"/><polygon points="200,0 236,0 300,200 220,200" fill="url(#lbr)"/><polygon points="260,0 280,0 340,200 296,200" fill="url(#lbr)" opacity=".6"/><g fill="none" stroke="#CFE6F5" opacity=".6"><circle cx="300" cy="150" r="7"/><circle cx="318" cy="112" r="4.5"/><circle cx="296" cy="84" r="3"/><circle cx="312" cy="56" r="2"/></g><path d="M0 178 Q 60 160 120 176 T 240 172 T 360 176 V200 H0Z" fill="#0F1E33" opacity=".7"/></svg></span>
         <span class="lb-in"><span class="lb-tag">${ALLP.some((p) => counted(p.id)) ? "продолжить" : "начать"}</span><b class="lb-t">Погружения</b><span class="lb-s">Встреча с образами бессознательного — циклами или по запросу</span><span class="lb-pill">${st}</span></span></a>
       <div class="lb-grid">
@@ -1784,7 +1827,7 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
   function FreeNote(i) {
     S.free = S.free || [];
     const n = i !== undefined && S.free[+i] ? S.free[+i] : null;
-    app.innerHTML = `<div class="stack">${back("#/notes", "Мои записи")}
+    app.innerHTML = `<div class="stack">${back("#/notes", "Моя карта")}
       <div class="stack" style="gap:6px"><h1>Свободная заметка</h1><p class="small">Мысль, совпадение, образ из дня — что угодно.</p></div>
       <textarea id="fn" rows="7" placeholder="Что хочется записать…">${n ? esc(n.text) : ""}</textarea>
       <button type="button" class="btn" id="fs">Сохранить</button></div>`;
@@ -1794,38 +1837,87 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
       save(); haptic(); go("#/notes");
     };
   }
-  let NF = "all";
+  let NF = "all", NM = "day", ND = null;
+  const SRC = { dream: ["сны", "#CFE6F5"], dive: ["погружения", "#8CC4E8"], sym: ["символ дня", "#F0C7B5"] };
+  // созвездие образов: крупнее — чаще, линии — образы, которые были рядом
+  function constellation(L) {
+    const SL = [[175, 112], [82, 66], [272, 64], [302, 160], [96, 182], [208, 206], [36, 128], [176, 26]];
+    const pos = {}; L.forEach((x, i) => { pos[x.w] = SL[i]; });
+    let g = "", e = "";
+    L.forEach((x) => Object.keys(x.co).forEach((o) => { if (pos[o] && x.w < o) e += `<line x1="${pos[x.w][0]}" y1="${pos[x.w][1]}" x2="${pos[o][0]}" y2="${pos[o][1]}" stroke="#3F5E80" stroke-width="1.4"${x.co[o] > 1 ? "" : ' stroke-dasharray="3 4"'}/>`; }));
+    L.forEach((x) => {
+      const [cx, cy] = pos[x.w], r = 8 + Math.min(x.n, 6) * 4, srcs = Object.keys(SRC).filter((k) => x.src[k]);
+      g += `<a href="${imgHref(x.w)}"><circle cx="${cx}" cy="${cy}" r="${r * 1.9}" fill="url(#cmo)"/><circle cx="${cx}" cy="${cy}" r="${r * 0.55}" fill="#F4FAFD"/>${srcs.map((k, i) => `<circle cx="${cx - (srcs.length - 1) * 4 + i * 8}" cy="${cy - r * 0.55 - 8}" r="2.6" fill="${SRC[k][1]}"/>`).join("")}<text x="${cx}" y="${cy + r * 0.55 + 15}" text-anchor="middle" font-family="Manrope,system-ui,sans-serif" font-weight="700" font-size="${11 + Math.min(x.n, 4)}" fill="#E8EEF4" stroke="#0F1E33" stroke-opacity=".35" stroke-width="2.5" paint-order="stroke">${esc(x.w)}${x.n > 1 ? ` <tspan fill="#8CC4E8">×${x.n}</tspan>` : ""}</text></a>`;
+    });
+    return `<div class="cmap"><svg viewBox="0 0 350 240" role="img" aria-label="Карта образов"><defs><radialGradient id="cmo"><stop offset="0" stop-color="#E6F4FB" stop-opacity=".9"/><stop offset=".5" stop-color="#8CC4E8" stop-opacity=".35"/><stop offset="1" stop-color="#8CC4E8" stop-opacity="0"/></radialGradient></defs>${e}${g}</svg>
+      <div class="leg">${Object.keys(SRC).map((k) => `<span><i style="background:${SRC[k][1]}"></i>${SRC[k][0]}</span>`).join("")}</div></div>`;
+  }
+  // отражение недели — из записей, без толкований
+  function weekCard(idx) {
+    const wk = now() - 7 * 86400000, inW = (ts) => ts && ts >= wk;
+    const nDream = Object.keys(S.dreams || {}).filter((k) => S.dreams[k] && S.dreams[k].text && inW(dayTs(k))).length;
+    const nDive = ALLP.filter((p) => inW(counted(p.id))).length;
+    const nDay = Object.keys(S.days || {}).filter((k) => S.days[k] && S.days[k].done && inW(dayTs(k))).length;
+    const zq = {}, fq = {}, addF = (f) => { if (f) fq[f] = (fq[f] || 0) + 1; };
+    Object.keys(S.days || {}).forEach((k) => { const d = S.days[k]; if (!d || !d.done || !inW(dayTs(k))) return; Object.keys(d.zones || {}).forEach((z) => { zq[z] = (zq[z] || 0) + 1; }); if (d.feel) addF(d.feel.own || d.feel.shade || d.feel.base); });
+    (S.catches || []).forEach((c) => { if (inW(c.at)) addF(c.word); });
+    ALLP.forEach((p) => { const n = S.notes[p.id]; if (n && inW(n.savedAt || counted(p.id))) (n.feelings || []).forEach(addF); });
+    const parts = [];
+    if (nDream) parts.push(nDream + " " + plural(nDream, "сон", "сна", "снов"));
+    if (nDive) parts.push(nDive + " " + plural(nDive, "погружение", "погружения", "погружений"));
+    if (nDay) parts.push("«Как ты?» — " + nDay + " " + plural(nDay, "раз", "раза", "раз"));
+    let txt = parts.length ? parts.join(", ") + "." : "На этой неделе пока тихо.";
+    const top = topImgs(idx, 1)[0];
+    if (top && top.n > 1) { const nb = Object.keys(top.co).sort((a, b) => top.co[b] - top.co[a]).slice(0, 2); txt += ` <b>${esc(top.w)}</b> — уже ${top.n}-й раз${nb.length ? ", рядом " + nb.map((x) => `<b>${esc(x)}</b>`).join(" и ") : ""}.`; }
+    const tz = Object.keys(zq).sort((a, b) => zq[b] - zq[a])[0];
+    if (tz) txt += ` В теле чаще всего <b>${esc(String(zoneTitle(tz)).toLowerCase())}</b>.`;
+    const tf = Object.keys(fq).sort((a, b) => fq[b] - fq[a]).slice(0, 5);
+    return `<div class="weekc"><span class="lbl" style="color:var(--sage-l)">ЭТА НЕДЕЛЯ</span><span class="txt">${txt}</span>${tf.length ? `<div class="chips">${tf.map((f) => `<span class="chip feel">${esc(f)}${fq[f] > 1 ? " ×" + fq[f] : ""}</span>`).join("")}</div>` : ""}</div>`;
+  }
+  function noteItem(x) {
+    const chipsOf = (xs, bg, c) => xs.length ? `<span class="nchips">${xs.map((v) => `<span style="background:${bg};color:${c}">${esc(v)}</span>`).join("")}</span>` : "";
+    let col, kind, t, sub = "", ch = "", href = "";
+    if (x.kind === "day") { const d = S.days[x.k]; col = "#8FB39A"; kind = "КАК ТЫ"; t = daySummary(x.k) || "отмечено"; sub = d.want && d.want.length ? "хочется: " + d.want.join(", ") : ""; ch = chipsOf(Object.keys(d.zones || {}).map(zoneTitle), "#33262A", "#F0C7B5"); if (x.k === dkey()) href = "#/inside"; }
+    if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); if (x.k === dkey()) href = "#/dream"; }
+    if (x.kind === "sym") { const y = S.sym[x.k], c = cardById(y.id); col = "#F0C7B5"; kind = "СИМВОЛ ДНЯ"; t = c.title; sub = y.note ? "откликается: " + y.note : ""; href = x.k === dkey() ? "#/symbol" : imgHref(c.title.toLowerCase()); }
+    if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = c.src === "guide" ? "ПРОВОДНИК" : "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
+    if (x.kind === "word") { const c = S.catches[x.i]; col = "#C9775A"; kind = "НАЗВАННОЕ ЧУВСТВО"; t = c.word; href = "#/caught/" + x.i; }
+    if (x.kind === "dive") { const n = S.notes[x.p.id] || {}; col = "#8CC4E8"; kind = "ПОГРУЖЕНИЕ"; t = x.p.title; sub = n.image ? (n.image.length > 90 ? n.image.slice(0, 90) + "…" : n.image) : ""; ch = chipsOf(n.feelings || [], "#24382F", "#D3E4D8"); href = "#/after/" + x.p.id; }
+    const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span><b>${esc(t)}</b>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
+    return href ? `<a class="note" href="${href}">${inner}</a>` : `<div class="note">${inner}</div>`;
+  }
   function Notes() {
     const items = [];
     Object.keys(S.days || {}).forEach((k) => { const d = S.days[k]; if (d && d.done) items.push({ kind: "day", ts: dayTs(k), k }); });
     Object.keys(S.dreams || {}).forEach((k) => { const d = S.dreams[k]; if (d && d.text) items.push({ kind: "dream", ts: dayTs(k), k }); });
+    Object.keys(S.sym || {}).forEach((k) => { if (cardById(S.sym[k].id)) items.push({ kind: "sym", ts: S.sym[k].at || dayTs(k), k }); });
     (S.catches || []).forEach((c, i) => items.push({ kind: "word", ts: c.at, i }));
     (S.free || []).forEach((c, i) => items.push({ kind: "free", ts: c.at, i }));
     ALLP.forEach((p) => { const n = S.notes[p.id]; if (n || counted(p.id)) items.push({ kind: "dive", ts: counted(p.id) || (n && n.savedAt) || 0, p }); });
     items.sort((a, b) => b.ts - a.ts);
-    const F = [["all", "Все"], ["dive", "Погружения"], ["dream", "Сны"], ["day", "Как ты"], ["word", "Чувства"]];
-    const chipsOf = (xs, bg, c) => xs.length ? `<span class="nchips">${xs.map((x) => `<span style="background:${bg};color:${c}">${esc(x)}</span>`).join("")}</span>` : "";
-    const rec = recurring();
-    const fq = {}; (S.catches || []).forEach((c) => { fq[c.word] = (fq[c.word] || 0) + 1; }); ALLP.forEach((p) => ((S.notes[p.id] || {}).feelings || []).forEach((f) => { fq[f] = (fq[f] || 0) + 1; }));
-    const topF = Object.keys(fq).sort((a, b) => fq[b] - fq[a]).slice(0, 3);
-    let h = `<div class="stack" style="gap:14px"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px"><div class="stack" style="gap:4px"><h1>Мои записи</h1><span class="small">Видишь только ты.</span></div><button type="button" class="addbtn" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
-      <a style="display:none" href="#/guide"><span class="gi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M17 3l4 4"/></svg></span><span class="t"><b>Проводник</b><span>вопросы к образам и снам · скоро</span></span>${icon.chev}</a>
-      ${rec.length || topF.length ? `<div class="card sumcard"><span class="lbl">ЗА МЕСЯЦ</span>${rec.length ? `<div class="stack" style="gap:6px"><span class="small">возвращаются образы</span><div class="chips">${rec.map((r) => `<span class="chip rec">${esc(r[0])} <b>×${r[1]}</b></span>`).join("")}</div></div>` : ""}${topF.length ? `<div class="stack" style="gap:6px"><span class="small">чаще всего чувства</span><div class="chips">${topF.map((f) => `<span class="chip feel">${esc(f)}</span>`).join("")}</div></div>` : ""}</div>` : ""}
-      <div class="nfil">${F.map(([k, l]) => `<button type="button" class="${NF === k ? "on" : ""}" data-nf="${k}">${l}</button>`).join("")}</div>`;
-    const list = items.filter((x) => NF === "all" || x.kind === NF);
-    if (!list.length) h += `<div class="card dashed"><div class="small">Здесь будут твои записи: после погружений, сны, «Как ты?» и названные чувства.</div></div>`;
-    list.forEach((x) => {
-      let col, kind, t, sub = "", ch = "", href = "";
-      if (x.kind === "day") { const d = S.days[x.k]; col = "#8FB39A"; kind = "КАК ТЫ"; t = daySummary(x.k) || "отмечено"; sub = d.want && d.want.length ? "хочется: " + d.want.join(", ") : ""; ch = chipsOf(Object.keys(d.zones || {}).map(zoneTitle), "#33262A", "#F0C7B5"); if (x.k === dkey()) href = "#/inside"; }
-      if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); if (x.k === dkey()) href = "#/dream"; }
-      if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = c.src === "guide" ? "ПРОВОДНИК" : "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
-      if (x.kind === "word") { const c = S.catches[x.i]; col = "#C9775A"; kind = "НАЗВАННОЕ ЧУВСТВО"; t = c.word; href = "#/caught/" + x.i; }
-      if (x.kind === "dive") { const n = S.notes[x.p.id] || {}; col = "#8CC4E8"; kind = "ПОГРУЖЕНИЕ"; t = x.p.title; sub = n.image ? (n.image.length > 90 ? n.image.slice(0, 90) + "…" : n.image) : ""; ch = chipsOf(n.feelings || [], "#24382F", "#D3E4D8"); href = "#/after/" + x.p.id; }
-      const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span><b>${esc(t)}</b>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
-      h += href ? `<a class="note" href="${href}">${inner}</a>` : `<div class="note">${inner}</div>`;
-    });
+    const idx = imgIndex(), L = topImgs(idx, 8);
+    let h = `<div class="stack" style="gap:14px"><div class="row hd-top" style="justify-content:space-between;align-items:flex-start;gap:12px"><div class="stack" style="gap:4px"><h1>Моя карта</h1><span class="small">Видишь только ты.</span></div><button type="button" class="addbtn" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>`;
+    h += L.length ? constellation(L) : `<div class="card dashed"><div class="small">Здесь появятся твои образы: из снов, погружений и символов дня. Чем чаще образ возвращается, тем ярче он светится.</div></div>`;
+    if (items.length) h += weekCard(idx);
+    if (NM === "day") {
+      const days = []; for (let i = 6; i >= 0; i--) days.push(dkey(now() - i * 86400000));
+      const has = (k) => items.some((x) => x.ts && dkey(x.ts) === k);
+      if (!ND || !days.includes(ND)) ND = has(days[6]) ? days[6] : days.slice().reverse().find(has) || days[6];
+      h += `<div class="dstrip">${days.map((k) => { const dots = dayDots(k).concat(S.sym[k] ? ["#F0C7B5"] : []); return `<button type="button" class="${k === ND ? "on" : ""}" data-day="${k}">${["вс", "пн", "вт", "ср", "чт", "пт", "сб"][new Date(dayTs(k)).getDay()]}<span class="dd">${dots.slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join("")}</span></button>`; }).join("")}</div>`;
+      const dl = items.filter((x) => x.ts && dkey(x.ts) === ND);
+      h += `<div class="stack" style="gap:8px">${dl.length ? dl.map(noteItem).join("") : `<div class="small" style="padding:4px 2px">В этот день записей нет.</div>`}</div>`;
+      if (items.length) h += `<a href="#" class="link-row" id="nall" style="justify-content:center;border:none;color:var(--blue)">Все записи →</a>`;
+    } else {
+      const F = [["all", "Все"], ["dive", "Погружения"], ["dream", "Сны"], ["day", "Как ты"], ["word", "Чувства"]];
+      h += `<a href="#" class="back" id="nday">${icon.back}По дням</a><div class="nfil">${F.map(([k, l]) => `<button type="button" class="${NF === k ? "on" : ""}" data-nf="${k}">${l}</button>`).join("")}</div>`;
+      const list = items.filter((x) => NF === "all" || x.kind === NF);
+      h += list.length ? list.map(noteItem).join("") : `<div class="card dashed"><div class="small">Здесь будут твои записи: после погружений, сны, «Как ты?» и названные чувства.</div></div>`;
+    }
     app.innerHTML = h + `</div>`;
     app.querySelectorAll("[data-nf]").forEach((b) => b.onclick = () => { NF = b.dataset.nf; Notes(); });
+    app.querySelectorAll("[data-day]").forEach((b) => b.onclick = () => { ND = b.dataset.day; Notes(); });
+    if ($("#nall")) $("#nall").onclick = (e) => { e.preventDefault(); NM = "all"; Notes(); };
+    if ($("#nday")) $("#nday").onclick = (e) => { e.preventDefault(); NM = "day"; Notes(); };
     $("#addN").onclick = () => {
       const blu = (x) => x.replace('stroke="#0F1E33"', 'stroke="#8CC4E8"').replace(/width="18" height="18"/, 'width="20" height="20"');
       const o = (href, ic, t, sub) => `<a class="opt" href="${href}"><span class="oi">${ic}</span><span class="t"><b>${t}</b><span>${sub}</span></span>${icon.chev}</a>`;
@@ -1840,6 +1932,30 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
       document.body.appendChild(bg);
     };
   }
+  const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  function ImgPage(w) {
+    w = String(w || "").toLowerCase();
+    const idx = imgIndex(), x = idx[w];
+    if (!x) { app.innerHTML = `<div class="stack"><div class="hd-top">${back("#/notes", "Моя карта")}</div><h1>${esc(cap(w))}</h1><p class="small">Этот образ пока не встречался в записях.</p></div>`; return; }
+    const KN = { dream: ["СОН", "#CFE6F5"], dive: ["ПОГРУЖЕНИЕ", "#8CC4E8"], sym: ["СИМВОЛ ДНЯ", "#F0C7B5"] };
+    const cut = (t, n) => t && t.length > n ? t.slice(0, n) + "…" : t || "";
+    const refs = x.refs.slice().sort((a, b) => b.ts - a.ts).map((r) => {
+      const t = r.kind === "dream" ? cut(r.text, 110) : r.kind === "dive" ? r.p.title + (r.text ? ": " + cut(r.text, 90) : "") : cap(w) + (r.text ? ": «" + cut(r.text, 90) + "»" : "");
+      const href = r.kind === "dive" ? "#/after/" + r.p.id : r.k === dkey() ? (r.kind === "dream" ? "#/dream" : "#/symbol") : "";
+      const inner = `<span class="bar" style="background:${KN[r.kind][1]}"></span><span class="t"><span class="hd"><span style="color:${KN[r.kind][1]}">${KN[r.kind][0]}</span><span>${dayLabel(r.ts)}</span></span><b style="font-size:14px">${esc(t)}</b></span>`;
+      return href ? `<a class="note" href="${href}">${inner}</a>` : `<div class="note">${inner}</div>`;
+    }).join("");
+    const co = Object.keys(x.co).sort((a, b) => x.co[b] - x.co[a]).slice(0, 6), fe = Object.keys(x.feel).slice(0, 6), y = symByTitle(w);
+    const canGuide = window.KARTA_HEADERS && Object.keys(window.KARTA_HEADERS).length;
+    app.innerHTML = `<div class="stack" style="gap:14px"><div class="hd-top">${back("#/notes", "Моя карта")}</div>
+      <div class="imghero hd-top"><div class="orb"></div><h1>${esc(cap(w))}</h1><span class="small">встречается ${x.n} ${plural(x.n, "раз", "раза", "раз")}</span></div>
+      ${co.length ? `<div class="stack" style="gap:6px"><span class="small">рядом</span><div class="chips">${co.map((o) => `<a class="chip" href="${imgHref(o)}" style="background:#1F3654;color:#CFE6F5">${esc(o)}</a>`).join("")}</div></div>` : ""}
+      ${fe.length ? `<div class="stack" style="gap:6px"><span class="small">чувства рядом</span><div class="chips">${fe.map((f) => `<span class="chip feel">${esc(f)}</span>`).join("")}</div></div>` : ""}
+      <div class="stack" style="gap:8px">${refs}</div>
+      ${y ? `<a class="quietlink" href="#/sym/${y.id}">${esc(cap(w))} в словаре символов →</a>` : ""}
+      ${canGuide ? `<button type="button" class="link-row glass" id="ig" style="justify-content:flex-start;gap:10px;padding:12px 14px;border-radius:16px;font-weight:700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Побыть с этим образом с Проводником</button>` : ""}</div>`;
+    if ($("#ig")) $("#ig").onclick = () => { S.guideDraft = "Хочу побыть с образом «" + w + "». "; save(); go("#/guide"); };
+  }
 
   // ---------- роутер ----------
   function render() {
@@ -1850,22 +1966,24 @@ ${weed}<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
-    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export"];
+    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export", "img"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
     const tabI = ["player", "after", "return", "hello", "adult"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
-    if (r !== "policy" && (!S.profile || S.profile.minor)) { paintTabs(-1); setWater(false); }
+    if (r !== "policy" && (!S.profile || S.profile.minor)) { paintTabs(-1); setWater(""); }
     if (r !== "policy") {
       if (!S.profile) return r === "hello" && id === "2" ? Know() : Welcome();
       if (S.profile.minor) return Minor();
     }
     paint = () => {};
     paintMini();
-    paintTabs(tabI); setWater(!r);
+    const FULL = ["", "lib", "guide", "notes", "img"], DARK = ["prep", "safety", "player", "after", "return"];
+    paintTabs(tabI); setWater(FULL.includes(r || "") ? "full" : DARK.includes(r) || tabI < 0 ? "" : "tint");
     switch (r) {
       case "dives": return Dives(id);
       case "lib": return Lib();
       case "notes": return Notes();
+      case "img": return ImgPage(decodeURIComponent(id || ""));
       case "free": return FreeNote(id);
       case "policy": return Policy(id);
       case "dict": return Dict(id);

@@ -264,7 +264,9 @@ body.tabs #tabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:8;pa
 body.tabs #app{padding-bottom:calc(130px + env(safe-area-inset-bottom))}
 /* живая вода на «Сегодня» */
 #water{display:none}
-body.water{background:linear-gradient(180deg,#24456B 0%,#1A3557 30%,#13284A 60%,#0B1728 100%) fixed;background-color:#13284A}
+body.water{background:var(--wbg,linear-gradient(180deg,#24456B 0%,#1A3557 30%,#13284A 60%,#0B1728 100%)) fixed;background-color:#13284A}
+body.water::before{content:"";position:fixed;left:0;right:0;top:0;height:55vh;z-index:0;pointer-events:none;background:var(--wsun,none)}
+body.tint{background-image:var(--tbg);background-repeat:no-repeat;background-size:100% 360px}
 body.water #water{display:block;position:fixed;inset:0;z-index:0;pointer-events:none}
 body.water #water svg{position:absolute;left:0;bottom:0;width:100%;height:100%}
 #app{position:relative;z-index:1}
@@ -335,7 +337,12 @@ body.water #water svg{position:absolute;left:0;bottom:0;width:100%;height:100%}
 .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}.facts div{display:flex;flex-direction:column;gap:2px;padding:12px 4px;border-radius:14px;background:var(--card)}.facts b{font-size:15px}.facts span{font-size:11px;color:var(--muted)}
 .tag{font-size:11px;font-weight:700;color:var(--sage-l);background:var(--sage-bg);padding:3px 9px;border-radius:999px}
 input[type=time]{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-family:inherit;font-size:15px;color-scheme:dark}
-.chat{display:flex;flex-direction:column;gap:8px}.chat .b{max-width:86%;padding:12px 14px;border-radius:16px 16px 16px 4px;background:var(--card3);font-size:14px;line-height:1.5}.chat .b.me{align-self:flex-end;border-radius:16px 16px 4px 16px;background:var(--sage-bg);border:1px solid #3F5E4A}
+.chat{display:flex;flex-direction:column;gap:9px}.chat .b{align-self:flex-start;max-width:86%;padding:11px 14px;border-radius:18px 18px 18px 5px;background:rgba(52,94,135,.55);border:1px solid rgba(207,230,245,.3);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#EAF2F8;font-size:14px;line-height:1.5}.chat .b.me{align-self:flex-end;border-radius:18px 18px 5px 18px;background:rgba(15,30,51,.6);border:1px solid rgba(140,196,232,.28);color:var(--text)}
+.chat .typing{display:flex;gap:6px;align-items:flex-end;padding:14px 16px;height:42px}.chat .typing i{width:8px;height:8px;border-radius:50%;background:#CFE6F5;animation:gup 1.2s ease-in-out infinite}.chat .typing i:nth-child(2){animation-delay:.18s}.chat .typing i:nth-child(3){animation-delay:.36s}
+@keyframes gup{0%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-7px);opacity:1}}
+.gmk a{color:var(--muted2)!important}
+.sendb{width:48px;height:48px;border-radius:50%;background:var(--blue);border:none;display:flex;align-items:center;justify-content:center;flex-shrink:0}.sendb:disabled{opacity:.5}
+#gin{border-radius:22px;background:rgba(11,23,40,.7);border:1px solid rgba(207,230,245,.2)}
 .inp{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;color:var(--text);font-family:inherit;font-size:14px;min-height:44px}
 .btn[disabled]{opacity:.45}
 .guidecard{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;background:var(--sage-bg);border:1px solid #3F5E4A}
@@ -435,3 +442,53 @@ body.tabs .bodybar{bottom:calc(64px + env(safe-area-inset-bottom));padding-botto
 /* Наблюдатель */
 .obs{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:12px;font-size:16px;line-height:1.55}
 .obs i{color:var(--muted)}
+
+/* время суток: светлая вода сверху */
+body.light .hd-top,body.light .hd-top h1,body.light .hd-top .hello{color:#13284A}
+body.light .hd-top .small,body.light .hd-top .lead,body.light .hd-top .sub{color:#24456B}
+body.light .hd-top .hello svg path{stroke:#24456B}
+body.light .hd-top .back{color:#24456B}
+.glass{background:rgba(24,43,69,.62);border:1px solid rgba(207,230,245,.14);border-radius:22px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.hsub{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-top:2px}
+/* главный */
+.mainwrap{display:flex;flex-direction:column;gap:14px;min-height:calc(100vh - 150px - env(safe-area-inset-bottom))}
+.symfloat{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding-top:4px}
+.symfloat .cb{width:118px;height:177px;border-radius:12px;overflow:hidden;transform:rotate(-4deg);box-shadow:0 14px 40px rgba(19,40,74,.45),0 0 60px rgba(255,241,236,.45);animation:sfl 6s ease-in-out infinite}
+.symfloat .cb img{width:100%;height:100%;object-fit:cover;display:block}
+@keyframes sfl{0%,100%{transform:rotate(-4deg) translateY(0)}50%{transform:rotate(-3deg) translateY(-6px)}}
+.symfloat b{font-size:16px}.symfloat .small{font-size:12px;font-weight:600}
+body.light .symfloat b{color:#13284A}body.light .symfloat .small{color:#24456B}
+.symrow{display:flex;gap:14px;align-items:center;padding:12px}
+.symrow .th{width:62px;height:93px;border-radius:8px;overflow:hidden;flex-shrink:0;box-shadow:0 0 30px rgba(207,230,245,.22)}
+.symrow .th img{width:100%;height:100%;object-fit:cover;display:block}
+.symrow .t{display:flex;flex-direction:column;gap:3px;min-width:0}.symrow .t b{font-size:17px}.symrow .t span{font-size:13px;color:var(--muted2);line-height:1.4}
+.howg{padding:14px 12px 12px}
+.howg .hrow{display:flex;justify-content:space-between;align-items:center;padding:0 6px}.howg .hrow b{font-size:20px}
+.bubs{display:flex;justify-content:space-around;margin-top:12px}
+.hbub{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted2);width:84px;text-align:center;line-height:1.25}
+.hbub i{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.28),rgba(140,196,232,.10) 60%,rgba(140,196,232,.04));border:1px solid rgba(207,230,245,.35)}
+.donerow{display:flex;align-items:center;gap:10px;margin:2px 6px 0;padding-top:10px;border-top:1px solid rgba(207,230,245,.12);font-size:13px;color:var(--muted2)}
+.donerow b{color:var(--sage-l)}
+.nowcard.glass{background:rgba(24,43,69,.62);border:1px solid rgba(207,230,245,.14);padding:12px}
+.nowcard .thumb{width:64px;height:48px;border-radius:12px;object-fit:cover;flex-shrink:0}
+.seabed{position:relative;height:150px;margin-top:auto;flex-shrink:0}
+.seabed a{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);font-size:13px;font-weight:700;color:var(--text);text-shadow:0 1px 6px rgba(11,23,40,.8)}
+.seabed a i{display:block;border-radius:50%;background:radial-gradient(circle,#F4FAFD 0,#F4FAFD 28%,rgba(140,196,232,.55) 46%,rgba(140,196,232,0) 70%);animation:kglow 5s ease-in-out infinite}
+.seabed a.t i{background:radial-gradient(circle,#FBEFEA 0,#FBEFEA 28%,rgba(231,166,140,.5) 46%,rgba(231,166,140,0) 70%)}
+.seabed a span{margin-top:-10px}
+@keyframes kglow{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+/* моя карта */
+.cmap{position:relative;margin:0 -8px}
+.cmap svg{display:block;width:100%;height:auto}
+.cmap .leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:0 8px}.cmap .leg i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.weekc{display:flex;flex-direction:column;gap:8px;background:rgba(36,56,47,.55);border:1px solid #3B5A49;border-radius:20px;padding:14px 16px}
+.weekc .txt{font-size:14px;line-height:1.5;color:var(--muted2)}.weekc .txt b{color:var(--text)}
+.dstrip{display:flex;justify-content:space-between;gap:4px}
+.dstrip button{flex:1;max-width:46px;padding:7px 0;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:1px solid transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700}
+.dstrip button.on{background:#1F3654;border-color:#3A5578;color:var(--text)}
+.dstrip button .dd{display:flex;gap:2px;height:6px}.dstrip button .dd i{width:6px;height:6px;border-radius:50%}
+.imghero{display:flex;flex-direction:column;align-items:center;text-align:center}
+.imghero .orb{width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,#F4FAFD 0,#F4FAFD 16%,rgba(191,224,242,.8) 35%,rgba(140,196,232,0) 70%);animation:kglow 5s ease-in-out infinite}
+.imghero h1{margin-top:-8px}
+body.light .hd-top .hsub{color:#24456B}
+body.light h1.hd-top{color:#13284A}
