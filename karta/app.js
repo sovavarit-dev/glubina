@@ -1342,14 +1342,109 @@ window.startApp = function () {
     app.innerHTML = `<div class="stack">${back("#/aid", "Аптечка")}
       <div class="stack" style="gap:6px"><div class="kicker terra">Если плохо</div><h1>Накрыло сейчас или тянется давно?</h1><p class="lead" style="font-size:14px">Это разное — и помогает разное.</p></div>
       <a class="choice terra" href="#/catch"><span class="t"><b>Накрыло сейчас</b><span>жжет, кипит, сжимает — ярко и прямо сейчас</span><span class="meta">1–2 минуты · назвать чувство</span></span>${icon.chev}</a>
-      <a class="choice" href="#/deep"><span class="t"><b>Тянется давно</b><span>фон, туман, «что-то не так», но непонятно что</span><span class="meta">10–15 минут · через образ · скоро</span></span>${icon.chev}</a>
+      <a class="choice" href="#/deep"><span class="t"><b>Тянется давно</b><span>фон, туман, «что-то не так», но непонятно что</span><span class="meta">10–15 минут · через образ</span></span>${icon.chev}</a>
       <p class="small center">Сложно выбрать? Начни с первого — оттуда можно перейти ко второму.</p></div>`;
   }
-  function Deep() {
-    app.innerHTML = `<div class="stack">${back("#/gate", "Назад")}
-      <h1>Путь через образ</h1><p class="lead">Время года, погода, воспоминание — этот путь появится в следующей версии.</p>
-      <p class="lead">Пока можно назвать чувство через таблицу чувств: иногда имя находится и для того, что тянется давно.</p>
-      <a class="btn" href="#/feels">Открыть таблицу чувств</a></div>`;
+  // ---------- «Тянется давно» — путь через образ: время года → погода → воспоминание → чего не хватало → здесь и сейчас ----------
+  if (!S.deep) S.deep = [];
+  const SEASONS = {
+    winter: { t: "Зима", bg: "#1F3654", c: "#C3D0DE", w: ["солнце", "ясно", "мороз", "снегопад", "метель", "слякоть", "серость", "гололед"],
+      ic: (n) => `<svg width="${n}" height="${n}" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 10v44M13 21l38 22M51 21L13 43" stroke="#C3D0DE" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M26 14l6 6 6-6M26 50l6-6 6 6M14 29l8-2-2-8M50 35l-8 2 2 8M50 29l-8-2 2-8M14 35l8 2-2 8" stroke="#C3D0DE" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>` },
+    spring: { t: "Весна", bg: "#24382F", c: "#A9CBB3", w: ["солнце", "гроза", "ветер", "капель", "цветение", "радуга", "тепло", "туман", "оттепель", "слякоть"],
+      ic: (n) => `<svg width="${n}" height="${n}" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 56V30" stroke="#8FB39A" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M32 40c-10 0-16-6-16-14 9 0 16 5 16 14ZM32 34c0-10 6-16 16-16 0 10-6 16-16 16Z" fill="#24382F" stroke="#A9CBB3" stroke-width="3" stroke-linejoin="round"/></svg>` },
+    summer: { t: "Лето", bg: "#33262A", c: "#F0C7B5", w: ["солнце", "зной", "теплый дождь", "духота", "звездная ночь", "закат", "безоблачно"],
+      ic: (n) => `<svg width="${n}" height="${n}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="11" fill="#C9775A"/><path d="M32 8v7M32 49v7M8 32h7M49 32h7M15 15l5 5M44 44l5 5M15 49l5-5M44 20l5-5" stroke="#F0C7B5" stroke-width="3" stroke-linecap="round" fill="none"/></svg>` },
+    autumn: { t: "Осень", bg: "#2A2830", c: "#F0C7B5", w: ["солнце", "листопад", "затяжной дождь", "туман", "заморозки", "ветер", "слякоть", "бабье лето"],
+      ic: (n) => `<svg width="${n}" height="${n}" viewBox="0 0 64 64" aria-hidden="true"><path d="M16 48C16 26 30 14 50 14c0 22-12 34-34 34Z" fill="#33262A" stroke="#C9775A" stroke-width="3" stroke-linejoin="round"/><path d="M16 48L40 24M26 38h8M32 32v-7" stroke="#C9775A" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>` }
+  };
+  const deepLine = (d) => SEASONS[d.season] ? SEASONS[d.season].t + (d.weather && d.weather.length ? " · " + d.weather.join(", ") : "") : "";
+  const steps = (n) => `<div class="dsteps" aria-label="Шаг ${n} из 5">${[1, 2, 3, 4, 5].map((i) => `<span class="${i <= n ? "on" : ""}"></span>`).join("")}</div>`;
+  function Deep(step, arg) {
+    const D = S.deepDraft || (S.deepDraft = {});
+    const Z = SEASONS[D.season];
+    if (step === "done") return DeepDone(arg);
+    if (!step || !Z) {
+      app.innerHTML = `<div class="stack">${back("#/gate", "Назад")}${steps(1)}
+        <div class="stack" style="gap:6px"><div class="kicker">Тянется давно · через образ</div><h1>Плохо, а что — не понять?</h1><p class="lead" style="font-size:14px">Не будем искать слова. Если бы твое состояние было временем года — каким?</p></div>
+        <div class="seasons">${Object.keys(SEASONS).map((k) => { const x = SEASONS[k]; return `<button type="button" data-se="${k}" style="background:${x.bg}">${x.ic(56)}<b style="color:${x.c}">${x.t}</b></button>`; }).join("")}</div>
+        <p class="small center">Первое, что пришло, — и есть ответ.</p></div>`;
+      app.querySelectorAll("[data-se]").forEach((b) => b.onclick = () => { S.deepDraft = { season: b.dataset.se, weather: [], at: now() }; save(); go("#/deep/2"); });
+      return;
+    }
+    if (step === "2") {
+      const own = (D.weather || []).filter((w) => !Z.w.includes(w));
+      app.innerHTML = `<div class="stack">${back("#/deep", "Назад")}${steps(2)}
+        <div class="row" style="gap:14px;align-items:center">${Z.ic(44)}<div class="stack" style="gap:4px"><div class="kicker">${Z.t}</div><h1>Какая погода?</h1><p class="small">Можно выбрать несколько.</p></div></div>
+        <div class="chips">${Z.w.concat(own).map((w) => `<button type="button" class="chip${D.weather.includes(w) ? " on" : ""}" data-w="${esc(w)}">${esc(w)}</button>`).join("")}<button type="button" class="chip" id="wadd" style="border-style:dashed;color:var(--muted)">+ свой вариант</button></div>
+        <div class="row" id="wbox" style="gap:8px;display:none"><input class="inp" id="wown" maxlength="30" placeholder="Своя погода"><button type="button" class="btn" id="wok" style="width:auto;padding:12px 16px">OK</button></div>
+        <button class="btn" id="next"${D.weather.length ? "" : " disabled"}>Дальше</button></div>`;
+      app.querySelectorAll("[data-w]").forEach((b) => b.onclick = () => { const w = b.dataset.w, i = D.weather.indexOf(w); if (i < 0) D.weather.push(w); else D.weather.splice(i, 1); save(); Deep("2"); });
+      $("#wadd").onclick = () => { $("#wbox").style.display = "flex"; $("#wown").focus(); };
+      $("#wok").onclick = () => { const w = $("#wown").value.trim().toLowerCase(); if (w && !D.weather.includes(w)) D.weather.push(w); save(); Deep("2"); };
+      $("#next").onclick = () => go("#/deep/3");
+      return;
+    }
+    if (step === "3") {
+      app.innerHTML = `<div class="stack">${back("#/deep/2", "Назад")}${steps(3)}
+        <div class="stack" style="gap:6px"><div class="kicker">${esc(deepLine(D))}</div><h1>Какое воспоминание или образ приходит с этой погодой?</h1><p class="lead" style="font-size:14px">Любое: давнее, недавнее, совсем маленькое. Или просто картинка.</p></div>
+        <label class="stack" style="gap:8px"><b style="font-size:15px">Воспоминание или образ</b><textarea id="mem" rows="6" maxlength="2000" placeholder="Что видно, где ты, кто рядом…">${esc(D.mem || "")}</textarea></label>
+        <button class="btn" id="next"${(D.mem || "").trim() ? "" : " disabled"}>Дальше</button>
+        <button type="button" class="choice" id="none"><span class="t"><b>Ничего не пришло</b><span>это тоже ответ — останемся в самой погоде</span></span>${icon.chev}</button>
+        <a href="#/aid" class="small center" style="color:var(--terra-l);padding:8px 0">Если воспоминание тяжелое — Аптечка</a></div>`;
+      const m = $("#mem"); m.oninput = () => { D.mem = m.value; save(); $("#next").disabled = !m.value.trim(); };
+      $("#next").onclick = () => go("#/deep/4");
+      $("#none").onclick = () => { D.mem = ""; save(); go("#/deep/4"); };
+      return;
+    }
+    if (step === "4") {
+      const hasMem = (D.mem || "").trim();
+      app.innerHTML = `<div class="stack">${back("#/deep/3", "Назад")}${steps(4)}
+        <div class="stack" style="gap:6px"><div class="kicker">${hasMem ? "Внутри образа" : "В самой погоде"}</div><h1>${hasMem ? "Чего тебе не хватало в этом образе или воспоминании?" : "Чего тебе не хватает в этой погоде?"}</h1></div>
+        <label class="stack" style="gap:8px"><b style="font-size:15px">Чего не хватало</b><textarea id="lack" rows="3" maxlength="1000" placeholder="Тепла, чтобы кто-то…">${esc(D.lack || "")}</textarea></label>
+        <label class="stack" style="gap:8px"><b style="font-size:15px">${hasMem ? "Что тогда хотелось?" : "Чего хочется в ней?"}</b><textarea id="want" rows="3" maxlength="1000" placeholder="Хотелось… / не хотелось…">${esc(D.want || "")}</textarea></label>
+        <button class="btn" id="next">Дальше</button></div>`;
+      const l = $("#lack"), w = $("#want"), nx = $("#next"), upd = () => { D.lack = l.value; D.want = w.value; save(); nx.disabled = !(l.value.trim() || w.value.trim()); };
+      l.oninput = upd; w.oninput = upd; nx.disabled = !((D.lack || "").trim() || (D.want || "").trim());
+      nx.onclick = () => go("#/deep/5");
+      return;
+    }
+    if (step === "5") {
+      const row = (k, v) => v && v.trim() ? `<div class="stack" style="gap:2px"><span class="small" style="font-size:12px">${k}</span><span style="font-size:14px;line-height:1.45">${esc(v.trim())}</span></div>` : "";
+      app.innerHTML = `<div class="stack">${back("#/deep/4", "Назад")}${steps(5)}
+        <div class="card" style="gap:8px;background:var(--sage-bg);border:1px solid var(--sage)"><b style="font-size:13px;color:var(--sage-l)">А теперь вернемся в настоящее</b><span style="font-size:15px;line-height:1.55">Сделай вдох. Почувствуй опору под собой. Посмотри на свою жизнь сейчас — не на ту, что в образе.</span></div>
+        <div class="card" style="gap:8px;background:#152740">${row("Погода", deepLine(D).toLowerCase())}${row("Тогда не хватало", D.lack)}${row("Тогда хотелось", D.want)}</div>
+        <div class="stack" style="gap:6px"><div class="kicker">Здесь и сейчас</div><h1>Где сегодня звучит то, чего тогда не хватало и что хотелось?</h1><p class="lead" style="font-size:14px">Может, у этого теперь другое имя: не любовь, а признание; не деньги, а свое дело.</p></div>
+        <label class="stack" style="gap:8px"><b style="font-size:15px">В моей жизни сейчас…</b><textarea id="nowt" rows="5" maxlength="2000" placeholder="Сейчас мне не хватает… А не хочется идти туда, где…">${esc(D.now || "")}</textarea></label>
+        <button class="btn" id="next">Дальше</button></div>`;
+      const t = $("#nowt"); t.oninput = () => { D.now = t.value; save(); };
+      $("#next").onclick = () => {
+        const rec = { at: now(), season: D.season, weather: D.weather.slice(), mem: (D.mem || "").trim(), lack: (D.lack || "").trim(), want: (D.want || "").trim(), now: (D.now || "").trim() };
+        S.deep.push(rec); S.deepDraft = null; save(); haptic(); go("#/deep/done/" + (S.deep.length - 1));
+      };
+      return;
+    }
+    go("#/deep");
+  }
+  function DeepDone(i) {
+    const d = S.deep[Number(i)];
+    if (!d) return go("#/notes");
+    app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
+      <div class="stack center" style="gap:10px;padding:16px 0 4px;align-items:center">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true"><circle cx="36" cy="36" r="34" fill="#24382F"/><path d="M24 37l8 8 16-17" stroke="#A9CBB3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="small">${esc(deepLine(d))}</div><h1>Запись готова</h1><p class="lead" style="font-size:14px;max-width:300px">Образ сказал о сегодняшнем дне. Можно вернуться к нему позже — он сохранится.</p></div>
+      <label class="choice" style="cursor:pointer"><span class="t"><b>Сохранить в «Моя карта»</b><span id="dsv" style="color:var(--sage-l)">${d.off ? "не сохранено" : "Сохранено"}</span></span><input type="checkbox" id="dkeep" role="switch"${d.off ? "" : " checked"} style="width:22px;height:22px;accent-color:#8FB39A"></label>
+      <a class="choice" href="#/feels"><span class="t"><b>Назвать чувство словом</b><span>таблица чувств — если хочется имени</span></span>${icon.chev}</a>
+      <a class="choice" href="#/ask"><span class="t"><b>Поделиться с Настей</b><span>вопрос о том, что открылось</span></span>${icon.chev}</a>
+      <a class="btn" href="#/" style="background:var(--sage-bg);border:1px solid var(--sage);color:var(--sage-l)">На сегодня достаточно</a></div>`;
+    $("#dkeep").onchange = (e) => { d.off = !e.target.checked; save(); $("#dsv").textContent = d.off ? "не сохранено" : "Сохранено"; };
+  }
+  function DeepView(i) {
+    const d = S.deep[Number(i)]; if (!d) return go("#/notes");
+    const row = (k, v) => v ? `<div class="stack" style="gap:4px"><span class="kicker">${k}</span><span style="font-size:15px;line-height:1.5;white-space:pre-wrap">${esc(v)}</span></div>` : "";
+    app.innerHTML = `<div class="stack">${back("#/notes", "Моя карта")}<div class="kicker">${dayLabel(d.at)} · через образ</div><h1>${esc(deepLine(d))}</h1>
+      ${row("Воспоминание или образ", d.mem)}${row("Тогда не хватало", d.lack)}${row("Тогда хотелось", d.want)}${row("В моей жизни сейчас", d.now)}
+      <button type="button" class="link-row" id="ddel" style="justify-content:center;color:var(--muted)">Удалить запись</button></div>`;
+    $("#ddel").onclick = () => { d.off = true; save(); go("#/notes"); };
   }
   function Catch(dir, opt) {
     if (!dir) {
@@ -1408,7 +1503,7 @@ window.startApp = function () {
       ${bodyChips(c)}
       <div class="choice dashed" style="opacity:.75"><span class="t"><b>Побыть с этим чувством</b><span>практика · скоро</span></span></div>
       <div class="kicker" style="letter-spacing:.08em;margin-top:6px">КОГДА СТАНЕТ ТИШЕ</div>
-      <div class="choice dashed" style="opacity:.75"><span class="t"><b>Посмотреть на это через образ</b><span>острое прошло — а откуда оно? Время года, погода, воспоминание · скоро</span></span></div>
+      <a class="choice" href="#/deep" style="background:#1F3654;border-color:#3A5578"><span class="t"><b>Посмотреть на это через образ</b><span>острое прошло — а откуда оно? Время года, погода, воспоминание</span></span>${icon.chev}</a>
       <a class="btn ghost" href="#/">На главную</a></div>`;
   }
 
@@ -1866,6 +1961,8 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     if (nDream) parts.push(nDream + " " + plural(nDream, "сон", "сна", "снов"));
     if (nDive) parts.push(nDive + " " + plural(nDive, "погружение", "погружения", "погружений"));
     if (nDay) parts.push("«Как ты?» — " + nDay + " " + plural(nDay, "раз", "раза", "раз"));
+    const nDeep = (S.deep || []).filter((d) => !d.off && inW(d.at)).length;
+    if (nDeep) parts.push("через образ — " + nDeep + " " + plural(nDeep, "раз", "раза", "раз"));
     let txt = parts.length ? parts.join(", ") + "." : "На этой неделе пока тихо.";
     const top = topImgs(idx, 1)[0];
     if (top && top.n > 1) { const nb = Object.keys(top.co).sort((a, b) => top.co[b] - top.co[a]).slice(0, 2); txt += ` <b>${esc(top.w)}</b> — уже ${top.n}-й раз${nb.length ? ", рядом " + nb.map((x) => `<b>${esc(x)}</b>`).join(" и ") : ""}.`; }
@@ -1881,6 +1978,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); if (x.k === dkey()) href = "#/dream"; }
     if (x.kind === "sym") { const y = S.sym[x.k], c = cardById(y.id); col = "#F0C7B5"; kind = "СИМВОЛ ДНЯ"; t = c.title; sub = y.note ? "откликается: " + y.note : ""; href = x.k === dkey() ? "#/symbol" : imgHref(c.title.toLowerCase()); }
     if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = c.src === "guide" ? "ПРОВОДНИК" : "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
+    if (x.kind === "deep") { const d = S.deep[x.i]; col = "#B9D5D6"; kind = "ЧЕРЕЗ ОБРАЗ"; t = deepLine(d); sub = d.now || d.lack || d.mem || ""; if (sub.length > 90) sub = sub.slice(0, 90) + "…"; href = "#/deepv/" + x.i; }
     if (x.kind === "word") { const c = S.catches[x.i]; col = "#C9775A"; kind = "НАЗВАННОЕ ЧУВСТВО"; t = c.word; href = "#/caught/" + x.i; }
     if (x.kind === "dive") { const n = S.notes[x.p.id] || {}; col = "#8CC4E8"; kind = "ПОГРУЖЕНИЕ"; t = x.p.title; sub = n.image ? (n.image.length > 90 ? n.image.slice(0, 90) + "…" : n.image) : ""; ch = chipsOf(n.feelings || [], "#24382F", "#D3E4D8"); href = "#/after/" + x.p.id; }
     const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span><b>${esc(t)}</b>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
@@ -1893,6 +1991,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     Object.keys(S.sym || {}).forEach((k) => { if (cardById(S.sym[k].id)) items.push({ kind: "sym", ts: S.sym[k].at || dayTs(k), k }); });
     (S.catches || []).forEach((c, i) => items.push({ kind: "word", ts: c.at, i }));
     (S.free || []).forEach((c, i) => items.push({ kind: "free", ts: c.at, i }));
+    (S.deep || []).forEach((d, i) => { if (!d.off) items.push({ kind: "deep", ts: d.at, i }); });
     ALLP.forEach((p) => { const n = S.notes[p.id]; if (n || counted(p.id)) items.push({ kind: "dive", ts: counted(p.id) || (n && n.savedAt) || 0, p }); });
     items.sort((a, b) => b.ts - a.ts);
     const idx = imgIndex(), L = topImgs(idx, 8);
@@ -1960,13 +2059,13 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
   // ---------- роутер ----------
   function render() {
     const parts = (location.hash.replace(/^#\/?/, "") || "").split("/");
-    const [r, id] = parts;
+    const [r, id, sub] = parts;
     if (PL && r !== "player") { history.replaceState(null, "", "#/player/" + PL.id); exitSheet(); return; }
     clearInterval(timer); timer = null;
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
-    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export", "img"];
+    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export", "img", "deepv"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
     const tabI = ["player", "after", "return", "hello", "adult"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
@@ -1984,6 +2083,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       case "lib": return Lib();
       case "notes": return Notes();
       case "img": return ImgPage(decodeURIComponent(id || ""));
+      case "deepv": return DeepView(id);
       case "free": return FreeNote(id);
       case "policy": return Policy(id);
       case "dict": return Dict(id);
@@ -2012,7 +2112,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       case "ep": return Episode(id);
       case "body": return Body(id, parts[2], parts[3]);
       case "gate": return Gate();
-      case "deep": return Deep();
+      case "deep": return Deep(id, sub);
       case "catch": return Catch(id, parts[2]);
       case "feels": return Feels();
       case "caught": return Caught(id);

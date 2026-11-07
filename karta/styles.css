@@ -492,3 +492,10 @@ body.light .symfloat b{color:#13284A}body.light .symfloat .small{color:#24456B}
 .imghero h1{margin-top:-8px}
 body.light .hd-top .hsub{color:#24456B}
 body.light h1.hd-top{color:#13284A}
+
+/* путь через образ */
+.dsteps{display:flex;gap:6px}.dsteps span{flex:1;height:4px;border-radius:2px;background:var(--line)}.dsteps span.on{background:var(--blue)}
+.seasons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.seasons button{aspect-ratio:1/1;border-radius:22px;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font:inherit;cursor:pointer}
+.seasons button b{font-size:18px;font-weight:800}
+button.choice{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
