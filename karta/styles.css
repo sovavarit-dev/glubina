@@ -478,8 +478,8 @@ body.light .symfloat b{color:#13284A}body.light .symfloat .small{color:#24456B}
 .nowcard .thumb{width:64px;height:48px;border-radius:12px;object-fit:cover;flex-shrink:0}
 .seabed{position:relative;height:170px;margin-top:auto;flex-shrink:0}
 .seabed a{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);animation:drift 9s ease-in-out infinite;font-size:13px;font-weight:700;color:var(--text);text-shadow:0 1px 6px rgba(11,23,40,.8)}
-.seabed a i{display:block;border-radius:50%;background:radial-gradient(circle,#F4FAFD 0,#F4FAFD 28%,rgba(140,196,232,.55) 46%,rgba(140,196,232,0) 70%);animation:kglow 5s ease-in-out infinite}
-.seabed a.t i{background:radial-gradient(circle,#FBEFEA 0,#FBEFEA 28%,rgba(231,166,140,.5) 46%,rgba(231,166,140,0) 70%)}
+.seabed a i{display:block;border-radius:50%;background:radial-gradient(circle,#FFFFFF 0,#FFFFFF 14%,var(--gc,#BFD9FF) 26%,color-mix(in srgb,var(--gc,#BFD9FF) 45%,transparent) 42%,transparent 70%);filter:drop-shadow(0 0 8px var(--gc,#BFD9FF));animation:kglow 5s ease-in-out infinite}
+
 .seabed a span{margin-top:-10px}
 @keyframes kglow{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
 /* моя карта */
@@ -510,3 +510,4 @@ button.choice{width:100%;text-align:left;font:inherit;color:inherit;cursor:point
 .cmap{margin:0 -8px}
 .tparts{display:flex;flex-direction:column;gap:6px;margin-top:2px}.tparts span{font-size:14px;line-height:1.45;color:var(--text)}.tparts i{font-style:normal;display:block;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
 .nfil{flex-wrap:wrap}
+.cmap .cg{animation:cgl 5s ease-in-out infinite}@keyframes cgl{0%,100%{opacity:.85}50%{opacity:1}}@media (prefers-reduced-motion:reduce){.cmap .cg{animation:none}}

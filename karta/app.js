@@ -1881,7 +1881,7 @@ ${b}</svg>`;
     // все образы человека — светящиеся шарики без подписей; крупнее — чаще; плавают
     const L = topImgs(imgIndex(), 14);
     const SL = [[18, 60], [50, 34], [80, 62], [34, 112], [66, 104], [90, 120], [8, 118], [26, 24], [72, 18], [44, 74], [58, 136], [14, 150], [86, 26], [38, 146]];
-    return `<div class="seabed" aria-label="Твои образы: ${L.length}">${L.map((x, i) => { const d = 18 + Math.min(x.n, 6) * 7; return `<a class="${x.src.sym && !x.src.dream && !x.src.dive ? "t" : ""}" href="${imgHref(x.w)}" aria-label="${esc(x.w)}" style="left:${SL[i][0]}%;top:${SL[i][1]}px;animation-duration:${7 + (i % 5) * 1.7}s;animation-delay:-${i * 1.9}s"><i style="width:${d}px;height:${d}px;animation-delay:-${i * 1.3}s"></i></a>`; }).join("")}</div>`;
+    return `<div class="seabed" aria-label="Твои образы: ${L.length}">${L.map((x, i) => { const d = 18 + Math.min(x.n, 6) * 7; return `<a href="${imgHref(x.w)}" aria-label="${esc(x.w)}" style="--gc:${GLOW[mainSrc(x)][0]};left:${SL[i][0]}%;top:${SL[i][1]}px;animation-duration:${7 + (i % 5) * 1.7}s;animation-delay:-${i * 1.9}s"><i style="width:${d}px;height:${d}px;animation-delay:-${i * 1.3}s"></i></a>`; }).join("")}</div>`;
   }
 
   const MAIN_BACK = "img/back-main.jpg";
@@ -2011,21 +2011,22 @@ ${b}</svg>`;
   }
   const SRC = { dream: ["сны", "#CFE6F5"], dive: ["погружения", "#8CC4E8"], sym: ["символ дня", "#F0C7B5"], guide: ["Проводник", "#A9CBB3"] };
   // созвездие образов: крупнее — чаще, линии — образы, которые были рядом
+  // огоньки: цвет по источнику (решение Насти 10.11) — сон, погружение, символ дня, Проводник
+  const GLOW = { dream: ["#BFD9FF", "#3E6FB8"], dive: ["#7FE3E0", "#138A8A"], sym: ["#FFC9A8", "#C2643A"], guide: ["#C6E8B8", "#4F8A4A"] };
+  const mainSrc = (x) => { const c = {}; x.refs.forEach((r) => { c[r.kind] = (c[r.kind] || 0) + 1; }); return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || "dream"; };
   function constellation(L) {
     const SL = [[175, 112], [82, 66], [272, 64], [302, 160], [96, 182], [208, 206], [36, 128], [176, 26]];
     const pos = {}; L.forEach((x, i) => { pos[x.w] = SL[i]; });
-    // цвета по времени суток: на светлой воде — темно-синие огоньки и подписи, ночью — светлые
-    const ph = phase(), lt = ph !== "night";
-    const P = lt ? { line: "#24456B", lo: ".45", halo: ph === "morning" ? "#B5677F" : ph === "evening" ? "#5B5A8E" : "#24609A", core: "#FFFFFF", ring: "#24456B", txt: "#13284A", halo2: "#FFFFFF", num: "#24609A" }
-      : { line: "#3F5E80", lo: "1", halo: "#8CC4E8", core: "#F4FAFD", ring: "none", txt: "#E8EEF4", halo2: "#0F1E33", num: "#8CC4E8" };
+    const lt = phase() !== "night", gi = lt ? 1 : 0;
+    const txt = lt ? "#13284A" : "#E8EEF4", line = lt ? "rgba(19,40,74,.32)" : "rgba(207,230,245,.3)";
     let g = "", e = "";
-    L.forEach((x) => Object.keys(x.co).forEach((o) => { if (pos[o] && x.w < o) e += `<line x1="${pos[x.w][0]}" y1="${pos[x.w][1]}" x2="${pos[o][0]}" y2="${pos[o][1]}" stroke="${P.line}" stroke-opacity="${P.lo}" stroke-width="1.4"${x.co[o] > 1 ? "" : ' stroke-dasharray="3 4"'}/>`; }));
-    L.forEach((x) => {
-      const [cx, cy] = pos[x.w], r = 8 + Math.min(x.n, 6) * 4, srcs = Object.keys(SRC).filter((k) => x.src[k]);
-      g += `<a href="${imgHref(x.w)}"><circle cx="${cx}" cy="${cy}" r="${r * 1.9}" fill="url(#cmo)"/><circle cx="${cx}" cy="${cy}" r="${r * 0.55}" fill="${P.core}" stroke="${P.ring}" stroke-width="1.5"/>${srcs.map((k, i) => `<circle cx="${cx - (srcs.length - 1) * 4 + i * 8}" cy="${cy - r * 0.55 - 8}" r="2.6" fill="${SRC[k][1]}"/>`).join("")}<text x="${cx}" y="${cy + r * 0.55 + 15}" text-anchor="middle" font-family="Manrope,system-ui,sans-serif" font-weight="700" font-size="${11 + Math.min(x.n, 4)}" fill="${P.txt}" stroke="${P.halo2}" stroke-opacity=".5" stroke-width="3" paint-order="stroke">${esc(x.w)}${x.n > 1 ? ` <tspan fill="${P.num}">×${x.n}</tspan>` : ""}</text></a>`;
+    L.forEach((x) => Object.keys(x.co).forEach((o) => { if (pos[o] && x.w < o) { const [x1, y1] = pos[x.w], [x2, y2] = pos[o]; e += `<path d="M${x1} ${y1} Q ${(x1 + x2) / 2} ${(y1 + y2) / 2 - 16} ${x2} ${y2}" fill="none" stroke="${line}" stroke-width="1.2" stroke-linecap="round"${x.co[o] > 1 ? "" : ' stroke-dasharray="2 4"'}/>`; } }));
+    L.forEach((x, i) => {
+      const [cx, cy] = pos[x.w], r = 3 + Math.min(x.n, 6) * 1.3, c = GLOW[mainSrc(x)][gi];
+      g += `<a href="${imgHref(x.w)}" class="cg" style="animation-delay:-${i * 1.3}s"><circle cx="${cx}" cy="${cy}" r="${r * 4}" fill="${c}" opacity="${lt ? .32 : .3}" filter="url(#cgb2)"/><circle cx="${cx}" cy="${cy}" r="${r * 1.8}" fill="${c}" opacity=".85" filter="url(#cgb1)"/><circle cx="${cx}" cy="${cy}" r="${r * .9}" fill="#FFFFFF"/><text x="${cx}" y="${cy + r * 3 + 12}" text-anchor="middle" font-family="Manrope,system-ui,sans-serif" font-weight="700" font-size="${11 + Math.min(x.n, 3)}" fill="${txt}">${esc(x.w)}</text></a>`;
     });
-    return `<div class="cmap"><svg viewBox="0 0 350 240" role="img" aria-label="Карта образов"><defs><radialGradient id="cmo"><stop offset="0" stop-color="${lt ? P.halo : "#E6F4FB"}" stop-opacity="${lt ? ".55" : ".9"}"/><stop offset=".5" stop-color="${P.halo}" stop-opacity="${lt ? ".22" : ".35"}"/><stop offset="1" stop-color="${P.halo}" stop-opacity="0"/></radialGradient></defs>${e}${g}</svg>
-      <div class="leg"${lt ? ' style="color:#13284A"' : ""}>${Object.keys(SRC).map((k) => `<span><i style="background:${SRC[k][1]}"></i>${SRC[k][0]}</span>`).join("")}</div></div>`;
+    return `<div class="cmap"><svg viewBox="0 0 350 240" role="img" aria-label="Карта образов"><defs><filter id="cgb1" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"/></filter><filter id="cgb2" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="9"/></filter></defs>${e}${g}</svg>
+      <div class="leg">${Object.keys(SRC).map((k) => `<span style="color:${lt ? "#13284A" : "#C3D0DE"}"><i style="background:${GLOW[k][gi]}"></i>${SRC[k][0]}</span>`).join("")}</div></div>`;
   }
   // отражение недели — из записей, без толкований
   function weekCard(idx) {
