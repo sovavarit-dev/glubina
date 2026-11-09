@@ -1859,9 +1859,12 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
   const imgHref = (w) => "#/img/" + encodeURIComponent(w);
   // светящиеся образы на дне главного экрана
   function seabed() {
-    const L = topImgs(imgIndex(), 5), SL = [[24, 50], [52, 28], [78, 54], [40, 102], [86, 106]];
-    return `<div class="seabed" aria-label="Твои образы">${L.map((x, i) => { const d = 30 + Math.min(x.n, 6) * 8; return `<a class="${x.src.sym && !x.src.dream && !x.src.dive ? "t" : ""}" href="${imgHref(x.w)}" style="left:${SL[i][0]}%;top:${SL[i][1]}px"><i style="width:${d}px;height:${d}px;animation-delay:-${i * 1.3}s"></i><span>${esc(x.w)}</span></a>`; }).join("")}</div>`;
+    // все образы человека — светящиеся шарики без подписей; крупнее — чаще; плавают
+    const L = topImgs(imgIndex(), 14);
+    const SL = [[18, 60], [50, 34], [80, 62], [34, 112], [66, 104], [90, 120], [8, 118], [26, 24], [72, 18], [44, 74], [58, 136], [14, 150], [86, 26], [38, 146]];
+    return `<div class="seabed" aria-label="Твои образы: ${L.length}">${L.map((x, i) => { const d = 18 + Math.min(x.n, 6) * 7; return `<a class="${x.src.sym && !x.src.dream && !x.src.dive ? "t" : ""}" href="${imgHref(x.w)}" aria-label="${esc(x.w)}" style="left:${SL[i][0]}%;top:${SL[i][1]}px;animation-duration:${7 + (i % 5) * 1.7}s;animation-delay:-${i * 1.9}s"><i style="width:${d}px;height:${d}px;animation-delay:-${i * 1.3}s"></i></a>`; }).join("")}</div>`;
   }
+
   const MAIN_BACK = "img/back-main.jpg";
   const HELLO = { morning: "Доброе утро", day: "Добрый день", evening: "Добрый вечер", night: "Доброй ночи" };
   const WDAY = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"], MONS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];

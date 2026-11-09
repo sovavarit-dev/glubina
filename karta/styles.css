@@ -471,8 +471,8 @@ body.light .symfloat b{color:#13284A}body.light .symfloat .small{color:#24456B}
 .donerow b{color:var(--sage-l)}
 .nowcard.glass{background:rgba(24,43,69,.62);border:1px solid rgba(207,230,245,.14);padding:12px}
 .nowcard .thumb{width:64px;height:48px;border-radius:12px;object-fit:cover;flex-shrink:0}
-.seabed{position:relative;height:150px;margin-top:auto;flex-shrink:0}
-.seabed a{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);font-size:13px;font-weight:700;color:var(--text);text-shadow:0 1px 6px rgba(11,23,40,.8)}
+.seabed{position:relative;height:170px;margin-top:auto;flex-shrink:0}
+.seabed a{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);animation:drift 9s ease-in-out infinite;font-size:13px;font-weight:700;color:var(--text);text-shadow:0 1px 6px rgba(11,23,40,.8)}
 .seabed a i{display:block;border-radius:50%;background:radial-gradient(circle,#F4FAFD 0,#F4FAFD 28%,rgba(140,196,232,.55) 46%,rgba(140,196,232,0) 70%);animation:kglow 5s ease-in-out infinite}
 .seabed a.t i{background:radial-gradient(circle,#FBEFEA 0,#FBEFEA 28%,rgba(231,166,140,.5) 46%,rgba(231,166,140,0) 70%)}
 .seabed a span{margin-top:-10px}
@@ -499,3 +499,7 @@ body.light h1.hd-top{color:#13284A}
 .seasons button{aspect-ratio:1/1;border-radius:22px;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font:inherit;cursor:pointer}
 .seasons button b{font-size:18px;font-weight:800}
 button.choice{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+@keyframes drift{0%,100%{transform:translate(-50%,-50%)}25%{transform:translate(calc(-50% + 6px),calc(-50% - 8px))}50%{transform:translate(calc(-50% - 4px),calc(-50% - 14px))}75%{transform:translate(calc(-50% - 7px),calc(-50% - 5px))}}
+@media (prefers-reduced-motion:reduce){.seabed a,.seabed a i{animation:none}}
+/* карта образов всегда на темном стекле — на светлой воде шарики не видны */
+.cmap{background:rgba(11,23,40,.72);border:1px solid rgba(207,230,245,.14);border-radius:24px;padding:6px 6px 12px;margin:0;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
