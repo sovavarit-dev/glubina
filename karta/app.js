@@ -572,7 +572,8 @@ window.startApp = function () {
     };
     if ($("#gsave")) $("#gsave").onclick = () => {
       S.free = S.free || [];
-      app.querySelectorAll("[data-e]").forEach((c) => { if (c.checked) { const e = ent[+c.dataset.e]; S.free.push({ text: e.type[0].toUpperCase() + e.type.slice(1) + ": " + e.text + (e.origin === "гипотеза ИИ" ? " (гипотеза ИИ)" : ""), at: now(), src: "guide" }); } });
+      const parts = []; app.querySelectorAll("[data-e]").forEach((c) => { if (c.checked) { const e = ent[+c.dataset.e]; parts.push({ type: String(e.type).toLowerCase(), text: e.text }); } });
+      if (parts.length) S.free.push({ src: "guide", at: now(), parts, text: parts.map((p) => p.type[0].toUpperCase() + p.type.slice(1) + ": " + p.text).join("\n") });
       toast("Сохранено в «Моя карта»"); fresh();
     };
     const mark = (i, ok, note) => { const m = G.msgs[i]; gApi({ action: "mark", conv: G.conv, i: m.i, ok, note }).then((r) => { if (r.ok) { m.mark = { ok }; save(); toast("Спасибо, отмечено"); if (location.hash.startsWith("#/guide")) Guide(); } else toast("Не получилось отметить"); }); };
@@ -1979,6 +1980,34 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     };
   }
   let NF = "all", NM = "day", ND = null;
+  // разговоры с Проводником: части по рубрикам (старые записи «Тело: …» по одной — склеиваются по времени)
+  const GCAT = { "тело": "body", "мысль": "thought", "вывод": "thought", "образ": "image", "сон": "image", "чувство": "feel" };
+  const GLBL = { body: "Тело", thought: "Мысли", image: "Образы", feel: "Чувства" };
+  function guideTalks() {
+    const out = [];
+    (S.free || []).forEach((c, i) => {
+      if (c.src !== "guide" || c.off) return;
+      const ps = c.parts || [{ type: (String(c.text).match(/^([А-Яа-я]+):/) || [])[1] || "мысль", text: String(c.text).replace(/^[А-Яа-я]+:\s*/, "") }];
+      const last = out[out.length - 1];
+      if (last && !c.parts && !last.whole && Math.abs(c.at - last.at) < 60000) { last.idx.push(i); last.parts.push(...ps.map((p) => Object.assign({ i }, p))); }
+      else out.push({ at: c.at, idx: [i], whole: !!c.parts, parts: ps.map((p) => Object.assign({ i }, p)) });
+    });
+    return out;
+  }
+  function Talk(i) {
+    const T = guideTalks().find((t) => t.idx.includes(+i)); if (!T) return go("#/notes");
+    const by = {}; T.parts.forEach((p, k) => { const g = GCAT[String(p.type).toLowerCase()] || "thought"; (by[g] = by[g] || []).push(Object.assign({ k }, p)); });
+    app.innerHTML = `<div class="stack">${back("#/notes", "Моя карта")}<div class="kicker">${dayLabel(T.at)}</div><h1>Разговор с Проводником</h1>
+      ${["feel", "body", "image", "thought"].filter((g) => by[g]).map((g) => `<div class="stack" style="gap:6px"><span class="kicker">${GLBL[g]}</span>${by[g].map((p) => `<textarea data-k="${p.k}" rows="2" maxlength="1000">${esc(p.text)}</textarea>`).join("")}</div>`).join("")}
+      <button class="btn" id="tsv">Сохранить</button><button type="button" class="link-row" id="tdel" style="justify-content:center;color:var(--muted)">Удалить запись</button></div>`;
+    $("#tsv").onclick = () => {
+      app.querySelectorAll("[data-k]").forEach((t) => { T.parts[+t.dataset.k].text = t.value.trim(); });
+      const keep = T.parts.filter((p) => p.text), first = S.free[T.idx[0]];
+      first.parts = keep.map((p) => ({ type: p.type, text: p.text })); first.text = keep.map((p) => p.type[0].toUpperCase() + p.type.slice(1) + ": " + p.text).join("\n");
+      T.idx.slice(1).forEach((j) => { S.free[j].off = true; }); save(); toast("Сохранено"); go("#/notes");
+    };
+    $("#tdel").onclick = () => { T.idx.forEach((j) => { S.free[j].off = true; }); save(); go("#/notes"); };
+  }
   const SRC = { dream: ["сны", "#CFE6F5"], dive: ["погружения", "#8CC4E8"], sym: ["символ дня", "#F0C7B5"], guide: ["Проводник", "#A9CBB3"] };
   // созвездие образов: крупнее — чаще, линии — образы, которые были рядом
   function constellation(L) {
@@ -2023,11 +2052,18 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     if (x.kind === "day") { const d = S.days[x.k]; col = "#8FB39A"; kind = "КАК ТЫ"; t = daySummary(x.k) || "отмечено"; sub = d.want && d.want.length ? "хочется: " + d.want.join(", ") : ""; ch = chipsOf(Object.keys(d.zones || {}).map(zoneTitle), "#33262A", "#F0C7B5"); if (x.k === dkey()) href = "#/inside"; }
     if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); href = "#/dream/" + x.k; }
     if (x.kind === "sym") { const y = S.sym[x.k], c = cardById(y.id); col = "#F0C7B5"; kind = "СИМВОЛ ДНЯ"; t = c.title; sub = y.note ? "откликается: " + y.note : ""; href = x.k === dkey() ? "#/symbol" : imgHref(c.title.toLowerCase()); }
+    if (x.kind === "gpart") { col = "#A9BBD0"; kind = "ПРОВОДНИК · " + GLBL[GCAT[String(x.p.type).toLowerCase()] || "thought"].toUpperCase(); t = x.p.text; href = "#/talk/" + x.T.idx[0]; }
+    if (x.kind === "talk") {
+      col = "#A9BBD0"; kind = "РАЗГОВОР С ПРОВОДНИКОМ"; href = "#/talk/" + x.T.idx[0];
+      const by = {}; x.T.parts.forEach((p) => { const g = GCAT[String(p.type).toLowerCase()] || "thought"; (by[g] = by[g] || []).push(p.text); });
+      t = ""; sub = "";
+      ch = `<span class="tparts">${["feel", "body", "image", "thought"].filter((g) => by[g]).map((g) => `<span><i>${GLBL[g]}</i>${esc(by[g].join(" · "))}</span>`).join("")}</span>`;
+    }
     if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = c.src === "guide" ? "ПРОВОДНИК" : "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
     if (x.kind === "deep") { const d = S.deep[x.i]; col = "#B9D5D6"; kind = "ЧЕРЕЗ ОБРАЗ"; t = deepLine(d); sub = d.now || d.lack || d.mem || ""; if (sub.length > 90) sub = sub.slice(0, 90) + "…"; href = "#/deepv/" + x.i; }
     if (x.kind === "word") { const c = S.catches[x.i]; col = "#C9775A"; kind = "НАЗВАННОЕ ЧУВСТВО"; t = c.word; href = "#/caught/" + x.i; }
     if (x.kind === "dive") { const n = S.notes[x.p.id] || {}; col = "#8CC4E8"; kind = "ПОГРУЖЕНИЕ"; t = x.p.title; sub = n.image ? (n.image.length > 90 ? n.image.slice(0, 90) + "…" : n.image) : ""; ch = chipsOf(n.feelings || [], "#24382F", "#D3E4D8"); href = "#/after/" + x.p.id; }
-    const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span><b>${esc(t)}</b>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
+    const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span>${t ? `<b>${esc(t)}</b>` : ""}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
     return href ? `<a class="note" href="${href}">${inner}</a>` : `<div class="note">${inner}</div>`;
   }
   function Notes() {
@@ -2036,7 +2072,8 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     Object.keys(S.dreams || {}).forEach((k) => { const d = S.dreams[k]; if (d && d.text) items.push({ kind: "dream", ts: dayTs(k), k }); });
     Object.keys(S.sym || {}).forEach((k) => { if (cardById(S.sym[k].id)) items.push({ kind: "sym", ts: S.sym[k].at || dayTs(k), k }); });
     (S.catches || []).forEach((c, i) => items.push({ kind: "word", ts: c.at, i }));
-    (S.free || []).forEach((c, i) => items.push({ kind: "free", ts: c.at, i }));
+    (S.free || []).forEach((c, i) => { if (!c.off && c.src !== "guide") items.push({ kind: "free", ts: c.at, i }); });
+    guideTalks().forEach((T) => items.push({ kind: "talk", ts: T.at, T }));
     (S.deep || []).forEach((d, i) => { if (!d.off) items.push({ kind: "deep", ts: d.at, i }); });
     ALLP.forEach((p) => { const n = S.notes[p.id]; if (n || counted(p.id)) items.push({ kind: "dive", ts: counted(p.id) || (n && n.savedAt) || 0, p }); });
     items.sort((a, b) => b.ts - a.ts);
@@ -2053,9 +2090,13 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       h += `<div class="stack" style="gap:8px">${dl.length ? dl.map(noteItem).join("") : `<div class="small" style="padding:4px 2px">В этот день записей нет.</div>`}</div>`;
       if (items.length) h += `<a href="#" class="link-row" id="nall" style="justify-content:center;border:none;color:var(--blue)">Все записи →</a>`;
     } else {
-      const F = [["all", "Все"], ["dive", "Погружения"], ["dream", "Сны"], ["day", "Как ты"], ["word", "Чувства"]];
+      const F = [["all", "Все"], ["feel", "Чувства"], ["body", "Тело"], ["image", "Образы"], ["thought", "Мысли"], ["dive", "Погружения"], ["dream", "Сны"], ["day", "Как ты"]];
       h += `<a href="#" class="back" id="nday">${icon.back}По дням</a><div class="nfil">${F.map(([k, l]) => `<button type="button" class="${NF === k ? "on" : ""}" data-nf="${k}">${l}</button>`).join("")}</div>`;
-      const list = items.filter((x) => NF === "all" || x.kind === NF);
+      // рубрики: части разговоров с Проводником раскладываются по своим вкладкам
+      const piece = (p, T) => ({ kind: "gpart", ts: T.at, p, T });
+      const list = NF === "all" ? items : ["feel", "body", "image", "thought"].includes(NF)
+        ? items.filter((x) => (NF === "feel" && x.kind === "word") || (NF === "body" && x.kind === "day") || (NF === "image" && (x.kind === "dream" || x.kind === "deep"))).concat(guideTalks().flatMap((T) => T.parts.filter((p) => (GCAT[String(p.type).toLowerCase()] || "thought") === NF).map((p) => piece(p, T)))).sort((a, b) => b.ts - a.ts)
+        : items.filter((x) => x.kind === NF);
       h += list.length ? list.map(noteItem).join("") : `<div class="card dashed"><div class="small">Здесь будут твои записи: после погружений, сны, «Как ты?» и названные чувства.</div></div>`;
     }
     app.innerHTML = h + `</div>`;
@@ -2115,7 +2156,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
-    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export", "img", "deepv"];
+    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export", "img", "deepv", "talk"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
     const tabI = ["player", "after", "return", "hello", "adult"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
@@ -2134,6 +2175,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       case "notes": return Notes();
       case "img": return ImgPage(decodeURIComponent(id || ""));
       case "deepv": return DeepView(id);
+      case "talk": return Talk(id);
       case "free": return FreeNote(id);
       case "policy": return Policy(id);
       case "dict": return Dict(id);

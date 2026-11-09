@@ -503,3 +503,5 @@ button.choice{width:100%;text-align:left;font:inherit;color:inherit;cursor:point
 @media (prefers-reduced-motion:reduce){.seabed a,.seabed a i{animation:none}}
 /* карта образов всегда на темном стекле — на светлой воде шарики не видны */
 .cmap{background:rgba(11,23,40,.72);border:1px solid rgba(207,230,245,.14);border-radius:24px;padding:6px 6px 12px;margin:0;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.tparts{display:flex;flex-direction:column;gap:6px;margin-top:2px}.tparts span{font-size:14px;line-height:1.45;color:var(--text)}.tparts i{font-style:normal;display:block;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.nfil{flex-wrap:wrap}
