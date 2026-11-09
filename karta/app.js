@@ -2013,14 +2013,18 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
   function constellation(L) {
     const SL = [[175, 112], [82, 66], [272, 64], [302, 160], [96, 182], [208, 206], [36, 128], [176, 26]];
     const pos = {}; L.forEach((x, i) => { pos[x.w] = SL[i]; });
+    // цвета по времени суток: на светлой воде — темно-синие огоньки и подписи, ночью — светлые
+    const ph = phase(), lt = ph !== "night";
+    const P = lt ? { line: "#24456B", lo: ".45", halo: ph === "morning" ? "#B5677F" : ph === "evening" ? "#5B5A8E" : "#24609A", core: "#FFFFFF", ring: "#24456B", txt: "#13284A", halo2: "#FFFFFF", num: "#24609A" }
+      : { line: "#3F5E80", lo: "1", halo: "#8CC4E8", core: "#F4FAFD", ring: "none", txt: "#E8EEF4", halo2: "#0F1E33", num: "#8CC4E8" };
     let g = "", e = "";
-    L.forEach((x) => Object.keys(x.co).forEach((o) => { if (pos[o] && x.w < o) e += `<line x1="${pos[x.w][0]}" y1="${pos[x.w][1]}" x2="${pos[o][0]}" y2="${pos[o][1]}" stroke="#3F5E80" stroke-width="1.4"${x.co[o] > 1 ? "" : ' stroke-dasharray="3 4"'}/>`; }));
+    L.forEach((x) => Object.keys(x.co).forEach((o) => { if (pos[o] && x.w < o) e += `<line x1="${pos[x.w][0]}" y1="${pos[x.w][1]}" x2="${pos[o][0]}" y2="${pos[o][1]}" stroke="${P.line}" stroke-opacity="${P.lo}" stroke-width="1.4"${x.co[o] > 1 ? "" : ' stroke-dasharray="3 4"'}/>`; }));
     L.forEach((x) => {
       const [cx, cy] = pos[x.w], r = 8 + Math.min(x.n, 6) * 4, srcs = Object.keys(SRC).filter((k) => x.src[k]);
-      g += `<a href="${imgHref(x.w)}"><circle cx="${cx}" cy="${cy}" r="${r * 1.9}" fill="url(#cmo)"/><circle cx="${cx}" cy="${cy}" r="${r * 0.55}" fill="#F4FAFD"/>${srcs.map((k, i) => `<circle cx="${cx - (srcs.length - 1) * 4 + i * 8}" cy="${cy - r * 0.55 - 8}" r="2.6" fill="${SRC[k][1]}"/>`).join("")}<text x="${cx}" y="${cy + r * 0.55 + 15}" text-anchor="middle" font-family="Manrope,system-ui,sans-serif" font-weight="700" font-size="${11 + Math.min(x.n, 4)}" fill="#E8EEF4" stroke="#0F1E33" stroke-opacity=".35" stroke-width="2.5" paint-order="stroke">${esc(x.w)}${x.n > 1 ? ` <tspan fill="#8CC4E8">×${x.n}</tspan>` : ""}</text></a>`;
+      g += `<a href="${imgHref(x.w)}"><circle cx="${cx}" cy="${cy}" r="${r * 1.9}" fill="url(#cmo)"/><circle cx="${cx}" cy="${cy}" r="${r * 0.55}" fill="${P.core}" stroke="${P.ring}" stroke-width="1.5"/>${srcs.map((k, i) => `<circle cx="${cx - (srcs.length - 1) * 4 + i * 8}" cy="${cy - r * 0.55 - 8}" r="2.6" fill="${SRC[k][1]}"/>`).join("")}<text x="${cx}" y="${cy + r * 0.55 + 15}" text-anchor="middle" font-family="Manrope,system-ui,sans-serif" font-weight="700" font-size="${11 + Math.min(x.n, 4)}" fill="${P.txt}" stroke="${P.halo2}" stroke-opacity=".5" stroke-width="3" paint-order="stroke">${esc(x.w)}${x.n > 1 ? ` <tspan fill="${P.num}">×${x.n}</tspan>` : ""}</text></a>`;
     });
-    return `<div class="cmap"><svg viewBox="0 0 350 240" role="img" aria-label="Карта образов"><defs><radialGradient id="cmo"><stop offset="0" stop-color="#E6F4FB" stop-opacity=".9"/><stop offset=".5" stop-color="#8CC4E8" stop-opacity=".35"/><stop offset="1" stop-color="#8CC4E8" stop-opacity="0"/></radialGradient></defs>${e}${g}</svg>
-      <div class="leg">${Object.keys(SRC).map((k) => `<span><i style="background:${SRC[k][1]}"></i>${SRC[k][0]}</span>`).join("")}</div></div>`;
+    return `<div class="cmap"><svg viewBox="0 0 350 240" role="img" aria-label="Карта образов"><defs><radialGradient id="cmo"><stop offset="0" stop-color="${lt ? P.halo : "#E6F4FB"}" stop-opacity="${lt ? ".55" : ".9"}"/><stop offset=".5" stop-color="${P.halo}" stop-opacity="${lt ? ".22" : ".35"}"/><stop offset="1" stop-color="${P.halo}" stop-opacity="0"/></radialGradient></defs>${e}${g}</svg>
+      <div class="leg"${lt ? ' style="color:#13284A"' : ""}>${Object.keys(SRC).map((k) => `<span><i style="background:${SRC[k][1]}"></i>${SRC[k][0]}</span>`).join("")}</div></div>`;
   }
   // отражение недели — из записей, без толкований
   function weekCard(idx) {
