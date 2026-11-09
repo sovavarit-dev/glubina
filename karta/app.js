@@ -1776,7 +1776,7 @@ window.startApp = function () {
   }
 
   // ---------- «Сегодня» и вкладки ----------
-  const TABS = [["", "Сегодня", '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'], ["lib", "Библиотека", '<path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/>'], ["guide", "Проводник", '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'], ["notes", "Моя карта", '<circle cx="6" cy="7" r="2"/><circle cx="17" cy="6" r="2.5"/><circle cx="12" cy="17" r="3"/><path d="M7.6 8.4l3 6M15.6 8l-2.4 6.5M8 7l6.5-.6"/>']];
+  const TABS = [["", "Сегодня", '<path d="M3.5 11.5 12 4.5l8.5 7V20a1.5 1.5 0 0 1-1.5 1.5h-4v-6h-6v6H5A1.5 1.5 0 0 1 3.5 20z"/>'], ["lib", "Библиотека", '<path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H17a2 2 0 0 1 2 2v14.5a1.5 1.5 0 0 1-1.5 1.5H7.5A2.5 2.5 0 0 1 5 18.5z"/><path d="M5 18.5A2.5 2.5 0 0 1 7.5 16H19"/>'], ["guide", "Проводник", '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'], ["notes", "Моя карта", '<circle cx="6" cy="7" r="2"/><circle cx="17" cy="6" r="2.5"/><circle cx="12" cy="17" r="3"/><path d="M7.6 8.4l3 6M15.6 8l-2.4 6.5M8 7l6.5-.6"/>']];
   const tabsEl = document.getElementById("tabs") || (() => { const d = document.createElement("nav"); d.id = "tabs"; d.setAttribute("aria-label", "Разделы"); document.body.appendChild(d); return d; })();
   const waterEl = document.getElementById("water") || (() => { const d = document.createElement("div"); d.id = "water"; d.setAttribute("aria-hidden", "true"); document.body.insertBefore(d, document.body.firstChild); return d; })();
   function paintTabs(active) {
@@ -1805,10 +1805,11 @@ window.startApp = function () {
 <defs><linearGradient id="wray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFE6F5" stop-opacity="0"/><stop offset=".3" stop-color="#CFE6F5" stop-opacity=".10"/><stop offset="1" stop-color="#CFE6F5" stop-opacity="0"/></linearGradient></defs>
 <polygon points="110,0 150,0 230,${H} 130,${H}" fill="url(#wray)"><animate attributeName="opacity" values=".5;1;.5" dur="10s" repeatCount="indefinite"/></polygon><polygon points="230,0 258,0 330,${H} 262,${H}" fill="url(#wray)" opacity=".7"><animate attributeName="opacity" values="1;.4;1" dur="13s" repeatCount="indefinite"/></polygon>
 ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fish(440, 64, 1, .55, "#F0C7B5", 40)}
-<path d="M0 ${H - 110} Q 60 ${H - 140} 120 ${H - 118} T 240 ${H - 126} T 390 ${H - 120} V${H} H0Z" fill="#132845"/>
-<path d="M0 ${H - 70} Q 80 ${H - 92} 160 ${H - 74} T 300 ${H - 80} T 390 ${H - 72} V${H} H0Z" fill="#0E1E36"/>
-<g><path d="M180 ${H} q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d="M200 ${H} q3 -50 18 -66 q5 26 -8 66z" fill="#4A3036"/><circle cx="218" cy="${H - 66}" r="3.5" fill="#C9775A" opacity=".7"/></g>${b}</svg>`;
+${b}</svg>`;
   }
+  // дно — в самом конце прокрутки, под любым по длине экраном
+  const bedEl = document.getElementById("bed") || (() => { const d = document.createElement("div"); d.id = "bed"; d.setAttribute("aria-hidden", "true"); document.body.insertBefore(d, document.body.firstChild); return d; })();
+  bedEl.innerHTML = `<svg viewBox="0 0 390 150" preserveAspectRatio="xMidYMax slice" width="100%" height="100%"><path d="M0 40 Q 60 10 120 32 T 240 24 T 390 30 V150 H0Z" fill="#132845"/><path d="M0 80 Q 80 58 160 76 T 300 70 T 390 78 V150 H0Z" fill="#0E1E36"/><g><path d="M180 150 q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d="M200 150 q3 -50 18 -66 q5 26 -8 66z" fill="#4A3036"/><circle cx="218" cy="84" r="3.5" fill="#C9775A" opacity=".7"/></g></svg>`;
   // mode: "full" — вода с анимацией; "tint" — оттенок времени суток только сверху; иначе — темный фон
   function setWater(mode) {
     const ph = phase(), pal = PAL[ph], B = document.body;
