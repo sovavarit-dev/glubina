@@ -509,6 +509,8 @@ window.startApp = function () {
       gApi({ action: "hello" }).then((r) => { guideOK = !!(r.ok && r.j.ok); if (location.hash.startsWith("#/guide")) Guide(); });
       return;
     }
+    // пауза больше 3 часов — новый разговор (разбор логов 09.11: разговоры склеивались)
+    if (S.guide && S.guide.msgs.length && Date.now() - (S.guide.last || 0) > 3 * 3600e3) S.guide = gNew();
     const G = S.guide || (S.guide = gNew());
     const g = (S.profile && S.profile.gender) || "n";
     const bubbles = G.msgs.map((m, i) => m.r === "u" ? `<div class="b me">${esc(m.t)}</div>` :
@@ -519,7 +521,7 @@ window.startApp = function () {
       ${G.msgs.length ? "" : `<p class="lead" style="font-size:14px">Напиши, что сейчас происходит: чувство, сон, образ из погружения. Проводник задает вопросы и не толкует за тебя.</p>`}
       <p class="small" style="font-size:12px">Тестовый режим: разговор сохраняется, чтобы улучшать проводника. Если сейчас опасно — звони 112.</p></div>
       <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b typing" aria-label="Проводник пишет"><i></i><i></i><i></i></div>` : ""}</div>
-      ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}${e.origin === "гипотеза ИИ" ? " · ГИПОТЕЗА ИИ" : ""}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Моя карта»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
+      ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Моя карта»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
       <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Как ты?" style="flex:1;resize:none"${guideBusy ? " disabled" : ""}>${esc(S.guideDraft || "")}</textarea><button class="sendb" id="gsend"${guideBusy ? " disabled" : ""} aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
       ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--blue)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
     const ch = $("#gch"); if (ch && ch.lastElementChild) ch.lastElementChild.scrollIntoView({ block: "nearest" });
@@ -527,7 +529,7 @@ window.startApp = function () {
     const send = () => {
       const inp = $("#gin"), t = inp ? inp.value.trim() : "";
       if (!t || guideBusy) return;
-      G.msgs.push({ r: "u", t }); guideBusy = true; S.guideDraft = ""; save(); Guide();
+      G.msgs.push({ r: "u", t }); G.last = Date.now(); guideBusy = true; S.guideDraft = ""; save(); Guide();
       gApi({ action: "say", conv: G.conv, text: t, gender: g }).then((r) => {
         guideBusy = false;
         if (r.ok && r.j.text) G.msgs.push({ r: "a", t: r.j.text, i: r.j.i });
@@ -2053,7 +2055,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       <div class="stack" style="gap:8px">${refs}</div>
       ${y ? `<a class="quietlink" href="#/sym/${y.id}">${esc(cap(w))} в словаре символов →</a>` : ""}
       ${canGuide ? `<button type="button" class="link-row glass" id="ig" style="justify-content:flex-start;gap:10px;padding:12px 14px;border-radius:16px;font-weight:700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Побыть с этим образом с Проводником</button>` : ""}</div>`;
-    if ($("#ig")) $("#ig").onclick = () => { S.guideDraft = "Хочу побыть с образом «" + w + "». "; save(); go("#/guide"); };
+    if ($("#ig")) $("#ig").onclick = () => { S.guideDraft = "Хочу побыть с образом «" + w + "». "; S.guide = null; save(); go("#/guide"); };
   }
 
   // ---------- роутер ----------
