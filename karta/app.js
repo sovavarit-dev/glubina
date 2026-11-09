@@ -501,6 +501,17 @@ window.startApp = function () {
       return ok ? `<a href="${href}" style="color:var(--sage);font-weight:600">${label} ›</a>` : `«${label}»`;
     }).replace(/\n/g, "<br>");
   }
+  // просьба связать образы: «соедини огонь с башней», «свяжи образ воды и ворона», «соедини с башней» (второй — образ разговора)
+  function linkReq(t, G) {
+    const m = t.toLowerCase().replace(/ё/g, "е").trim().match(/^(?:пожалуйста,?\s*)?(?:соедини|свяжи|связать|соединить)(?:те)?,?\s+(?:образ\S*\s+)?(?:(?:«|")?([а-я-]{2,24}(?: [а-я-]{2,24})?)(?:»|")?\s+)?(?:и|с|со)\s+(?:образ\S*\s+)?(?:«|")?([а-я-]{2,24}(?: [а-я-]{2,24})?)(?:»|")?\s*[.!?]*$/);
+    if (!m) return null;
+    // творительный падеж → начальная форма (грубо): башней → башня, водой → вода, вороном → ворон
+    const norm1 = (w) => w.replace(/ью$/, "ь").replace(/ей$/, "я").replace(/ой$/, "а").replace(/(ом|ем)$/, "").trim();
+    const known = Object.keys(imgIndex());
+    const fix = (w) => { if (!w) return ""; if (known.includes(w)) return w; const k = known.find((x) => x.length > 2 && w.startsWith(x.slice(0, Math.max(3, x.length - 1)))); return k || norm1(w); };
+    const b = fix(m[2]), a = m[1] ? fix(m[1]) : G.img || (G.msgs.map((x) => x.t).join(" ").match(/образом «([^»]+)»/) || [])[1] || "";
+    return a && b && a !== b ? [a, b] : null;
+  }
   function Guide() {
     if (!window.KARTA_API || !window.KARTA_HEADERS || !Object.keys(window.KARTA_HEADERS).length) return GuideSoon();
     if (guideOK === false) return GuideSoon();
@@ -511,7 +522,8 @@ window.startApp = function () {
     }
     // пауза больше 3 часов — новый разговор (разбор логов 09.11: разговоры склеивались)
     if (S.guide && S.guide.msgs.length && Date.now() - (S.guide.last || 0) > 3 * 3600e3) S.guide = gNew();
-    const G = S.guide || (S.guide = gNew());
+    const G = S.guide || (S.guide = Object.assign(gNew(), S.guideImg ? { img: S.guideImg } : {}));
+    if (S.guideImg) { S.guideImg = null; save(); }
     const g = (S.profile && S.profile.gender) || "n";
     const bubbles = G.msgs.map((m, i) => m.r === "u" ? `<div class="b me">${esc(m.t)}</div>` :
       `<div class="b">${gText(m.t)}</div>${m.mark ? `<span class="small" style="font-size:11px;margin:-4px 0 0 6px">${m.mark.ok ? "отмечено: хорошо" : "отмечено: не так"}</span>` : `<span class="gmk" style="display:flex;gap:14px;margin:-2px 0 0 6px;font-size:12px"><a href="#" data-ok="${i}" style="color:var(--muted)">хорошо</a><a href="#" data-no="${i}" style="color:var(--muted)">не так</a></span>`}`).join("");
@@ -529,6 +541,9 @@ window.startApp = function () {
     const send = () => {
       const inp = $("#gin"), t = inp ? inp.value.trim() : "";
       if (!t || guideBusy) return;
+      // «соедини огонь с башней» — линия между образами в «Моей карте»
+      const lk = linkReq(t, G);
+      if (lk) { S.links = S.links || []; if (!S.links.some((l) => (l.a === lk[0] && l.b === lk[1]) || (l.a === lk[1] && l.b === lk[0]))) S.links.push({ a: lk[0], b: lk[1], at: now() }); toast("В «Моей карте»: " + lk[0] + " — " + lk[1]); }
       G.msgs.push({ r: "u", t }); G.last = Date.now(); guideBusy = true; S.guideDraft = ""; save(); Guide();
       gApi({ action: "say", conv: G.conv, text: t, gender: g }).then((r) => {
         guideBusy = false;
@@ -1442,12 +1457,15 @@ window.startApp = function () {
   }
   function DeepView(i) {
     const d = S.deep[Number(i)]; if (!d) return go("#/notes");
-    const row = (k, v) => v ? `<div class="stack" style="gap:4px"><span class="kicker">${k}</span><span style="font-size:15px;line-height:1.5;white-space:pre-wrap">${esc(v)}</span></div>` : "";
+    const F = [["mem", "Воспоминание или образ"], ["lack", "Тогда не хватало"], ["want", "Тогда хотелось"], ["now", "В моей жизни сейчас"]];
     app.innerHTML = `<div class="stack">${back("#/notes", "Моя карта")}<div class="kicker">${dayLabel(d.at)} · через образ</div><h1>${esc(deepLine(d))}</h1>
-      ${row("Воспоминание или образ", d.mem)}${row("Тогда не хватало", d.lack)}${row("Тогда хотелось", d.want)}${row("В моей жизни сейчас", d.now)}
+      ${F.map(([k, l]) => `<label class="stack" style="gap:6px"><span class="kicker">${l}</span><textarea data-f="${k}" rows="3" maxlength="2000">${esc(d[k] || "")}</textarea></label>`).join("")}
+      <button class="btn" id="dsv2">Сохранить</button>
       <button type="button" class="link-row" id="ddel" style="justify-content:center;color:var(--muted)">Удалить запись</button></div>`;
+    $("#dsv2").onclick = () => { app.querySelectorAll("[data-f]").forEach((t) => { d[t.dataset.f] = t.value.trim(); }); save(); haptic(); toast("Сохранено"); go("#/notes"); };
     $("#ddel").onclick = () => { d.off = true; save(); go("#/notes"); };
   }
+
   function Catch(dir, opt) {
     if (!dir) {
       app.innerHTML = `<div class="stack">${back("#/gate", "Назад")}
@@ -1665,14 +1683,15 @@ window.startApp = function () {
     }
     go("#/today");
   }
-  function Dream() {
-    const D = S.dreams[dkey()] || (S.dreams[dkey()] = { text: "", images: [], assoc: "", feel: [] });
+  function Dream(k0) {
+    const k = /^\d{4}-\d{2}-\d{2}$/.test(k0 || "") ? k0 : dkey(), past = k !== dkey();
+    const D = S.dreams[k] || (S.dreams[k] = { text: "", images: [], assoc: "", feel: [] });
     const FE = ["любопытство", "тревога", "легкость", "грусть", "покой", "растерянность"];
-    const d = new Date(now()), mon = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+    const d = new Date(past ? dayTs(k) : now()), mon = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
     const draw = () => {
       const first = D.images[0];
-      app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
-        <div class="stack" style="gap:6px"><div class="kicker">${d.getHours() < 12 ? "Утро" : "Сегодня"} · ${d.getDate()} ${mon[d.getMonth()]}</div><h1>Что снилось?</h1><p class="small">Без толкований — только то, что было, и твои ассоциации.</p></div>
+      app.innerHTML = `<div class="stack">${past ? back("#/notes", "Моя карта") : back("#/", "Сегодня")}
+        <div class="stack" style="gap:6px"><div class="kicker">${past ? "Сон" : d.getHours() < 12 ? "Утро" : "Сегодня"} · ${d.getDate()} ${mon[d.getMonth()]}</div><h1>${past ? "Сон" : "Что снилось?"}</h1><p class="small">Без толкований — только то, что было, и твои ассоциации.</p></div>
         <label class="q"><b>Сон</b><textarea id="dtx" rows="5" placeholder="Что было, где ты, кто рядом…">${esc(D.text)}</textarea></label>
         <div class="stack" style="gap:8px"><b style="font-size:15px">Главные образы</b>
           <div class="chips">${D.images.map((x, j) => { const y = symByTitle(x); return `<span class="chip on sm">${y ? `<a href="#/sym/${y.id}" style="text-decoration:underline">${esc(x)}</a>` : esc(x)} <button type="button" data-dx="${j}" aria-label="Убрать" style="background:none;border:none;color:inherit;padding:0 0 0 4px">×</button></span>`; }).join("")}</div>
@@ -1687,7 +1706,7 @@ window.startApp = function () {
       $("#dadd").onclick = add; $("#dimg").onkeydown = (e) => { if (e.key === "Enter") add(); };
       app.querySelectorAll("[data-dx]").forEach((b) => b.onclick = () => { D.images.splice(Number(b.dataset.dx), 1); save(); draw(); });
       app.querySelectorAll("[data-df]").forEach((b) => b.onclick = () => { const x = b.dataset.df, k = D.feel.indexOf(x); k >= 0 ? D.feel.splice(k, 1) : D.feel.push(x); b.classList.toggle("on"); save(); });
-      $("#dsave").onclick = () => { D.savedAt = now(); save(); haptic(); toast("Сон записан"); go("#/"); };
+      $("#dsave").onclick = () => { if (!past) D.savedAt = now(); save(); haptic(); toast("Сон записан"); go(past ? "#/notes" : "#/"); };
     };
     draw();
   }
@@ -1829,6 +1848,11 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     Object.keys(S.sym || {}).forEach((k) => { const y = S.sym[k], c = cardById(y.id); if (!c) return; put(c.title, { kind: "sym", ts: y.at || dayTs(k), k, text: y.note }); day(k, [c.title]); });
     ALLP.forEach((p) => { const n = S.notes[p.id]; if (!n || !(p.images || []).length) return; const ts = n.savedAt || counted(p.id) || 0, k = dkey(ts); p.images.forEach((w) => put(w, { kind: "dive", ts, k, p, text: n.image, feel: n.feelings })); day(k, p.images); });
     Object.values(byDay).forEach(link);
+    // связи, которые человек попросил Проводника провести
+    (S.links || []).forEach((l) => {
+      [l.a, l.b].forEach((w) => { if (!M[norm(w)]) put(w, { kind: "guide", ts: l.at, k: dkey(l.at), text: "образ из разговора с Проводником" }); });
+      const A = M[norm(l.a)], B = M[norm(l.b)]; if (A && B && A !== B) { A.co[B.w] = (A.co[B.w] || 0) + 2; B.co[A.w] = (B.co[A.w] || 0) + 2; }
+    });
     return M;
   }
   const topImgs = (idx, n) => Object.values(idx).sort((a, b) => b.n - a.n || Math.max(...b.refs.map((r) => r.ts)) - Math.max(...a.refs.map((r) => r.ts))).slice(0, n);
@@ -1935,7 +1959,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     };
   }
   let NF = "all", NM = "day", ND = null;
-  const SRC = { dream: ["сны", "#CFE6F5"], dive: ["погружения", "#8CC4E8"], sym: ["символ дня", "#F0C7B5"] };
+  const SRC = { dream: ["сны", "#CFE6F5"], dive: ["погружения", "#8CC4E8"], sym: ["символ дня", "#F0C7B5"], guide: ["Проводник", "#A9CBB3"] };
   // созвездие образов: крупнее — чаще, линии — образы, которые были рядом
   function constellation(L) {
     const SL = [[175, 112], [82, 66], [272, 64], [302, 160], [96, 182], [208, 206], [36, 128], [176, 26]];
@@ -1977,7 +2001,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     const chipsOf = (xs, bg, c) => xs.length ? `<span class="nchips">${xs.map((v) => `<span style="background:${bg};color:${c}">${esc(v)}</span>`).join("")}</span>` : "";
     let col, kind, t, sub = "", ch = "", href = "";
     if (x.kind === "day") { const d = S.days[x.k]; col = "#8FB39A"; kind = "КАК ТЫ"; t = daySummary(x.k) || "отмечено"; sub = d.want && d.want.length ? "хочется: " + d.want.join(", ") : ""; ch = chipsOf(Object.keys(d.zones || {}).map(zoneTitle), "#33262A", "#F0C7B5"); if (x.k === dkey()) href = "#/inside"; }
-    if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); if (x.k === dkey()) href = "#/dream"; }
+    if (x.kind === "dream") { const d = S.dreams[x.k]; col = "#CFE6F5"; kind = "СОН"; t = d.text.length > 70 ? d.text.slice(0, 70) + "…" : d.text; sub = d.feel && d.feel.length ? "при пробуждении: " + d.feel.join(", ") : ""; ch = chipsOf(d.images || [], "#1F3654", "#CFE6F5"); href = "#/dream/" + x.k; }
     if (x.kind === "sym") { const y = S.sym[x.k], c = cardById(y.id); col = "#F0C7B5"; kind = "СИМВОЛ ДНЯ"; t = c.title; sub = y.note ? "откликается: " + y.note : ""; href = x.k === dkey() ? "#/symbol" : imgHref(c.title.toLowerCase()); }
     if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = c.src === "guide" ? "ПРОВОДНИК" : "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
     if (x.kind === "deep") { const d = S.deep[x.i]; col = "#B9D5D6"; kind = "ЧЕРЕЗ ОБРАЗ"; t = deepLine(d); sub = d.now || d.lack || d.mem || ""; if (sub.length > 90) sub = sub.slice(0, 90) + "…"; href = "#/deepv/" + x.i; }
@@ -2004,7 +2028,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       const days = []; for (let i = 6; i >= 0; i--) days.push(dkey(now() - i * 86400000));
       const has = (k) => items.some((x) => x.ts && dkey(x.ts) === k);
       if (!ND || !days.includes(ND)) ND = has(days[6]) ? days[6] : days.slice().reverse().find(has) || days[6];
-      h += `<div class="dstrip">${days.map((k) => { const dots = dayDots(k).concat(S.sym[k] ? ["#F0C7B5"] : []); return `<button type="button" class="${k === ND ? "on" : ""}" data-day="${k}">${["вс", "пн", "вт", "ср", "чт", "пт", "сб"][new Date(dayTs(k)).getDay()]}<span class="dd">${dots.slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join("")}</span></button>`; }).join("")}</div>`;
+      h += `<div class="dstrip">${days.map((k) => { const dots = dayDots(k).concat(S.sym[k] ? ["#F0C7B5"] : [], (S.deep || []).some((d) => !d.off && dkey(d.at) === k) ? ["#B9D5D6"] : []); return `<button type="button" class="${k === ND ? "on" : ""}" data-day="${k}">${["вс", "пн", "вт", "ср", "чт", "пт", "сб"][new Date(dayTs(k)).getDay()]}<span class="dd">${dots.slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join("")}</span></button>`; }).join("")}</div>`;
       const dl = items.filter((x) => x.ts && dkey(x.ts) === ND);
       h += `<div class="stack" style="gap:8px">${dl.length ? dl.map(noteItem).join("") : `<div class="small" style="padding:4px 2px">В этот день записей нет.</div>`}</div>`;
       if (items.length) h += `<a href="#" class="link-row" id="nall" style="justify-content:center;border:none;color:var(--blue)">Все записи →</a>`;
@@ -2038,11 +2062,11 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     w = String(w || "").toLowerCase();
     const idx = imgIndex(), x = idx[w];
     if (!x) { app.innerHTML = `<div class="stack"><div class="hd-top">${back("#/notes", "Моя карта")}</div><h1>${esc(cap(w))}</h1><p class="small">Этот образ пока не встречался в записях.</p></div>`; return; }
-    const KN = { dream: ["СОН", "#CFE6F5"], dive: ["ПОГРУЖЕНИЕ", "#8CC4E8"], sym: ["СИМВОЛ ДНЯ", "#F0C7B5"] };
+    const KN = { dream: ["СОН", "#CFE6F5"], dive: ["ПОГРУЖЕНИЕ", "#8CC4E8"], sym: ["СИМВОЛ ДНЯ", "#F0C7B5"], guide: ["ПРОВОДНИК", "#A9CBB3"] };
     const cut = (t, n) => t && t.length > n ? t.slice(0, n) + "…" : t || "";
     const refs = x.refs.slice().sort((a, b) => b.ts - a.ts).map((r) => {
-      const t = r.kind === "dream" ? cut(r.text, 110) : r.kind === "dive" ? r.p.title + (r.text ? ": " + cut(r.text, 90) : "") : cap(w) + (r.text ? ": «" + cut(r.text, 90) + "»" : "");
-      const href = r.kind === "dive" ? "#/after/" + r.p.id : r.k === dkey() ? (r.kind === "dream" ? "#/dream" : "#/symbol") : "";
+      const t = r.kind === "guide" ? "Связь, проведенная в разговоре с Проводником" : r.kind === "dream" ? cut(r.text, 110) : r.kind === "dive" ? r.p.title + (r.text ? ": " + cut(r.text, 90) : "") : cap(w) + (r.text ? ": «" + cut(r.text, 90) + "»" : "");
+      const href = r.kind === "dive" ? "#/after/" + r.p.id : r.kind === "dream" ? "#/dream/" + r.k : r.kind === "sym" && r.k === dkey() ? "#/symbol" : "";
       const inner = `<span class="bar" style="background:${KN[r.kind][1]}"></span><span class="t"><span class="hd"><span style="color:${KN[r.kind][1]}">${KN[r.kind][0]}</span><span>${dayLabel(r.ts)}</span></span><b style="font-size:14px">${esc(t)}</b></span>`;
       return href ? `<a class="note" href="${href}">${inner}</a>` : `<div class="note">${inner}</div>`;
     }).join("");
@@ -2055,7 +2079,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       <div class="stack" style="gap:8px">${refs}</div>
       ${y ? `<a class="quietlink" href="#/sym/${y.id}">${esc(cap(w))} в словаре символов →</a>` : ""}
       ${canGuide ? `<button type="button" class="link-row glass" id="ig" style="justify-content:flex-start;gap:10px;padding:12px 14px;border-radius:16px;font-weight:700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Побыть с этим образом с Проводником</button>` : ""}</div>`;
-    if ($("#ig")) $("#ig").onclick = () => { S.guideDraft = "Хочу побыть с образом «" + w + "». "; S.guide = null; save(); go("#/guide"); };
+    if ($("#ig")) $("#ig").onclick = () => { S.guideDraft = "Хочу побыть с образом «" + w + "». "; S.guide = null; S.guideImg = w; save(); go("#/guide"); };
   }
 
   // ---------- роутер ----------
@@ -2120,7 +2144,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       case "caught": return Caught(id);
       case "inside": return Inside();
       case "today": return id === "body" ? Today("", parts[2]) : Today(id, parts[2]);
-      case "dream": return Dream();
+      case "dream": return Dream(id);
       case "symbol": return SymDay();
       default: return Main();
     }
