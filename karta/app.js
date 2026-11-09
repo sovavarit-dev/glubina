@@ -710,7 +710,10 @@ window.startApp = function () {
   const DS = (C.dict && C.dict.sections) || [];
   const SY = []; DS.forEach((sec) => sec.symbols.forEach((x) => SY.push(Object.assign({ sec: sec }, x))));
   const symById = (id) => SY.find((x) => x.id === id);
-  const symByTitle = (t) => SY.find((x) => x.title.toLowerCase() === String(t).toLowerCase());
+  // карта или образ → статья словаря: точное имя, затем часть «X или Y», затем синонимы
+  const SYALIAS = { "кот": "кошка", "ванна": "ванная и туалет", "незнакомка": "незнакомец или незнакомка" };
+  const symByTitle = (t) => { const w = String(t || "").toLowerCase().replace(/ё/g, "е").trim(); if (!w) return null;
+    return SY.find((x) => x.title.toLowerCase() === w) || SY.find((x) => x.title.toLowerCase().split(/ или | и /).includes(w)) || (SYALIAS[w] && SY.find((x) => x.title.toLowerCase() === SYALIAS[w])) || null; };
   const mine = (id) => S.myimg[id] || (S.myimg[id] = { text: "", links: [] });
   const hasMine = (id) => S.myimg[id] && (S.myimg[id].text || (S.myimg[id].links || []).length);
   function Dict(tab) {
