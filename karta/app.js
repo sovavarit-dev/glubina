@@ -503,14 +503,20 @@ window.startApp = function () {
   }
   // просьба связать образы: «соедини огонь с башней», «свяжи образ воды и ворона», «соедини с башней» (второй — образ разговора)
   function linkReq(t, G) {
-    const m = t.toLowerCase().replace(/ё/g, "е").trim().match(/^(?:пожалуйста,?\s*)?(?:соедини|свяжи|связать|соединить)(?:те)?,?\s+(?:образ\S*\s+)?(?:(?:«|")?([а-я-]{2,24}(?: [а-я-]{2,24})?)(?:»|")?\s+)?(?:и|с|со)\s+(?:образ\S*\s+)?(?:«|")?([а-я-]{2,24}(?: [а-я-]{2,24})?)(?:»|")?\s*[.!?]*$/);
+    const m = t.toLowerCase().replace(/ё/g, "е").trim().replace(/\s+в (?:моей )?карте/, "").match(/^(?:пожалуйста,?\s*)?(?:соед[еи]ни|свяжи|связать|соед[еи]нить)(?:те)?,?\s+(?:образ\S*\s+)?(?:(?:«|")?([а-я-]{2,24}(?: [а-я-]{2,24})?)(?:»|")?\s+)?(?:и|с|со)\s+(?:образ\S*\s+)?(?:«|")?([а-я-]{2,24}(?: [а-я-]{2,24})?)(?:»|")?\s*[.!?]*$/);
     if (!m) return null;
     // творительный падеж → начальная форма (грубо): башней → башня, водой → вода, вороном → ворон
-    const norm1 = (w) => w.replace(/ью$/, "ь").replace(/ей$/, "я").replace(/ой$/, "а").replace(/(ом|ем)$/, "").trim();
+    const norm1 = (w) => w.replace(/ью$/, "ь").replace(/ей$/, "я").replace(/ой$/, "а").replace(/(ом|ем)$/, "").replace(/ю$/, "я").replace(/([бвгджзклмнпрстфхцчшщ])у$/, "$1а").trim();
     const known = Object.keys(imgIndex());
     const fix = (w) => { if (!w) return ""; if (known.includes(w)) return w; const k = known.find((x) => x.length > 2 && w.startsWith(x.slice(0, Math.max(3, x.length - 1)))); return k || norm1(w); };
     const b = fix(m[2]), a = m[1] ? fix(m[1]) : G.img || (G.msgs.map((x) => x.t).join(" ").match(/образом «([^»]+)»/) || [])[1] || "";
     return a && b && a !== b ? [a, b] : null;
+  }
+  // «переименуй башню в маяк», «исправь бвшня на башня»
+  function renReq(t) {
+    const m = t.toLowerCase().replace(/ё/g, "е").trim().match(/^(?:пожалуйста,?\s*)?(?:переименуй|исправь|замени)\s+(?:образ\s+)?(?:«|")?([а-я-]{2,30})(?:»|")?\s+(?:в|на)\s+(?:«|")?([а-я-]{2,30})(?:»|")?\s*[.!]*$/);
+    if (!m) return null; const known = Object.keys(imgIndex()); const a = known.find((x) => x === m[1]) || known.find((x) => m[1].startsWith(x.slice(0, Math.max(3, x.length - 1)))) || m[1];
+    return [a, m[2]];
   }
   function Guide() {
     if (!window.KARTA_API || !window.KARTA_HEADERS || !Object.keys(window.KARTA_HEADERS).length) return GuideSoon();
@@ -533,7 +539,7 @@ window.startApp = function () {
       ${G.msgs.length ? "" : `<p class="lead" style="font-size:14px">Напиши, что сейчас происходит: чувство, сон, образ из погружения. Проводник задает вопросы и не толкует за тебя.</p>`}
       <p class="small" style="font-size:12px">Тестовый режим: разговор сохраняется, чтобы улучшать проводника. Если сейчас опасно — звони 112.</p></div>
       <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b typing" aria-label="Проводник пишет"><i></i><i></i><i></i></div>` : ""}</div>
-      ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Моя карта»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
+      ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${G.keys && G.keys.length ? `<span class="small">В «Мою карту» добавлены образы: ${G.keys.map((k) => `<a href="${imgHref(k)}" style="color:var(--blue)">${esc(k)}</a>`).join(", ")}</span>` : ""}${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Моя карта»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
       <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Как ты?" style="flex:1;resize:none"${guideBusy ? " disabled" : ""}>${esc(S.guideDraft || "")}</textarea><button class="sendb" id="gsend"${guideBusy ? " disabled" : ""} aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
       ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--blue)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
     const ch = $("#gch"); if (ch && ch.lastElementChild) ch.lastElementChild.scrollIntoView({ block: "nearest" });
@@ -542,7 +548,9 @@ window.startApp = function () {
       const inp = $("#gin"), t = inp ? inp.value.trim() : "";
       if (!t || guideBusy) return;
       // «соедини огонь с башней» — линия между образами в «Моей карте»
-      const lk = linkReq(t, G);
+      const rn = renReq(t);
+      if (rn && rn[0] !== rn[1]) { renameImg(rn[0], rn[1]); toast("В «Моей карте»: " + rn[0] + " → " + rn[1]); }
+      const lk = rn ? null : linkReq(t, G);
       if (lk) { S.links = S.links || []; if (!S.links.some((l) => (l.a === lk[0] && l.b === lk[1]) || (l.a === lk[1] && l.b === lk[0]))) S.links.push({ a: lk[0], b: lk[1], at: now() }); toast("В «Моей карте»: " + lk[0] + " — " + lk[1]); }
       G.msgs.push({ r: "u", t }); G.last = Date.now(); guideBusy = true; S.guideDraft = ""; save(); Guide();
       gApi({ action: "say", conv: G.conv, text: t, gender: g }).then((r) => {
@@ -557,7 +565,10 @@ window.startApp = function () {
     if ($("#gnew2")) $("#gnew2").onclick = fresh;
     if ($("#gend")) $("#gend").onclick = (e) => {
       e.preventDefault(); if (guideBusy) return; guideBusy = true; Guide();
-      gApi({ action: "finish", conv: G.conv }).then((r) => { guideBusy = false; G.entries = r.ok ? r.j.entries || [] : []; if (!r.ok) toast("Не получилось собрать записи"); save(); Guide(); });
+      gApi({ action: "finish", conv: G.conv }).then((r) => { guideBusy = false; G.entries = r.ok ? r.j.entries || [] : [];
+        const keys = [...new Set(G.entries.flatMap((e) => e.keys || []).map((k) => String(k).toLowerCase().replace(/ё/g, "е").trim()).filter((k) => k.length > 1 && k.length < 30))];
+        if (G.img && !keys.includes(G.img)) keys.unshift(G.img);
+        if (keys.length) { S.gimg = (S.gimg || []).concat([{ w: keys, at: now(), conv: G.conv }]); G.keys = keys; } if (!r.ok) toast("Не получилось собрать записи"); save(); Guide(); });
     };
     if ($("#gsave")) $("#gsave").onclick = () => {
       S.free = S.free || [];
@@ -1524,7 +1535,9 @@ window.startApp = function () {
       <div class="choice dashed" style="opacity:.75"><span class="t"><b>Побыть с этим чувством</b><span>практика · скоро</span></span></div>
       <div class="kicker" style="letter-spacing:.08em;margin-top:6px">КОГДА СТАНЕТ ТИШЕ</div>
       <a class="choice" href="#/deep" style="background:#1F3654;border-color:#3A5578"><span class="t"><b>Посмотреть на это через образ</b><span>острое прошло — а откуда оно? Время года, погода, воспоминание</span></span>${icon.chev}</a>
+      <button type="button" class="link-row" id="cfix" style="justify-content:center;color:var(--muted)">Исправить слово</button>
       <a class="btn ghost" href="#/">На главную</a></div>`;
+    $("#cfix").onclick = () => { const b = $("#cfix"); b.outerHTML = `<div class="row" style="gap:8px"><input class="inp" id="cw" maxlength="40" value="${esc(c.word)}"><button type="button" class="btn" id="cws" style="width:auto;padding:12px 16px">OK</button></div>`; $("#cw").focus(); $("#cws").onclick = () => { const v = $("#cw").value.trim().toLowerCase(); if (v) { c.word = v; save(); toast("Исправлено"); } Caught(i); }; };
   }
 
 
@@ -1840,7 +1853,8 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
   // образы человека: сколько раз, откуда пришли, с какими образами рядом
   function imgIndex() {
     const M = {}, byDay = {};
-    const norm = (w) => String(w || "").trim().toLowerCase();
+    const REN = S.ren || {}, HIDE = S.hide || [];
+    const norm = (w) => { let x = String(w || "").trim().toLowerCase().replace(/ё/g, "е"); for (let k = 0; k < 4 && REN[x]; k++) x = REN[x]; return HIDE.includes(x) ? "" : x; };
     const put = (w, ref) => { w = norm(w); if (!w) return; const x = M[w] || (M[w] = { w, n: 0, src: {}, refs: [], co: {}, feel: {} }); x.n++; x.src[ref.kind] = 1; x.refs.push(ref); (ref.feel || []).forEach((f) => { x.feel[f] = 1; }); };
     const link = (ws) => { ws = ws.map(norm).filter(Boolean); ws.forEach((a) => ws.forEach((b) => { if (a !== b && M[a]) M[a].co[b] = (M[a].co[b] || 0) + 1; })); };
     const day = (k, ws) => { (byDay[k] = byDay[k] || []).push(...ws); };
@@ -1848,9 +1862,12 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     Object.keys(S.sym || {}).forEach((k) => { const y = S.sym[k], c = cardById(y.id); if (!c) return; put(c.title, { kind: "sym", ts: y.at || dayTs(k), k, text: y.note }); day(k, [c.title]); });
     ALLP.forEach((p) => { const n = S.notes[p.id]; if (!n || !(p.images || []).length) return; const ts = n.savedAt || counted(p.id) || 0, k = dkey(ts); p.images.forEach((w) => put(w, { kind: "dive", ts, k, p, text: n.image, feel: n.feelings })); day(k, p.images); });
     Object.values(byDay).forEach(link);
+    // образы, которые Проводник собрал из разговора (ключевые слова человека)
+    (S.gimg || []).forEach((g) => { (g.w || []).forEach((w) => put(w, { kind: "guide", ts: g.at, k: dkey(g.at), text: "образ из разговора с Проводником" })); day(dkey(g.at), g.w || []); });
     // связи, которые человек попросил Проводника провести
     (S.links || []).forEach((l) => {
       [l.a, l.b].forEach((w) => { if (!M[norm(w)]) put(w, { kind: "guide", ts: l.at, k: dkey(l.at), text: "образ из разговора с Проводником" }); });
+      if (!norm(l.a) || !norm(l.b)) return;
       const A = M[norm(l.a)], B = M[norm(l.b)]; if (A && B && A !== B) { A.co[B.w] = (A.co[B.w] || 0) + 2; B.co[A.w] = (B.co[A.w] || 0) + 2; }
     });
     return M;
@@ -2061,6 +2078,7 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
     };
   }
   const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  function renameImg(a, b) { S.ren = S.ren || {}; if (S.ren[b] === a) delete S.ren[b]; S.ren[a] = b; S.hide = (S.hide || []).filter((x) => x !== b); save(); }
   function ImgPage(w) {
     w = String(w || "").toLowerCase();
     const idx = imgIndex(), x = idx[w];
@@ -2081,7 +2099,10 @@ ${fish(520, 38, 1, 1, "#8CC4E8", 5)}${fish(600, 52, -1, .7, "#A9CBB3", 20)}${fis
       ${fe.length ? `<div class="stack" style="gap:6px"><span class="small">чувства рядом</span><div class="chips">${fe.map((f) => `<span class="chip feel">${esc(f)}</span>`).join("")}</div></div>` : ""}
       <div class="stack" style="gap:8px">${refs}</div>
       ${y ? `<a class="quietlink" href="#/sym/${y.id}">${esc(cap(w))} в словаре символов →</a>` : ""}
+      <div class="row" style="gap:16px;justify-content:center"><button type="button" class="link-row" id="iren" style="border:none;color:var(--blue);width:auto">Исправить название</button><button type="button" class="link-row" id="ihide" style="border:none;color:var(--muted);width:auto">Убрать с карты</button></div>
       ${canGuide ? `<button type="button" class="link-row glass" id="ig" style="justify-content:flex-start;gap:10px;padding:12px 14px;border-radius:16px;font-weight:700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Побыть с этим образом с Проводником</button>` : ""}</div>`;
+    $("#iren").onclick = () => { const b = $("#iren").parentElement; b.outerHTML = `<div class="stack" style="gap:6px"><span class="small">Если такой образ уже есть, они объединятся.</span><div class="row" style="gap:8px"><input class="inp" id="inew" maxlength="40" value="${esc(w)}"><button type="button" class="btn" id="inok" style="width:auto;padding:12px 16px">OK</button></div></div>`; $("#inew").focus(); $("#inok").onclick = () => { const v = $("#inew").value.trim().toLowerCase().replace(/ё/g, "е"); if (v && v !== w) { renameImg(w, v); toast("Исправлено"); go(imgHref(v)); } else ImgPage(w); }; };
+    $("#ihide").onclick = () => { S.hide = (S.hide || []).concat([w]); save(); toast("Убрано с карты"); go("#/notes"); };
     if ($("#ig")) $("#ig").onclick = () => { S.guideDraft = "Хочу побыть с образом «" + w + "». "; S.guide = null; S.guideImg = w; save(); go("#/guide"); };
   }
 
