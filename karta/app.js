@@ -1700,6 +1700,30 @@ window.startApp = function () {
     }
     go("#/today");
   }
+  // голос → текст: пишем звук в браузере (PCM 16 кГц), каждые ~25 с отправляем кусок на распознавание; звук не храним
+  let VREC = null;
+  function voice(btn, lbl, onText) {
+    if (VREC) { VREC.stop(); return; }
+    navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }).then((stream) => {
+      const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC(), src = ctx.createMediaStreamSource(stream), proc = ctx.createScriptProcessor(4096, 1, 1);
+      let buf = [], len = 0, t0 = Date.now(), pending = 0, alive = true;
+      const flush = (last) => {
+        if (!len) { if (last && !pending) done(); return; }
+        const sr = ctx.sampleRate, ratio = sr / 16000, all = new Float32Array(len); let o = 0; buf.forEach((b) => { all.set(b, o); o += b.length; }); buf = []; len = 0;
+        const n = Math.floor(all.length / ratio), pcm = new Int16Array(n);
+        for (let i = 0; i < n; i++) { const v = Math.max(-1, Math.min(1, all[Math.floor(i * ratio)])); pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff; }
+        const u8 = new Uint8Array(pcm.buffer); let bin = ""; for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+        pending++; lbl.textContent = "Расшифровываю…";
+        gApi({ action: "stt", audio: btoa(bin) }).then((r) => { pending--; if (r.ok && r.j.text) onText(r.j.text); else if (!r.ok) toast("Не получилось расшифровать"); if (!alive && !pending) done(); else if (alive) lbl.textContent = "Слушаю… нажми, чтобы закончить"; });
+      };
+      const done = () => { btn.classList.remove("on"); lbl.textContent = "Рассказать голосом"; };
+      proc.onaudioprocess = (e) => { if (!alive) return; const d = e.inputBuffer.getChannelData(0); buf.push(new Float32Array(d)); len += d.length; if (len / ctx.sampleRate >= 25) flush(false); };
+      src.connect(proc); proc.connect(ctx.destination); if (ctx.resume) ctx.resume();
+      btn.classList.add("on"); lbl.textContent = "Слушаю… нажми, чтобы закончить";
+      VREC = { stop: () => { alive = false; VREC = null; src.disconnect(); proc.disconnect(); stream.getTracks().forEach((x) => x.stop()); ctx.close(); flush(true); if (!pending) done(); } };
+      setTimeout(() => { if (VREC && Date.now() - t0 > 5 * 60e3) VREC.stop(); }, 5 * 60e3 + 500);
+    }, () => toast("Нет доступа к микрофону. Можно надиктовать с клавиатуры — значок микрофона на ней"));
+  }
   function Dream(k0) {
     const k = /^\d{4}-\d{2}-\d{2}$/.test(k0 || "") ? k0 : dkey(), past = k !== dkey();
     const D = S.dreams[k] || (S.dreams[k] = { text: "", images: [], assoc: "", feel: [] });
@@ -1710,6 +1734,7 @@ window.startApp = function () {
       app.innerHTML = `<div class="stack">${past ? back("#/notes", "Моя карта") : back("#/", "Сегодня")}
         <div class="stack" style="gap:6px"><div class="kicker">${past ? "Сон" : d.getHours() < 12 ? "Утро" : "Сегодня"} · ${d.getDate()} ${mon[d.getMonth()]}</div><h1>${past ? "Сон" : "Что снилось?"}</h1><p class="small">Без толкований — только то, что было, и твои ассоциации.</p></div>
         <label class="q"><b>Сон</b><textarea id="dtx" rows="5" placeholder="Что было, где ты, кто рядом…">${esc(D.text)}</textarea></label>
+        ${window.KARTA_API && navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? `<button type="button" class="micb" id="dmic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span id="dmict">Рассказать голосом</span></button>` : ""}
         <div class="stack" style="gap:8px"><b style="font-size:15px">Главные образы</b>
           <div class="chips">${D.images.map((x, j) => { const y = symByTitle(x); return `<span class="chip on sm">${y ? `<a href="#/sym/${y.id}" style="text-decoration:underline">${esc(x)}</a>` : esc(x)} <button type="button" data-dx="${j}" aria-label="Убрать" style="background:none;border:none;color:inherit;padding:0 0 0 4px">×</button></span>`; }).join("")}</div>
           <div class="row"><input class="inp" id="dimg" placeholder="образ: дом, дверь, вода…" maxlength="40"><button type="button" class="pill" id="dadd" style="min-height:48px">Добавить</button></div>
@@ -1718,6 +1743,7 @@ window.startApp = function () {
         <div class="stack" style="gap:8px"><b style="font-size:15px">Чувство при пробуждении</b><div class="chips">${chipSel(FE.concat(D.feel.filter((x) => !FE.includes(x))), D.feel, "df", "on")}</div></div>
         <button class="btn" id="dsave">Сохранить</button></div>`;
       $("#dtx").oninput = (e) => { D.text = e.target.value; save(); };
+      if ($("#dmic")) $("#dmic").onclick = () => voice($("#dmic"), $("#dmict"), (t) => { D.text = (D.text ? D.text.replace(/\s+$/, "") + " " : "") + t; save(); const x = $("#dtx"); if (x) x.value = D.text; });
       const das = $("#das"); if (das) das.oninput = (e) => { D.assoc = e.target.value; save(); };
       const add = () => { const v = $("#dimg").value.trim().toLowerCase(); if (!v) return; D.images.push(v); save(); draw(); const n = $("#dimg"); if (n) n.focus(); };
       $("#dadd").onclick = add; $("#dimg").onkeydown = (e) => { if (e.key === "Enter") add(); };
