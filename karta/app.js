@@ -770,7 +770,7 @@ window.startApp = function () {
   function Dict(tab) {
     const my = tab === "my";
     const myN = Object.keys(S.myimg).filter(hasMine).length;
-    let h = `<div class="dict"><div class="dhead">${STARS}<div class="dhead-in">${back("#/lib", "Библиотека")}
+    let h = `<div class="dict"><div class="dhead">${STARS}<div class="dhead-in">${back("#/lib", "Бухта")}
       <div class="dkick">язык бессознательного</div><h1>Словарь символов</h1><p class="dsub">У символа нет одного значения. Здесь то, что он нес в мифах, и место для своего.</p>
       ${my ? "" : `<label class="dsearch">${'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D6D8FF" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>'}<input id="q" type="search" placeholder="Найти: вода, дом, волк…" aria-label="Поиск символа"></label>`}</div></div>
       <div class="dbody"><div class="dchips"><a href="#/dict" class="${my ? "" : "on"}">Словарь · ${SY.length}</a><a href="#/dict/my" class="${my ? "on" : ""}">Мои образы · ${myN}</a></div>`;
@@ -1169,7 +1169,7 @@ window.startApp = function () {
       const vs = st.voice, vv = vs.on ? voiceById(vs.id) : null;
       const playing = (id) => M.cur === id && NOW.kind === "music" && !audio.paused;
       app.innerHTML = `<div class="mpage"><div class="mhead"><svg class="mhead-bg" viewBox="0 0 390 210" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><circle cx="320" cy="72" r="40" fill="#7FE3E0" fill-opacity=".10"><animate attributeName="r" values="38;44;38" dur="6s" repeatCount="indefinite"/></circle><circle cx="320" cy="72" r="22" fill="#7FE3E0" fill-opacity=".25"/><path d="M-240 132 Q -210.0 122 -180.0 132 T -120.0 132 T -60.0 132 T 0.0 132 T 60.0 132 T 120.0 132 T 180.0 132 T 240.0 132 T 300.0 132 T 360.0 132 T 420.0 132 T 480.0 132 T 540.0 132 T 600.0 132 T 660.0 132 V210 H-240z" fill="#2F8E9A" fill-opacity=".22"><animateTransform attributeName="transform" type="translate" from="0 0" to="-120 0" dur="14s" repeatCount="indefinite"/></path><path d="M-300 148 Q -262.5 139 -225.0 148 T -150.0 148 T -75.0 148 T 0.0 148 T 75.0 148 T 150.0 148 T 225.0 148 T 300.0 148 T 375.0 148 T 450.0 148 T 525.0 148 T 600.0 148 T 675.0 148 T 750.0 148 V210 H-300z" fill="#1F6B78" fill-opacity=".35"><animateTransform attributeName="transform" type="translate" from="0 0" to="150 0" dur="18s" repeatCount="indefinite"/></path><path d="M-260 168 Q -227.5 160 -195.0 168 T -130.0 168 T -65.0 168 T 0.0 168 T 65.0 168 T 130.0 168 T 195.0 168 T 260.0 168 T 325.0 168 T 390.0 168 T 455.0 168 T 520.0 168 T 585.0 168 T 650.0 168 V210 H-260z" fill="#14304F" fill-opacity=".95"><animateTransform attributeName="transform" type="translate" from="0 0" to="-130 0" dur="11s" repeatCount="indefinite"/></path></svg>
-        <div class="mhead-in">${back("#/lib", "Библиотека")}<h1>Музыкальное<br>сопровождение</h1><div class="msub">Для сна, практик и чтобы побыть с собой</div></div></div>
+        <div class="mhead-in">${back("#/lib", "Бухта")}<h1>Музыкальное<br>сопровождение</h1><div class="msub">Для сна, практик и чтобы побыть с собой</div></div></div>
         <div class="stack" style="gap:12px">
         <div class="vline${vs.on ? " on" : ""}"><button type="button" class="vline-b" id="vpick"><span class="vmic">${ICM.mic}</span><b>С голосом</b>${vv ? `<span class="vname">${esc(vv.title)}</span>` : ""}</button>
           <button type="button" class="tgl tglm${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></div>
@@ -1244,7 +1244,7 @@ window.startApp = function () {
 
   // ---------- подкасты: экраны ----------
   function Pods() {
-    let h = `<div class="stack">${back("#/lib", "Библиотека")}
+    let h = `<div class="stack">${back("#/lib", "Бухта")}
       <div class="stack" style="gap:6px"><h1>Подкасты</h1><div class="small">Теория и письменные практики. Записи сохраняются сами.</div></div>`;
     if (!PODS.length) h += `<p class="lead">Подкасты появятся после подключения.</p>`;
     PODS.forEach((se) => {
@@ -1943,7 +1943,7 @@ window.startApp = function () {
   }
 
   // ---------- «Сегодня» и вкладки ----------
-  const TABS = [["", "Сегодня", '<path d="M3.5 11.5 12 4.5l8.5 7V20a1.5 1.5 0 0 1-1.5 1.5h-4v-6h-6v6H5A1.5 1.5 0 0 1 3.5 20z"/>'], ["lib", "Библиотека", '<path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H17a2 2 0 0 1 2 2v14.5a1.5 1.5 0 0 1-1.5 1.5H7.5A2.5 2.5 0 0 1 5 18.5z"/><path d="M5 18.5A2.5 2.5 0 0 1 7.5 16H19"/>'], ["guide", "Проводник", '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'], ["notes", "Моя карта", '<circle cx="6" cy="7" r="2"/><circle cx="17" cy="6" r="2.5"/><circle cx="12" cy="17" r="3"/><path d="M7.6 8.4l3 6M15.6 8l-2.4 6.5M8 7l6.5-.6"/>']];
+  const TABS = [["", "Сегодня", '<path d="M3 16h18"/><path d="M7 16a5 5 0 0 1 10 0"/><path d="M12 6v2M5.6 9.6l1.4 1.4M18.4 9.6 17 11"/><path d="M5 20q1.75-1.3 3.5 0t3.5 0 3.5 0 3.5 0"/>'], ["lib", "Бухта", '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M8 10h8"/><path d="M4.5 14a7.5 7.5 0 0 0 15 0"/><path d="M3 15.5 4.5 14 6 15.5M18 15.5l1.5-1.5 1.5 1.5"/>'], ["guide", "Проводник", '<path d="M12 2.5c.6 4.4 2.1 6.9 7.5 9.5-5.4 2.6-6.9 5.1-7.5 9.5-.6-4.4-2.1-6.9-7.5-9.5 5.4-2.6 6.9-5.1 7.5-9.5z"/>'], ["notes", "Моя карта", '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7 16c2-1 2-4 5-4s3-3 5-4" stroke-dasharray="2 2.4"/><path d="M15.5 6.5l3 3M18.5 6.5l-3 3"/>']];
   const tabsEl = document.getElementById("tabs") || (() => { const d = document.createElement("nav"); d.id = "tabs"; d.setAttribute("aria-label", "Разделы"); document.body.appendChild(d); return d; })();
   const waterEl = document.getElementById("water") || (() => { const d = document.createElement("div"); d.id = "water"; d.setAttribute("aria-hidden", "true"); document.body.insertBefore(d, document.body.firstChild); return d; })();
   function paintTabs(active) {
@@ -2090,7 +2090,7 @@ ${b}</svg>`;
     const nx = nextStep(), c1 = cyDone(cycle);
     const tone = ["c0", "c1", "c2", "c3"];
     const free = part === "free";
-    let h = `<div class="stack" style="gap:20px">${back("#/lib", "Библиотека")}<h1>${free ? "По запросу" : "Циклы"}</h1>`;
+    let h = `<div class="stack" style="gap:20px">${back("#/lib", "Бухта")}<h1>${free ? "По запросу" : "Циклы"}</h1>`;
     if (!free && nx) h += `<a class="nowcard" href="${isOpen(nx.id) ? "#/prep/" + nx.id : "#/cycle/" + nx._cy.id}" style="padding:12px 14px"><span class="pl" style="width:40px;height:40px">${isOpen(nx.id) ? PLAY("#0F1E33") : icon.lock}</span><span class="t"><span class="small" style="font-size:12px">${esc(where(nx))}</span><b style="font-size:15px">${esc(nx.title)}${nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : ""}</b>${isOpen(nx.id) ? "" : `<span class="small" style="font-size:12px">${esc(lockHint(nx))}</span>`}</span>${icon.chev}</a>`;
     if (free) { h += `<div class="stack" style="gap:10px"><div class="stack" style="gap:2px"><span class="small">${c1 ? "в любой день, без порядка" : "откроются после цикла «" + esc(cycle.title) + "» · " + cyCount(cycle) + " из " + real(cycle).length}</span></div><div class="free">`;
     FREE.forEach((f, i) => {
@@ -2113,7 +2113,7 @@ ${b}</svg>`;
     const podMeta = !eps.length ? "" : nxE ? (dd ? "дальше · " : "начать · ") + "«" + esc(nxE.title) + "»" : "все " + eps.length + " выпусков прослушаны";
     const nx0 = nextStep(), cyN = nx0 ? nx0._cy : cycle;
     const st = nx0 ? "«" + esc(cyN.title) + "» · " + cyCount(cyN) + " из " + real(cyN).length : "все циклы пройдены";
-    app.innerHTML = `<div class="libmap">${window.LIB_MAP || ""}</div><h1 class="hd-top libmap-h">Библиотека</h1>`;
+    app.innerHTML = `<div class="libmap">${window.LIB_MAP || ""}</div><h1 class="hd-top libmap-h">Бухта</h1>`;
     $("#dvs").onclick = (e) => {
       e.preventDefault();
       const nx = nextStep(), c1 = cyDone(cycle);
