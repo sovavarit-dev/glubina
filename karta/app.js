@@ -349,6 +349,7 @@ window.startApp = function () {
         ${n.feelings && n.feelings.length ? `<div class="chips">${n.feelings.map((f) => `<span class="chip on" style="min-height:0;padding:5px 10px;font-size:12px">${esc(f)}</span>`).join("")}</div>` : ""}
         ${bodyChips(n)}
         <div class="row" style="gap:16px;flex-wrap:wrap"><a class="small" style="color:var(--blue);font-weight:700" href="#/after/${p.id}">${n.image ? "Изменить заметку" : "Записать"}</a>
+        ${n.image ? `<a class="small" style="color:var(--blue);font-weight:700" href="#" data-gd="${p.id}">Обсудить с Проводником</a>` : ""}
         ${integrOpen(p.id) ? `<a class="small" style="color:var(--terra-l);font-weight:700" href="#/integr/${p.id}">${integrDone(p.id) ? "Интеграция" : "Интеграция открыта"}</a>` : hasInt(p) && counted(p.id) ? `<span class="small">интеграция — ${fmtWhen(integrAt(p.id))}</span>` : ""}</div></div>`;
     });
     if (S.catches && S.catches.length) {
@@ -360,6 +361,7 @@ window.startApp = function () {
     }
     h += `<a class="btn" href="#/" style="margin-top:6px">На главную</a></div>`;
     app.innerHTML = h;
+    app.querySelectorAll("[data-gd]").forEach((b) => b.onclick = (e) => { e.preventDefault(); const p = prac(b.dataset.gd); S.guide = Object.assign(gNew(), { dive: p.id }); S.guideDraft = "Хочу разобраться с погружением «" + p.title + "». "; save(); go("#/guide"); });
   }
 
   function Integr(id) {
@@ -493,6 +495,17 @@ window.startApp = function () {
   let guideOK = null, guideBusy = false;
   const gApi = (body) => fetch(window.KARTA_API, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS || {}), body: JSON.stringify(body) })
     .then((r) => r.json().then((j) => ({ ok: r.ok, status: r.status, j })), () => ({ ok: false, status: 0, j: {} }));
+  // контекст для Проводника: заметки о погружении и словарь по образам из разговора (только суть символа)
+  function guideCtx(G) {
+    const out = [];
+    const diveLine = (p) => { const n = S.notes[p.id] || {}; return "Погружение «" + p.title + "»" + ((p.images || []).length ? " (образы практики: " + p.images.join(", ") + ")" : "") + (n.image ? ". Заметка человека: " + n.image : "") + ((n.feelings || []).length ? ". Чувства: " + n.feelings.join(", ") : ""); };
+    if (G.dive) { const p = prac(G.dive); if (p) out.push(diveLine(p)); }
+    else ALLP.filter((p) => S.notes[p.id] && S.notes[p.id].image).sort((a, b) => (S.notes[b.id].savedAt || 0) - (S.notes[a.id].savedAt || 0)).slice(0, 2).forEach((p) => out.push(diveLine(p)));
+    const text = G.msgs.filter((m) => m.r === "u").map((m) => m.t).join(" ").toLowerCase().replace(/ё/g, "е");
+    const seen = new Set();
+    text.split(/[^а-яa-z-]+/).forEach((w) => { if (w.length < 3 || seen.size >= 5) return; const y = symByTitle(w); if (y && !seen.has(y.id)) { seen.add(y.id); out.push("Словарь: " + y.title + " — " + y.essence); } });
+    return out.join("\n").slice(0, 1800);
+  }
   const gNew = () => ({ conv: Math.random().toString(36).slice(2, 10) + Date.now().toString(36), msgs: [], entries: null });
   function gText(t) {
     return esc(t).replace(/\[([^\]]{1,40})\]\((#\/[a-z\/]+)\)/g, (m, label, href) => {
@@ -553,7 +566,7 @@ window.startApp = function () {
       const lk = rn ? null : linkReq(t, G);
       if (lk) { S.links = S.links || []; if (!S.links.some((l) => (l.a === lk[0] && l.b === lk[1]) || (l.a === lk[1] && l.b === lk[0]))) S.links.push({ a: lk[0], b: lk[1], at: now() }); toast("В «Моей карте»: " + lk[0] + " — " + lk[1]); }
       G.msgs.push({ r: "u", t }); G.last = Date.now(); guideBusy = true; S.guideDraft = ""; save(); Guide();
-      gApi({ action: "say", conv: G.conv, text: t, gender: g }).then((r) => {
+      gApi({ action: "say", conv: G.conv, text: t, gender: g, ctx: guideCtx(G) }).then((r) => {
         guideBusy = false;
         if (r.ok && r.j.text) G.msgs.push({ r: "a", t: r.j.text, i: r.j.i });
         else { G.msgs.pop(); toast(r.status === 429 ? "Разговор получился длинным — начни новый" : "Проводник не ответил. Попробуй еще раз"); setTimeout(() => { const x = $("#gin"); if (x) x.value = t; }, 0); }
@@ -632,17 +645,28 @@ window.startApp = function () {
   }
   // «Как ты?» за 20 секунд: одно чувство и его оттенок
   function Quick() {
-    const D = today(); let base = D.feel && D.feel.base;
+    const D = today();
+    const F = D.feel && D.feel.list ? D.feel : { list: D.feel ? [D.feel.shade || D.feel.base].filter(Boolean) : [], bases: D.feel && D.feel.base ? [D.feel.base] : [], word: "" };
+    const sync = () => {
+      const all = F.list.concat(F.word ? [F.word] : []);
+      D.feel = { list: F.list, bases: F.bases, word: F.word, base: F.bases[0] || "", shade: F.list[0] || "", own: all.join(", ") };
+      if (!all.length && !F.bases.length) D.feel = null;
+      save();
+    };
     const draw = () => {
+      const any = F.list.length || F.bases.length || F.word;
       app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
-        <div class="stack" style="gap:4px"><h1>Одно чувство</h1><span class="small">Что сейчас ближе всего? Можно не думать долго.</span></div>
-        <div class="chips">${Object.keys(FEEL_BASE).map((f) => `<button type="button" class="chip${base === f ? " on" : ""}" data-b="${f}">${f}</button>`).join("")}</div>
-        ${base ? `<div class="stack" style="gap:8px"><b>А точнее?</b><div class="chips">${FEEL_BASE[base].map((f) => `<button type="button" class="chip${D.feel.shade === f ? " terraon" : ""}" data-s="${f}">${f}</button>`).join("")}</div></div>` : ""}
-        <button class="btn" id="qs"${base ? "" : " disabled"}>Готово</button>
+        <div class="stack" style="gap:4px"><h1>Чувства сейчас</h1><span class="small">Можно выбрать несколько. Не нужно думать долго.</span></div>
+        <div class="chips">${Object.keys(FEEL_BASE).map((f) => `<button type="button" class="chip${F.bases.includes(f) ? " on" : ""}" data-b="${f}" aria-pressed="${F.bases.includes(f)}">${f}</button>`).join("")}</div>
+        ${F.bases.map((b) => `<div class="stack" style="gap:8px"><b>${esc(b)} — а точнее?</b><div class="chips">${FEEL_BASE[b].map((f) => `<button type="button" class="chip${F.list.includes(f) ? " terraon" : ""}" data-s="${f}" aria-pressed="${F.list.includes(f)}">${f}</button>`).join("")}</div></div>`).join("")}
+        <label class="q"><b>Свое слово</b><input class="inp" id="qw" type="text" maxlength="40" placeholder="Если нужного слова нет" value="${esc(F.word || "")}"></label>
+        <button class="btn" id="qs"${any ? "" : " disabled"}>Готово</button>
         <a class="link-row" href="#/today" style="justify-content:center;border:none;color:var(--blue)">Подробнее — с телом и потребностью</a></div>`;
-      app.querySelectorAll("[data-b]").forEach((b) => b.onclick = () => { base = b.dataset.b; D.feel = { base }; save(); draw(); });
-      app.querySelectorAll("[data-s]").forEach((b) => b.onclick = () => { D.feel.shade = b.dataset.s; save(); draw(); });
-      $("#qs").onclick = () => { D.done = true; D.quick = true; save(); haptic(); go("#/"); };
+      app.querySelectorAll("[data-b]").forEach((b) => b.onclick = () => { const f = b.dataset.b, i = F.bases.indexOf(f); if (i >= 0) { F.bases.splice(i, 1); F.list = F.list.filter((x) => !FEEL_BASE[f].includes(x)); } else F.bases.push(f); sync(); draw(); });
+      app.querySelectorAll("[data-s]").forEach((b) => b.onclick = () => { const f = b.dataset.s, i = F.list.indexOf(f); i >= 0 ? F.list.splice(i, 1) : F.list.push(f); sync(); draw(); });
+      const qw = $("#qw");
+      qw.oninput = () => { F.word = qw.value.trim().toLowerCase().replace(/ё/g, "е"); sync(); $("#qs").disabled = !(F.list.length || F.bases.length || F.word); };
+      $("#qs").onclick = () => { if (!F.list.length && F.bases.length) F.list = F.bases.slice(); sync(); D.done = true; D.quick = true; save(); haptic(); go("#/"); };
     };
     draw();
   }
@@ -716,71 +740,142 @@ window.startApp = function () {
     return SY.find((x) => x.title.toLowerCase() === w) || SY.find((x) => x.title.toLowerCase().split(/ или | и /).includes(w)) || (SYALIAS[w] && SY.find((x) => x.title.toLowerCase() === SYALIAS[w])) || null; };
   const mine = (id) => S.myimg[id] || (S.myimg[id] = { text: "", links: [] });
   const hasMine = (id) => S.myimg[id] && (S.myimg[id].text || (S.myimg[id].links || []).length);
+  const ART = window.DICT_ART || { secs: {}, defs: "" };
+  const ARTOLD = { "voda-i-mesta": "nature", "stihii-i-pogoda": "nature", "nebo-i-svetila": "nature", "rasteniya": "plants", "zhivotnye-i-pticy": "animals", "figury": "people", "predmety": "magic", "chisla": "magic", "cveta": "magic", "telo": "body", "dom-i-komnaty": "home", "vremya-i-puti": "paths", "dorogi-i-transport": "paths" };
+  const isDreamSec = (s) => s.id === "dreams" || s.id === "syuzhety-snov";
+  const secArt = (s) => ART.secs[s.id] || ART.secs[ARTOLD[s.id]] || ART.secs.magic || "";
+  const neon = (inner, vb, w, h) => `<svg viewBox="${vb}" width="${w}" height="${h}" aria-hidden="true">${ART.defs}${inner}</svg>`;
+  const STARS = '<svg class="dstars" viewBox="0 0 390 170" preserveAspectRatio="xMaxYMin meet" aria-hidden="true"><defs><filter id="gs" filterUnits="userSpaceOnUse" x="0" y="0" width="390" height="170"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
+    [[300, 40, 7, .95, 0], [350, 78, 4.5, .8, 1.2], [262, 96, 3.5, .6, 2.1], [338, 138, 5.5, .85, .6], [372, 30, 3, .6, 1.7], [232, 52, 2.6, .5, 2.6]].map(([x, y, r, o, dl]) => `<path d="M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r}Z" fill="#fff" fill-opacity="${o}" filter="url(#gs)"><animate attributeName="opacity" values="1;.25;1" dur="${3 + dl}s" begin="-${dl}s" repeatCount="indefinite"/></path>`).join("") + "</svg>";
+  // старшие арканы: имена и картинки — в приложении, тексты — в закрытом контенте (dict.tarot)
+  const ROM = ["0", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX", "XXI"];
+  const ARC = [["Шут", "00-shut"], ["Маг", "01-mag"], ["Верховная Жрица", "02-zhrica"], ["Императрица", "03-imperatrica"], ["Император", "04-imperator"], ["Иерофант", "05-ierofant"], ["Влюбленные", "06-vlyublennye"], ["Колесница", "07-kolesnica"], ["Сила", "08-sila"], ["Отшельник", "09-otshelnik"], ["Колесо Фортуны", "10-koleso"], ["Справедливость", "11-spravedlivost"], ["Повешенный", "12-poveshennyj"], ["Смерть", "13-smert"], ["Умеренность", "14-umerennost"], ["Дьявол", "15-dyavol"], ["Башня", "16-bashnya"], ["Звезда", "17-zvezda"], ["Луна", "18-luna"], ["Солнце", "19-solnce"], ["Суд", "20-sud"], ["Мир", "21-mir"]];
+  const TAROT = (C.dict && C.dict.tarot) || [];
+  const arcData = (n) => TAROT.find((x) => Number(x.arcana) === n || String(x.arcana) === ROM[n]) || TAROT.find((x) => String(x.title || "").toLowerCase() === ARC[n][0].toLowerCase()) || null;
+  const arcImg = (n) => "img/tarot/" + ARC[n][1] + ".jpg";
+  const mythsHTML = (a) => (a || []).map((y) => `<div class="dmy"><b>${esc(y.h)}</b><p>${esc(y.t)}</p></div>`).join("");
+  // карта на весь экран: свайп вниз или крестик закрывают
+  function cardView(src, top, sub) {
+    const bg = document.createElement("div"); bg.className = "cview";
+    bg.innerHTML = `<div class="cv-top">${sub ? `<span>${esc(sub)}</span>` : ""}<b>${esc(top || "")}</b></div><img src="${src}" alt="${esc(top || "")}"><button type="button" class="cv-x" aria-label="Закрыть">×</button>`;
+    const close = () => { bg.classList.add("out"); setTimeout(() => bg.remove(), 200); };
+    bg.querySelector(".cv-x").onclick = close;
+    bg.onclick = (e) => { if (e.target === bg) close(); };
+    let y0 = null; const im = bg.querySelector("img");
+    bg.addEventListener("touchstart", (e) => { y0 = e.touches[0].clientY; }, { passive: true });
+    bg.addEventListener("touchmove", (e) => { if (y0 === null) return; const dy = Math.max(0, e.touches[0].clientY - y0); im.style.transform = `translateY(${dy}px)`; bg.style.opacity = String(Math.max(.3, 1 - dy / 400)); }, { passive: true });
+    bg.addEventListener("touchend", (e) => { const dy = y0 === null ? 0 : e.changedTouches[0].clientY - y0; y0 = null; if (dy > 90) close(); else { im.style.transform = ""; bg.style.opacity = ""; } });
+    document.body.appendChild(bg);
+  }
   function Dict(tab) {
     const my = tab === "my";
-    let h = `<div class="stack">${back("#/lib", "Библиотека")}
-      <div class="stack" style="gap:6px"><h1>Словарь символов</h1><p class="small">У символа нет одного значения. Здесь — то, что он нес в мифах и сказках, и место, чтобы найти свое.</p></div>
-      <div class="seg2"><a href="#/dict" class="${my ? "" : "on"}">Словарь</a><a href="#/dict/my" class="${my ? "on" : ""}">Мои образы</a></div>`;
-    if (!DS.length) { app.innerHTML = h + `<p class="lead">Словарь появится после подключения.</p></div>`; return; }
+    const myN = Object.keys(S.myimg).filter(hasMine).length;
+    let h = `<div class="dict"><div class="dhead">${STARS}<div class="dhead-in">${back("#/lib", "Библиотека")}
+      <div class="dkick">язык бессознательного</div><h1>Словарь символов</h1><p class="dsub">У символа нет одного значения. Здесь то, что он нес в мифах, и место для своего.</p>
+      ${my ? "" : `<label class="dsearch">${'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D6D8FF" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>'}<input id="q" type="search" placeholder="Найти: вода, дом, волк…" aria-label="Поиск символа"></label>`}</div></div>
+      <div class="dbody"><div class="dchips"><a href="#/dict" class="${my ? "" : "on"}">Словарь · ${SY.length}</a><a href="#/dict/my" class="${my ? "on" : ""}">Мои образы · ${myN}</a></div>`;
+    if (!DS.length) { app.innerHTML = h + `<p class="lead">Словарь появится после подключения.</p></div></div>`; return; }
     if (my) {
       const ids = Object.keys(S.myimg).filter(hasMine);
-      if (!ids.length) h += `<div class="card dashed"><div class="small">Здесь появятся твои записи к символам и твои связи между ними. Открой любой символ и напиши, что он значит для тебя.</div></div>`;
+      if (!ids.length) h += `<div class="dcard"><div class="small">Здесь появятся твои записи к символам и твои связи между ними. Открой любой символ и напиши, что он значит для тебя.</div></div>`;
       ids.forEach((id) => {
         const x = symById(id); if (!x) return; const m = S.myimg[id];
-        h += `<a class="card" href="#/sym/${id}"><div class="row" style="justify-content:space-between"><b>${esc(x.title)}</b>${icon.chev}</div>
-          ${m.text ? `<div style="font-size:14px;color:var(--muted2)">${esc(m.text)}</div>` : ""}
+        h += `<a class="dcard" href="#/sym/${id}"><div class="row" style="justify-content:space-between"><b>${esc(x.title)}</b>${icon.chev}</div>
+          ${m.text ? `<div style="font-size:14px;color:#D9DCF2">${esc(m.text)}</div>` : ""}
           ${(m.links || []).length ? `<div class="chips">${m.links.map((l) => { const y = symById(l); return y ? `<span class="chip mine sm">${esc(y.title.toLowerCase())}</span>` : ""; }).join("")}</div>` : ""}</a>`;
       });
-      app.innerHTML = h + `</div>`; return;
+      app.innerHTML = h + `</div></div>`; return;
     }
-    const deep = SY.filter((x) => x.deep);
-    h += `<input class="inp" id="q" type="search" placeholder="Найти символ: вода, дом, волк…" aria-label="Поиск символа">
-      <div id="res" class="stack" style="gap:8px"></div>
-      <div id="secs" class="stack" style="gap:18px">
-      <div class="stack" style="gap:10px"><div class="kicker" style="letter-spacing:.06em">ОБРАЗЫ ИЗ ПРАКТИК ГЛУБИНЫ</div><div class="chips">${deep.map((x) => `<a class="chip" href="#/sym/${x.id}">${esc(x.title.toLowerCase())}</a>`).join("")}</div></div>
-      <div class="stack" style="gap:10px"><div class="kicker" style="letter-spacing:.06em">РАЗДЕЛЫ</div>
-      ${DS.map((sec) => `<a class="card" href="#/dsec/${sec.id}" style="gap:4px"><div class="row" style="justify-content:space-between"><b>${esc(sec.title)}</b><span class="small">${sec.symbols.length}</span></div><div class="small">${esc(sec.symbols.slice(0, 6).map((x) => x.title.toLowerCase()).join(", "))}</div></a>`).join("")}
-      </div></div></div>`;
+    const dsec = DS.find(isDreamSec), secs = DS.filter((s) => !isDreamSec(s));
+    h += `<div id="res" class="stack" style="gap:8px"></div><div id="secs" class="stack" style="gap:10px">
+      ${dsec ? `<a class="dwide dream" href="#/dsec/${dsec.id}"><b>${esc(dsec.title)}</b>${neon(ART.dream || "", "0 0 140 80", 140, 76)}</a>` : ""}
+      <a class="dwide arc" href="#/tarot"><b>Старшие арканы</b>${neon(ART.tarot || "", "20 4 120 84", 128, 76)}</a>
+      <div class="dkick" style="margin-top:6px;color:#C3CBEB">разделы</div>
+      <div class="dgrid">${secs.map((s) => `<a class="dtile" href="#/dsec/${s.id}">${neon(secArt(s), "0 6 160 106", "100%", 86)}<span class="dn">${s.symbols.length}</span><b>${esc(s.title)}</b></a>`).join("")}</div></div></div></div>`;
     app.innerHTML = h;
-    const q = $("#q"), res = $("#res"), secs = $("#secs");
+    const q = $("#q"), res = $("#res"), secsEl = $("#secs");
     q.oninput = () => {
-      const t = q.value.trim().toLowerCase();
-      if (!t) { res.innerHTML = ""; secs.style.display = ""; return; }
-      const f = SY.filter((x) => x.title.toLowerCase().includes(t) || x.essence.toLowerCase().includes(t)).slice(0, 30);
-      secs.style.display = "none";
+      const t = q.value.trim().toLowerCase().replace(/ё/g, "е");
+      if (!t) { res.innerHTML = ""; secsEl.style.display = ""; return; }
+      const f = SY.filter((x) => x.title.toLowerCase().includes(t) || String(x.essence || "").toLowerCase().includes(t)).slice(0, 30);
+      secsEl.style.display = "none";
       res.innerHTML = f.length ? f.map(symRow).join("") : `<div class="small">Такого символа пока нет в словаре. Свой образ можно записать в «Совпадениях».</div>`;
     };
   }
   const symRow = (x) => `<a class="sym-row" href="#/sym/${x.id}"><span class="t"><b>${esc(x.title)}</b><span>${esc(x.essence)}</span></span>${icon.chev}</a>`;
   function DSec(id) {
     const sec = DS.find((x) => x.id === id); if (!sec) return go("#/dict");
-    app.innerHTML = `<div class="stack">${back("#/dict", "Словарь")}
-      <div class="stack" style="gap:6px"><h1>${esc(sec.title)}</h1><p class="small">${esc(sec.intro)}</p></div>
-      <div class="stack" style="gap:8px">${sec.symbols.map((x) => symRow(Object.assign({ sec: sec }, x))).join("")}</div></div>`;
+    app.innerHTML = `<div class="dict"><div class="dhead sm">${STARS}<div class="dhead-in">${back("#/dict", "Словарь")}
+      <h1>${esc(sec.title)}</h1>${sec.intro ? `<p class="dsub">${esc(sec.intro)}</p>` : ""}</div></div>
+      <div class="dbody"><div class="stack" style="gap:8px">${sec.symbols.map((x) => symRow(Object.assign({ sec: sec }, x))).join("")}</div></div></div>`;
   }
-  function Sym(id) {
+  // карта колоды к символу: по имени карты
+  const deckFor = (x) => DECK.find((c) => { const y = symByTitle(c.title); return y && y.id === x.id; });
+  function dtabs(list, cur, base) { return `<div class="dtabs" role="tablist">${list.map(([k, l]) => `<a role="tab" href="${base}/${k}" class="${k === cur ? "on" : ""}" aria-selected="${k === cur}">${l}</a>`).join("")}</div>`; }
+  function mineBlock(id, title, questions, rel) {
+    const m = S.myimg[id] || { text: "", links: [] };
+    return `${rel || ""}<div class="dcard" style="gap:10px"><label for="moe"><h2 style="font-size:17px">Что ${esc(title.toLowerCase())} значит для тебя?</h2></label>
+      ${(questions || []).length ? `<div class="stack" style="gap:6px;font-size:13px;line-height:1.45;color:#B9BFE0"><span style="font-size:12px;color:#9AA3CF">Если нужна подсказка:</span>${questions.map((q) => `<span>— ${esc(q)}</span>`).join("")}</div>` : ""}
+      <textarea id="moe" rows="4" placeholder="Твоя ассоциация — она здесь главная">${esc(m.text)}</textarea>
+      <span class="small" id="st" style="font-size:12px;color:#9AA3CF">${m.text ? "Сохранено в «Мои образы»" : "Запись сохранится в «Мои образы»"}</span></div>`;
+  }
+  function bindMine(id) {
+    const ta = $("#moe"), stl = $("#st"); if (!ta) return; let deb;
+    ta.oninput = () => { clearTimeout(deb); deb = setTimeout(() => { mine(id).text = ta.value.trim(); mine(id).at = now(); save(); stl.textContent = "Сохранено в «Мои образы»"; }, 500); };
+  }
+  const para = (t) => t ? `<p class="dp">${esc(t)}</p>` : "";
+  function Sym(id, tab) {
     const x = symById(id); if (!x) return go("#/dict");
     const m = S.myimg[id] || { text: "", links: [] };
     const links = m.links || [];
-    const relIds = x.related.map((t) => { const y = symByTitle(t); return y ? y.id : null; });
-    const rel = x.related.map((t, i) => { const y = relIds[i]; return y ? `<a class="chip${links.includes(y) ? " mine" : ""}" href="#/sym/${y}">${esc(t)}</a>` : `<span class="chip" style="color:var(--muted)">${esc(t)}</span>`; }).join("");
+    const related = x.related || [];
+    const relIds = related.map((t) => { const y = symByTitle(t); return y ? y.id : null; });
+    const rel = related.map((t, i) => { const y = relIds[i]; return y ? `<a class="chip${links.includes(y) ? " mine" : ""}" href="#/sym/${y}">${esc(t)}</a>` : `<span class="chip" style="color:var(--muted)">${esc(t)}</span>`; }).join("");
     const myl = links.filter((l) => !relIds.includes(l)).map((l) => { const y = symById(l); return y ? `<a class="chip mine" href="#/sym/${y.id}">${esc(y.title.toLowerCase())}</a>` : ""; }).join("");
-    app.innerHTML = `<div class="stack" style="gap:22px">${back("#/dsec/" + x.sec.id, x.sec.title)}
-      <div class="stack" style="gap:6px"><div class="kicker" style="letter-spacing:.06em">${esc(x.sec.title.toUpperCase())}</div><h1 style="font-size:32px">${esc(x.title)}</h1><p class="lead" style="font-size:14px">${esc(x.essence)}</p></div>
-      <div class="stack" style="gap:10px"><h2 style="font-size:17px">В мифах и сказках</h2>
-        ${x.myths.map((y) => `<div class="row" style="align-items:flex-start;font-size:14px;line-height:1.55;color:#D6E0EA"><span style="color:var(--blue)">—</span><span><b style="color:var(--text)">${esc(y.h)}.</b> ${esc(y.t)}</span></div>`).join("")}</div>
-      ${x.sd || x.deep ? `<div class="card" style="background:var(--card2)">${x.sd ? `<h2 style="font-size:17px">В символдраме</h2><p style="font-size:14px;line-height:1.55;color:#D6E0EA">${esc(x.sd)}</p>` : ""}${x.deep ? `<span class="small">В Глубине: ${esc(x.deep)}</span>` : ""}</div>` : ""}
-      <div class="card" style="background:none;border:1px solid var(--line)"><h2 style="font-size:17px">Другая сторона</h2><p style="font-size:14px;line-height:1.55;color:#D6E0EA">${esc(x.shadow)}</p></div>
-      <div class="stack" style="gap:10px"><div class="kicker" style="letter-spacing:.06em">РЯДОМ ПО СМЫСЛУ</div><div class="chips">${rel}${myl}</div>
+    const TB = [["sut", "Суть"]]; if ((x.myths || []).length) TB.push(["myths", "Мифы"]); if ((x.dream || []).length) TB.push(["son", "Во сне"]); TB.push(["moe", "Мое"]);
+    const cur = TB.some((t) => t[0] === tab) ? tab : "sut";
+    const card = deckFor(x);
+    let body = "";
+    if (cur === "sut") body = `${para(x.gift)}${x.shadow ? `<div class="dcard"><h2 style="font-size:16px">Другая сторона</h2><p class="dp">${esc(x.shadow)}</p></div>` : ""}
+      ${x.sd || x.deep ? `<div class="dcard">${x.sd ? `<h2 style="font-size:16px">В символдраме</h2><p class="dp">${esc(x.sd)}</p>` : ""}${x.deep ? `<span class="small" style="color:#B9BFE0">В Глубине: ${esc(x.deep)}</span>` : ""}</div>` : ""}`;
+    else if (cur === "myths") body = mythsHTML(x.myths);
+    else if (cur === "son") body = `<p class="small" style="color:#B9BFE0">Сон говорит на языке самого человека. Это возможные прочтения, а не толкование.</p>${mythsHTML(x.dream)}`;
+    else body = mineBlock(id, x.title, x.questions, `<div class="stack" style="gap:10px"><div class="dkick" style="color:#C3CBEB">рядом по смыслу</div><div class="chips">${rel}${myl}</div>
         <a class="dash-btn" href="#/pick/${id}">${links.length ? "Изменить мои связи" : "Открыть весь список"} ${icon.chev}</a>
-        <span class="small" style="font-size:12px;color:var(--dim)">Выбери символы, которые связаны с этим образом для тебя. Твои связи появятся здесь и в «Моих образах».</span></div>
-      <div class="card" style="background:var(--card2);gap:10px"><label for="moe"><h2 style="font-size:17px">Что ${esc(x.title.toLowerCase())} значит для тебя?</h2></label>
-        <div class="stack" style="gap:6px;font-size:13px;line-height:1.45;color:var(--muted)"><span style="font-size:12px;color:var(--dim)">Если нужна подсказка:</span>${x.questions.map((q) => `<span>— ${esc(q)}</span>`).join("")}</div>
-        <textarea id="moe" rows="4" placeholder="Твоя ассоциация — она здесь главная">${esc(m.text)}</textarea>
-        <span class="small" id="st" style="font-size:12px;color:var(--dim)">${m.text ? "Сохранено в «Мои образы»" : "Запись сохранится в «Мои образы»"}</span></div>
-    </div>`;
-    const ta = $("#moe"), stl = $("#st"); let deb;
-    ta.oninput = () => { clearTimeout(deb); deb = setTimeout(() => { mine(id).text = ta.value.trim(); mine(id).at = now(); save(); stl.textContent = "Сохранено в «Мои образы»"; }, 500); };
+        <span class="small" style="font-size:12px;color:#9AA3CF">Выбери символы, которые связаны с этим образом для тебя. Твои связи появятся здесь и в «Моих образах».</span></div>`);
+    app.innerHTML = `<div class="dict"><div class="dhead sm">${STARS}<div class="dhead-in">${back("#/dsec/" + x.sec.id, x.sec.title)}
+      <div class="dart-top">${card && card.img ? `<button type="button" class="dthumb" id="dcard" aria-label="Открыть карту «${esc(card.title)}»"><img src="${card.img}" alt=""></button>` : ""}
+      <div class="stack" style="gap:6px;min-width:0"><div class="dkick">${esc(x.sec.title)}</div><h1>${esc(x.title)}</h1><p class="dsub">${esc(x.essence)}</p></div></div></div></div>
+      <div class="dbody">${dtabs(TB, cur, "#/sym/" + id)}<div class="stack" style="gap:14px">${body}</div></div></div>`;
+    if ($("#dcard")) $("#dcard").onclick = () => cardView(card.img, card.title);
+    bindMine(id);
+  }
+  function Tarot() {
+    const intro = C.dict && C.dict.tarotIntro;
+    app.innerHTML = `<div class="dict"><div class="dhead sm">${STARS}<div class="dhead-in">${back("#/dict", "Словарь")}
+      <h1>Старшие арканы</h1><p class="dsub">22 этапа на пути к себе: от Шута к Миру</p></div></div>
+      <div class="dbody">${intro ? `<p class="dp">${esc(intro)}</p>` : ""}<div class="apath">${ARC.map((a, i) => `<a class="arow${S.myimg["arc" + i] && S.myimg["arc" + i].text ? " has" : ""}" href="#/arc/${i}"><span class="anum">${ROM[i]}</span><span class="aname">${esc(a[0])}</span></a>`).join("")}</div></div></div>`;
+  }
+  function Arc(n, tab) {
+    n = Math.max(0, Math.min(21, Number(n) || 0));
+    const a = ARC[n], x = arcData(n) || {}, id = "arc" + n;
+    const TB = [["sut", "Суть"], ["karta", "Карта"], ["put", "Путь"], ["son", "Во сне"], ["moe", "Мое"]];
+    const cur = TB.some((t) => t[0] === tab) ? tab : "sut";
+    const soon = `<p class="small" style="color:#B9BFE0">Текст к этой карте скоро появится.</p>`;
+    let body = "";
+    if (cur === "sut") body = x.gift || x.shadow ? `${para(x.gift)}${x.shadow ? `<div class="dcard"><h2 style="font-size:16px">Другая сторона</h2><p class="dp">${esc(x.shadow)}</p></div>` : ""}${(x.myths || []).length ? `<div class="dkick" style="color:#C3CBEB;margin-top:4px">в мифах и сказках</div>${mythsHTML(x.myths)}` : ""}` : soon;
+    else if (cur === "karta") body = `<button type="button" class="abig" id="abig" aria-label="Открыть карту"><img src="${arcImg(n)}" alt="${esc(a[0])}"></button>${x.card ? `<div class="dcard"><h2 style="font-size:16px">Что на карте</h2><p class="dp">${esc(x.card)}</p></div>` : ""}`;
+    else if (cur === "put") body = `<details class="dwhat"><summary>Что такое путь</summary><p class="dp">${esc((C.dict && C.dict.pathInfo) || "Путь — место карты в истории от Шута к Миру: что было до нее, какой урок она приносит и куда ведет дальше.")}</p></details>${x.path ? para(x.path) : soon}`;
+    else if (cur === "son") body = (x.dream || []).length ? `<p class="small" style="color:#B9BFE0">Возможные прочтения, а не толкование.</p>${mythsHTML(x.dream)}` : soon;
+    else body = mineBlock(id, a[0], x.questions);
+    app.innerHTML = `<div class="dict"><div class="dhead sm">${STARS}<div class="dhead-in">${back("#/tarot", "Старшие арканы")}
+      <div class="dart-top"><button type="button" class="dthumb arc" id="dcard" aria-label="Открыть карту «${esc(a[0])}»"><img src="${arcImg(n)}" alt=""></button>
+      <div class="stack" style="gap:6px;min-width:0"><div class="dkick" style="color:#FFC2A8">аркан ${ROM[n]}</div><h1>${esc(a[0])}</h1>${x.essence ? `<p class="dsub">${esc(x.essence)}</p>` : ""}</div></div></div></div>
+      <div class="dbody">${dtabs(TB, cur, "#/arc/" + n)}<div class="stack" style="gap:14px">${body}</div>
+      <div class="anav">${n > 0 ? `<a href="#/arc/${n - 1}/${cur}">‹ ${esc(ARC[n - 1][0])} · ${ROM[n - 1]}</a>` : "<span></span>"}${n < 21 ? `<a href="#/arc/${n + 1}/${cur}">${esc(ARC[n + 1][0])} · ${ROM[n + 1]} ›</a>` : "<span></span>"}</div></div></div>`;
+    const open = () => cardView(arcImg(n), a[0], "аркан " + ROM[n]);
+    $("#dcard").onclick = open; if ($("#abig")) $("#abig").onclick = open;
+    bindMine(id);
   }
   function Pick(id) {
     const x = symById(id); if (!x) return go("#/dict");
@@ -852,6 +947,7 @@ window.startApp = function () {
     if (!auto && starting) M.qtab = M.tab;
     if (!auto) M.endless = isVoiced(id); // после трека с голосом музыка идет без конца
     if (NOW.kind !== "music" || M.cur !== id || !audio.src) { M.sw = Date.now(); audio.src = t.src; M.cur = id; }
+    if (!isVoiced(id)) M.sel = id;
     NOW.kind = "music"; NOW.id = id;
     audio.playbackRate = 1;
     if (!auto) {
@@ -983,16 +1079,46 @@ window.startApp = function () {
   const REP = (c, one) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>${one ? `<circle cx="12" cy="12" r="4.6" fill="${c}" stroke="none"/><text x="12" y="14.6" font-size="7.5" text-anchor="middle" fill="#0F1E33" stroke="none" font-weight="800" font-family="Manrope,sans-serif">1</text>` : ""}</svg>`;
   const MOONS = (c) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>`;
   const REP_LABEL = { none: "без повтора", list: "по кругу", one: "один трек" };
+  // настроения треков: цвет обложки и знак
+  const MOOD = {
+    "сон": ["#5B4B9A", "#2A2350", '<circle cx="26" cy="16" r="6" fill="#fff" fill-opacity=".85"/><circle cx="29" cy="14" r="5" fill="#5B4B9A"/><circle cx="14" cy="24" r="1.2" fill="#fff" fill-opacity=".7"/><circle cx="32" cy="30" r="1" fill="#fff" fill-opacity=".6"/>'],
+    "вода": ["#2F8E9A", "#123B47", '<path d="M6 24q5-4 10 0t10 0 10 0" stroke="#fff" stroke-opacity=".8" stroke-width="2" fill="none"/><path d="M6 31q5-4 10 0t10 0 10 0" stroke="#fff" stroke-opacity=".45" stroke-width="2" fill="none"/>'],
+    "лес": ["#5E8C5F", "#1D3324", '<path d="M10 34l6-14 6 14z M20 34l7-18 7 18z" fill="#fff" fill-opacity=".7"/>'],
+    "тепло": ["#B86A4E", "#3A2420", '<path d="M22 10c4 6 8 9 8 15a8 8 0 0 1-16 0c0-4 3-6 4-9 1 3 3 4 4 4-1-3-1-6 0-10z" fill="#fff" fill-opacity=".8"/>'],
+    "свет": ["#6E8FC9", "#1E2E52", '<circle cx="22" cy="22" r="6" fill="#fff" fill-opacity=".85"/><g stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"><path d="M22 8v4M22 32v4M8 22h4M32 22h4M12 12l3 3M29 29l3 3M12 32l3-3M29 15l3-3"/></g>']
+  };
+  const MOODK = Object.keys(MOOD);
+  const moodOf = (t) => {
+    if (!t) return "вода";
+    if (MOOD[t.mood]) return t.mood;
+    const s = String((t.tag || "") + " " + t.title).toLowerCase();
+    if (/сон|сна|колыб|звезд|ночь|ноч/.test(s)) return "сон";
+    if (/вод|мор|дожд|рек|океан|волн/.test(s)) return "вода";
+    if (/лес|птиц|трав|сад/.test(s)) return "лес";
+    if (/огон|огн|тепл|пустын|солн/.test(s)) return "тепло";
+    if (/свет|ветер|утр|рассв/.test(s)) return "свет";
+    return MOODK[Math.max(0, MU.findIndex((x) => x.id === t.id)) % MOODK.length];
+  };
+  const cover = (t, sz) => { const m = MOOD[moodOf(t)]; return `<span class="mcov" style="width:${sz}px;height:${sz}px;background:radial-gradient(120% 120% at 20% 10%,${m[0]},${m[1]});box-shadow:0 4px 14px ${m[0]}55"><svg viewBox="0 0 44 44" width="${sz}" height="${sz}" aria-hidden="true">${m[2]}</svg></span>`; };
+  const ICM = {
+    mic: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+    rep: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>',
+    moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
+    play: '<svg width="22" height="22" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>',
+    pause: '<svg width="22" height="22" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+  };
+  const cap1 = (s) => { s = String(s || ""); return s.charAt(0).toUpperCase() + s.slice(1); };
   function voiceSheet(onDone) {
     const vs = mset().voice;
     let pick = voiceById(vs.id) && !voiceById(vs.id).soon ? vs.id : (VOICES.find((v) => !v.soon) || {}).id;
     const bg = document.createElement("div"); bg.className = "sheet-bg";
     const draw = () => {
-      bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="vsh"><div class="grip"></div>
-        <h2 id="vsh" style="font-size:19px">Голосовое сопровождение</h2>
-        <p class="small" style="margin-top:-6px">Сначала прозвучит запись с голосом, потом музыка без голоса — без остановки.</p>
-        <div class="stack" style="gap:8px">${VOICES.map((v) => `<button type="button" class="vopt${v.id === pick ? " on" : ""}${v.soon ? " soon" : ""}" data-v="${v.id}"><span class="rad"></span><span class="t"><b>${esc(v.title)}</b><span>${esc(v.sub || "")}${v.soon ? " · скоро" : v.dur ? " · " + fmtMin(v.dur) : ""}</span></span></button>`).join("")}</div>
-        <button class="btn" id="von"${pick ? "" : " disabled"}>Включить</button></div>`;
+      bg.innerHTML = `<div class="sheet msheet" role="dialog" aria-modal="true" aria-labelledby="vsh"><div class="grip"></div>
+        <h2 id="vsh" style="font-size:19px">С голосом</h2>
+        <p class="small" style="margin-top:-6px">Сначала звучит запись с голосом, потом только музыка.</p>
+        <div class="stack" style="gap:8px">${VOICES.map((v) => `<button type="button" class="vopt${v.id === pick ? " on" : ""}${v.soon ? " soon" : ""}" data-v="${v.id}"><span class="rad"></span><span class="t"><b>${esc(v.title)}</b><span>${esc(cap1(v.sub))}${v.soon ? " · скоро" : v.dur ? " · " + fmtMin(v.dur) : ""}</span></span></button>`).join("")}</div>
+        <button class="btn" id="von"${pick ? "" : " disabled"}>Включить</button>
+        <button type="button" class="link-row" id="voff" style="justify-content:center;border:none;color:var(--muted2)">Без голоса</button></div>`;
       bg.querySelectorAll("[data-v]").forEach((b) => b.onclick = () => {
         const v = voiceById(b.dataset.v);
         if (v.soon) { toast("Эта запись появится скоро"); return; }
@@ -1005,6 +1131,7 @@ window.startApp = function () {
         if (changed) M.voicedOnce = false;
         onDone();
       };
+      bg.querySelector("#voff").onclick = () => { vs.on = false; save(); haptic(); bg.remove(); onDone(); };
     };
     draw();
     bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
@@ -1033,71 +1160,66 @@ window.startApp = function () {
   }
   function Music() {
     const st = mset();
-    const WAVE = `<svg class="mwave" viewBox="0 0 360 18" preserveAspectRatio="none" aria-hidden="true"><path d="M0 9 Q 22.5 1 45 9 T 90 9 T 135 9 T 180 9 T 225 9 T 270 9 T 315 9 T 360 9 T 405 9 T 450 9" fill="none" stroke="#3F5E80" stroke-width="1.6" stroke-linecap="round"><animateTransform attributeName="transform" type="translate" from="0 0" to="-90 0" dur="6s" repeatCount="indefinite"/></path></svg>`;
+    if (!M.sel) M.sel = M.cur || (MU[0] && MU[0].id);
     const draw = () => {
       const mine = M.tab === "mine";
       const q = mine ? S.playlist.map(track).filter(Boolean) : MU;
-      const r = st.repeat || "list";
       const vs = st.voice, vv = vs.on ? voiceById(vs.id) : null;
       const playing = (id) => M.cur === id && NOW.kind === "music" && !audio.paused;
-      app.innerHTML = `<div class="stack" style="gap:14px">${back("#/lib", "Библиотека")}
-        <div class="stack" style="gap:4px"><h1>Музыкальное сопровождение</h1><div class="small">Для сна, практик и чтобы побыть с собой</div></div>
-        <div class="vplate"><button type="button" class="vbody" id="vpick">${MIC}<span class="t"><b>С голосом</b>${vv ? `<span class="on">${esc(vv.title)} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>` : `<span>выбрать, что будет звучать</span>`}</span></button>
-          <button type="button" class="tgl${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></div>
-        <div id="now"></div>
-        ${q.length ? `<div class="mquiet"><button type="button" id="pall">${NOW.kind === "music" && !audio.paused ? "Остановить" : "Слушать все"}</button><span>·</span>
-          <button type="button" id="rep" aria-label="Повтор: ${REP_LABEL[r]}">${REP_LABEL[r]}</button><span>·</span>
-          <button type="button" id="tmr">${st.timer ? "таймер " + (M.end && !audio.paused && NOW.kind === "music" ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : st.timer) + " мин" : "без таймера"}</button></div>` : ""}
-        ${WAVE}
-        <div class="seg2"><a href="#" data-tab="all" class="${!mine ? "on" : ""}">Вся музыка</a><a href="#" data-tab="mine" class="${mine ? "on" : ""}">Мой плейлист · ${S.playlist.length}</a></div>
-        <div class="stack" style="gap:8px">${q.length ? q.map((t, i) => `<div class="trk${M.cur === t.id ? " cur" : ""}">
-          <button type="button" class="tbody" data-play="${t.id}"><span class="ti">${playing(t.id) ? icon.pauseS : icon.note}</span><span class="t"><b>${esc(t.title)}</b><span>${fmtMin(t.dur)}${t.tag ? " · " + esc(t.tag) : ""}</span></span></button>
+      app.innerHTML = `<div class="mpage"><div class="mhead"><svg class="mhead-bg" viewBox="0 0 390 210" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><path d="M0 140 Q 50 120 100 140 T 200 140 T 300 140 T 400 140 V210 H0z" fill="#2F8E9A" fill-opacity=".25"><animateTransform attributeName="transform" type="translate" values="0 0;-30 0;0 0" dur="9s" repeatCount="indefinite"/></path><path d="M-40 166 Q 20 146 80 166 T 200 166 T 320 166 T 440 166 V210 H-40z" fill="#14304F" fill-opacity=".9"><animateTransform attributeName="transform" type="translate" values="0 0;24 0;0 0" dur="11s" repeatCount="indefinite"/></path><circle cx="320" cy="72" r="40" fill="#7FE3E0" fill-opacity=".10"/><circle cx="320" cy="72" r="22" fill="#7FE3E0" fill-opacity=".25"/></svg>
+        <div class="mhead-in">${back("#/lib", "Библиотека")}<h1>Музыкальное<br>сопровождение</h1><div class="msub">Для сна, практик и чтобы побыть с собой</div></div></div>
+        <div class="stack" style="gap:12px">
+        <div class="vline${vs.on ? " on" : ""}"><button type="button" class="vline-b" id="vpick"><span class="vmic">${ICM.mic}</span><b>С голосом</b>${vv ? `<span class="vname">${esc(vv.title)}</span>` : ""}</button>
+          <button type="button" class="tgl tglm${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></div>
+        <div class="mchips"><button type="button" data-tab="all" class="${!mine ? "on" : ""}">Вся музыка</button><button type="button" data-tab="mine" class="${mine ? "on" : ""}">Мой плейлист · ${S.playlist.length}</button></div>
+        <div class="stack" style="gap:8px">${q.length ? q.map((t, i) => { const m = MOOD[moodOf(t)], sel = M.sel === t.id; return `<div class="mtrk${sel ? " sel" : ""}" style="${sel ? `background:linear-gradient(90deg,${m[0]}40,rgba(24,43,69,.7));border-color:${m[0]}` : ""}">
+          <button type="button" class="tbody" data-sel="${t.id}" aria-pressed="${sel}">${cover(t, 44)}<span class="t"><b>${esc(t.title)}${playing(t.id) ? ' <span class="eq"><i></i><i></i><i></i></span>' : ""}</b><span>${fmtMin(t.dur)} · ${moodOf(t)}</span></span></button>
           ${mine ? `<span class="ord"><button type="button" data-up="${i}" aria-label="Выше"${i ? "" : " disabled"}>↑</button><button type="button" data-dn="${i}" aria-label="Ниже"${i < q.length - 1 ? "" : " disabled"}>↓</button></span>` : ""}
-          <button type="button" class="add${S.playlist.includes(t.id) ? " in" : ""}" data-add="${t.id}" aria-label="${S.playlist.includes(t.id) ? "Убрать из плейлиста" : "Добавить в плейлист"}">${S.playlist.includes(t.id) ? (mine ? "×" : icon.checkS) : icon.plus}</button></div>`).join("") : `<div class="card dashed"><div class="small">Плейлист пока пуст. Во вкладке «Вся музыка» нажми «+» у треков, которые хочешь сюда.</div></div>`}</div>
-        <div class="small center" style="font-size:12px;color:var(--dim)">${mine ? "Стрелками можно выстроить свой порядок" : "Нажми «+», чтобы собрать свой плейлист"}</div>
-      </div>`;
-      // если включено «С голосом»: при первом запуске сначала запись с голосом, потом выбранная музыка без конца
+          <button type="button" class="add${S.playlist.includes(t.id) ? " in" : ""}" data-add="${t.id}" aria-label="${S.playlist.includes(t.id) ? "Убрать из плейлиста" : "Добавить в плейлист"}">${S.playlist.includes(t.id) ? (mine ? "×" : "✓") : "+"}</button></div>`; }).join("") : `<div class="card dashed"><div class="small">Плейлист пока пуст. Во «Всей музыке» нажми «+» у треков, которые хочешь сюда.</div></div>`}</div>
+        <div class="small center" style="font-size:12px;color:var(--dim)">${mine ? "Стрелками можно выстроить свой порядок" : "Нажми на трек, чтобы выбрать, и ▶ — чтобы слушать"}</div>
+        <div id="now"></div></div></div>`;
+      // если включено «С голосом»: сначала запись с голосом, потом выбранная музыка без конца
       const start = (id) => {
         M.qtab = M.tab;
         const fromStop = NOW.kind !== "music" || audio.paused && !(M.cur === id && audio.currentTime > 0);
         if (vv && vv.src && !vv.soon && !M.voicedOnce && fromStop && !isVoiced(id)) { M.voicedOnce = true; M.after = id; playTrack(vv.id); }
         else playTrack(id);
       };
-      const toggle = (id) => { if (playing(id)) stopMusic(); else if (M.cur === id && audio.paused && NOW.kind === "music") playTrack(id); else start(id); draw(); };
       $("#vpick").onclick = () => voiceSheet(draw);
       $("#vtgl").onclick = () => { if (vs.on) { vs.on = false; save(); haptic(); draw(); } else voiceSheet(draw); };
-      app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = (e) => { e.preventDefault(); M.tab = b.dataset.tab; draw(); });
-      app.querySelectorAll("[data-play]").forEach((b) => b.onclick = () => toggle(b.dataset.play));
+      app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { M.tab = b.dataset.tab; draw(); });
+      app.querySelectorAll("[data-sel]").forEach((b) => b.onclick = () => { M.sel = b.dataset.sel; haptic(); draw(); });
       app.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { const id = b.dataset.add, i = S.playlist.indexOf(id); i >= 0 ? S.playlist.splice(i, 1) : S.playlist.push(id); save(); haptic(); draw(); });
       const mv = (i, k) => { const a = S.playlist, j = i + k; if (j < 0 || j >= a.length) return; const x = a[i]; a[i] = a[j]; a[j] = x; save(); draw(); };
       app.querySelectorAll("[data-up]").forEach((b) => b.onclick = () => mv(Number(b.dataset.up), -1));
       app.querySelectorAll("[data-dn]").forEach((b) => b.onclick = () => mv(Number(b.dataset.dn), 1));
-      if ($("#pall")) {
-        $("#pall").onclick = () => { if (!audio.paused && NOW.kind === "music") stopMusic(); else start(q[0].id); draw(); };
-        $("#rep").onclick = () => { st.repeat = { none: "list", list: "one", one: "none" }[r]; save(); haptic(); draw(); };
-        $("#tmr").onclick = () => timerSheet(draw);
-      }
-      try { if (matchMedia("(prefers-reduced-motion: reduce)").matches) app.querySelector(".mwave").pauseAnimations(); } catch (e) {}
       paint = () => {
-        const el = $("#now"); if (!el || M.drag) return;
-        const t = track(M.cur);
-        if (!t || NOW.kind !== "music") { el.innerHTML = `<div class="mplayer idle"><span class="small">Выбери трек — плеер появится здесь</span></div>`; return; }
+        const el = $("#now"); if (!el) return;
+        const on = NOW.kind === "music" && audio.src;
+        const t = (on && track(M.cur)) || track(M.sel) || q[0];
+        if (!t) { el.innerHTML = ""; return; }
         const pq = queue(), pi = pq.findIndex((x) => x.id === t.id), vo = isVoiced(t.id);
-        const d = audio.duration && isFinite(audio.duration) ? audio.duration : t.dur || 0, c = audio.currentTime || 0;
+        const isPlay = on && !audio.paused && M.cur === t.id;
+        const d = on && audio.duration && isFinite(audio.duration) ? audio.duration : t.dur || 0, c = on && M.cur === t.id ? audio.currentTime || 0 : 0;
         const left = M.end ? Math.max(0, Math.ceil((M.end - Date.now()) / 60000)) : 0;
-        const sub = (vo ? "с голосом, дальше музыка · " : pq.length > 1 && pi >= 0 ? pi + 1 + " из " + pq.length + " · " : "") + (audio.paused ? "пауза" : left ? "затихнет через " + left + " мин" : "играет");
-        el.innerHTML = `<div class="mplayer"><div class="row" style="gap:10px;align-items:center">
-            <button type="button" class="big" id="mp" aria-label="${audio.paused ? "Играть" : "Пауза"}">${audio.paused ? icon.play : icon.pause}</button>
-            <div class="stack" style="gap:1px;flex:1;min-width:0"><b style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</b><span class="small" style="font-size:12px;color:var(--blue)">${sub}</span></div>
-            ${vo ? "" : `<button type="button" class="nav" id="mprev" aria-label="Предыдущий"><svg width="20" height="20" viewBox="0 0 24 24" fill="#C3D0DE"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button><button type="button" class="nav" id="mnext" aria-label="Следующий"><svg width="20" height="20" viewBox="0 0 24 24" fill="#C3D0DE"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>`}</div>
-          <input id="ms" type="range" min="0" max="${Math.floor(d)}" value="${Math.floor(c)}" aria-label="Перемотка"><div class="times"><span>${fmt(c)}</span><span>${fmt(d)}</span></div></div>`;
-        const ms = $("#ms");
-        ms.oninput = () => { M.drag = true; };
-        ms.onchange = (e) => { audio.currentTime = Number(e.target.value); M.drag = false; };
-        $("#mp").onclick = () => { if (audio.paused) playTrack(M.cur); else stopMusic(); draw(); };
-        const step = (k) => { if (!pq.length) return; const j = (pi + k + pq.length) % pq.length; const was = !audio.paused; playTrack(pq[j].id, true); if (!was) M.end = st.timer ? Date.now() + st.timer * 60000 : 0; draw(); };
-        if ($("#mprev")) $("#mprev").onclick = () => { if (c > 5) { audio.currentTime = 0; return; } step(-1); };
-        if ($("#mnext")) $("#mnext").onclick = () => step(1);
+        const r = st.repeat || "list";
+        const sub = vo ? "с голосом, дальше музыка" : (pq.length > 1 && pi >= 0 ? pi + 1 + " из " + pq.length + " · " : "") + (isPlay ? (left ? "затихнет через " + left + " мин" : "играет") : on && M.cur === t.id ? "пауза" : "выбран");
+        const m = MOOD[moodOf(t)];
+        const html = `<div class="mbar" style="background:linear-gradient(110deg,${m[0]}F2,${m[1]}F2 70%);border-color:${m[0]}"><div class="mbar-r">${cover(t, 44)}
+          <span class="mbar-t"><b>${esc(t.title)}</b><span>${sub}</span></span>
+          <button type="button" class="ib${r !== "none" ? " on" : ""}" id="mrep" aria-label="Повтор: ${REP_LABEL[r]}">${ICM.rep}${r === "one" ? '<span class="badge">1</span>' : ""}</button>
+          <button type="button" class="ib${st.timer ? " on" : ""}" id="mtmr" aria-label="Таймер сна">${ICM.moon}${st.timer ? `<span class="badge">${isPlay && left ? left : st.timer}</span>` : ""}</button>
+          <button type="button" class="mplay" id="mp" aria-label="${isPlay ? "Пауза" : "Играть"}">${isPlay ? ICM.pause : ICM.play}</button></div>
+          <div class="pb"><i style="width:${d ? Math.min(100, (c / d) * 100).toFixed(1) : 0}%"></i></div></div>`;
+        if (el._h === html) return; el._h = html; el.innerHTML = html;
+        $("#mp").onclick = () => {
+          if (isPlay) stopMusic();
+          else if (on && M.cur === t.id && audio.currentTime > 0) playTrack(t.id);
+          else start(t.id);
+          draw();
+        };
+        $("#mrep").onclick = () => { st.repeat = { list: "one", one: "none", none: "list" }[r]; save(); haptic(); toast(REP_LABEL[st.repeat]); paint(); };
+        $("#mtmr").onclick = () => timerSheet(draw);
       };
       paint();
     };
@@ -1714,7 +1836,7 @@ window.startApp = function () {
         for (let i = 0; i < n; i++) { const v = Math.max(-1, Math.min(1, all[Math.floor(i * ratio)])); pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff; }
         const u8 = new Uint8Array(pcm.buffer); let bin = ""; for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
         pending++; lbl.textContent = "Расшифровываю…";
-        gApi({ action: "stt", audio: btoa(bin) }).then((r) => { pending--; if (r.ok && r.j.text) onText(r.j.text); else if (!r.ok) toast("Не получилось расшифровать"); if (!alive && !pending) done(); else if (alive) lbl.textContent = "Слушаю… нажми, чтобы закончить"; });
+        gApi({ action: "stt", audio: btoa(bin) }).then((r) => { pending--; if (r.ok && r.j.text) onText(r.j.text); else if (!r.ok) toast("Не получилось расшифровать" + (r.status ? " (" + r.status + (r.j && r.j.status ? "/" + r.j.status : "") + ")" : "")); if (!alive && !pending) done(); else if (alive) lbl.textContent = "Слушаю… нажми, чтобы закончить"; });
       };
       const done = () => { btn.classList.remove("on"); lbl.textContent = "Рассказать голосом"; };
       proc.onaudioprocess = (e) => { if (!alive) return; const d = e.inputBuffer.getChannelData(0); buf.push(new Float32Array(d)); len += d.length; if (len / ctx.sampleRate >= 25) flush(false); };
@@ -1975,16 +2097,7 @@ ${b}</svg>`;
     const podMeta = !eps.length ? "" : nxE ? (dd ? "дальше · " : "начать · ") + "«" + esc(nxE.title) + "»" : "все " + eps.length + " выпусков прослушаны";
     const nx0 = nextStep(), cyN = nx0 ? nx0._cy : cycle;
     const st = nx0 ? "«" + esc(cyN.title) + "» · " + cyCount(cyN) + " из " + real(cyN).length : "все циклы пройдены";
-    {
-      app.innerHTML = `<div class="stack" style="gap:12px"><h1 class="hd-top">Библиотека</h1>
-      <a class="lb hero" href="#" id="dvs"><span class="lb-water"><svg viewBox="0 0 360 200" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"><defs><linearGradient id="lbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3D6A93"/><stop offset="1" stop-color="#13284A"/></linearGradient><linearGradient id="lbr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFE6F5" stop-opacity=".22"/><stop offset="1" stop-color="#CFE6F5" stop-opacity="0"/></linearGradient></defs><rect width="360" height="200" fill="url(#lbg)"/><polygon points="200,0 236,0 300,200 220,200" fill="url(#lbr)"/><polygon points="260,0 280,0 340,200 296,200" fill="url(#lbr)" opacity=".6"/><g fill="none" stroke="#CFE6F5" opacity=".6"><circle cx="300" cy="150" r="7"/><circle cx="318" cy="112" r="4.5"/><circle cx="296" cy="84" r="3"/><circle cx="312" cy="56" r="2"/></g><path d="M0 178 Q 60 160 120 176 T 240 172 T 360 176 V200 H0Z" fill="#0F1E33" opacity=".7"/></svg></span>
-        <span class="lb-in"><span class="lb-tag">${ALLP.some((p) => counted(p.id)) ? "продолжить" : "начать"}</span><b class="lb-t">Погружения</b><span class="lb-s">Встреча с образами бессознательного — циклами или по запросу</span><span class="lb-pill">${st}</span></span></a>
-      <div class="lb-grid">
-        <a class="lb tone-ind wide" href="#/pod"><span class="lb-ic ind"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span><span class="lb-in"><b class="lb-t">Подкасты</b><span class="lb-s">Теория глубинной психологии простым языком. В части выпусков — письменная практика</span>${podMeta ? `<span class="lb-meta">${podMeta}</span>` : ""}</span></a>
-        <a class="lb tone-peach" href="#/dict"><span class="lb-ic peach"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2zM22 4h-7a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8z"/></svg></span><b class="lb-t">Словарь символов</b><span class="lb-s">Язык бессознательного: образы из снов, погружений и сказок</span></a>
-        <a class="lb tone-sage" href="#/music"><span class="lb-ic sage"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></span><b class="lb-t">Музыка</b><span class="lb-s">Тихая музыка для сна и отдыха. Таймер, плейлист, голос Насти</span></a>
-      </div></div>`;
-    }
+    app.innerHTML = `<div class="libmap">${window.LIB_MAP || ""}</div><h1 class="hd-top libmap-h">Библиотека</h1>`;
     $("#dvs").onclick = (e) => {
       e.preventDefault();
       const nx = nextStep(), c1 = cyDone(cycle);
@@ -2064,7 +2177,7 @@ ${b}</svg>`;
     const nDive = ALLP.filter((p) => inW(counted(p.id))).length;
     const nDay = Object.keys(S.days || {}).filter((k) => S.days[k] && S.days[k].done && inW(dayTs(k))).length;
     const zq = {}, fq = {}, addF = (f) => { if (f) fq[f] = (fq[f] || 0) + 1; };
-    Object.keys(S.days || {}).forEach((k) => { const d = S.days[k]; if (!d || !d.done || !inW(dayTs(k))) return; Object.keys(d.zones || {}).forEach((z) => { zq[z] = (zq[z] || 0) + 1; }); if (d.feel) addF(d.feel.own || d.feel.shade || d.feel.base); });
+    Object.keys(S.days || {}).forEach((k) => { const d = S.days[k]; if (!d || !d.done || !inW(dayTs(k))) return; Object.keys(d.zones || {}).forEach((z) => { zq[z] = (zq[z] || 0) + 1; }); if (d.feel) (d.feel.list ? d.feel.list.concat(d.feel.word ? [d.feel.word] : []) : [d.feel.own || d.feel.shade || d.feel.base]).forEach(addF); });
     (S.catches || []).forEach((c) => { if (inW(c.at)) addF(c.word); });
     ALLP.forEach((p) => { const n = S.notes[p.id]; if (n && inW(n.savedAt || counted(p.id))) (n.feelings || []).forEach(addF); });
     const parts = [];
@@ -2191,7 +2304,7 @@ ${b}</svg>`;
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
-    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export", "img", "deepv", "talk"];
+    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export", "img", "deepv", "talk"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
     const tabI = ["player", "after", "return", "hello", "adult"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
@@ -2215,7 +2328,9 @@ ${b}</svg>`;
       case "policy": return Policy(id);
       case "dict": return Dict(id);
       case "dsec": return DSec(id);
-      case "sym": return Sym(id);
+      case "sym": return Sym(id, sub);
+      case "tarot": return Tarot();
+      case "arc": return Arc(id, sub);
       case "pick": return Pick(id);
       case "music": return Music();
       case "cycle": return Cycle(id);
