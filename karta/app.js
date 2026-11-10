@@ -754,17 +754,30 @@ window.startApp = function () {
   const arcData = (n) => TAROT.find((x) => Number(x.arcana) === n || String(x.arcana) === ROM[n]) || TAROT.find((x) => String(x.title || "").toLowerCase() === ARC[n][0].toLowerCase()) || null;
   const arcImg = (n) => "img/tarot/" + ARC[n][1] + ".jpg";
   const mythsHTML = (a) => (a || []).map((y) => `<div class="dmy"><b>${esc(y.h)}</b><p>${esc(y.t)}</p></div>`).join("");
-  // карта на весь экран: свайп вниз или крестик закрывают
-  function cardView(src, top, sub) {
+  // карта на весь экран: свайп вниз или крестик закрывают; если карт несколько — листать стрелками и свайпом вбок
+  function cardView(src, top, sub, list, idx) {
+    const L = list || [{ src, top, sub }]; let i = idx || 0;
     const bg = document.createElement("div"); bg.className = "cview";
-    bg.innerHTML = `<div class="cv-top">${sub ? `<span>${esc(sub)}</span>` : ""}<b>${esc(top || "")}</b></div><img src="${src}" alt="${esc(top || "")}"><button type="button" class="cv-x" aria-label="Закрыть">×</button>`;
-    const close = () => { bg.classList.add("out"); setTimeout(() => bg.remove(), 200); };
+    const many = L.length > 1;
+    bg.innerHTML = `<div class="cv-top"><span></span><b></b></div><img alt=""><button type="button" class="cv-x" aria-label="Закрыть">×</button>${many ? '<button type="button" class="cv-n prev" aria-label="Предыдущая карта">‹</button><button type="button" class="cv-n next" aria-label="Следующая карта">›</button>' : ""}`;
+    const im = bg.querySelector("img"), sp = bg.querySelector(".cv-top span"), tb = bg.querySelector(".cv-top b");
+    const show = () => { const c = L[i]; im.src = c.src; im.alt = c.top || ""; tb.textContent = c.top || ""; sp.textContent = c.sub || ""; sp.style.display = c.sub ? "" : "none"; im.style.transform = ""; };
+    const go2 = (k) => { if (!many) return; i = (i + k + L.length) % L.length; show(); haptic(); };
+    show();
+    const close = () => { bg.classList.add("out"); setTimeout(() => bg.remove(), 200); document.removeEventListener("keydown", key); };
+    const key = (e) => { if (e.key === "Escape") close(); else if (e.key === "ArrowRight") go2(1); else if (e.key === "ArrowLeft") go2(-1); };
+    document.addEventListener("keydown", key);
     bg.querySelector(".cv-x").onclick = close;
+    if (many) { bg.querySelector(".cv-n.prev").onclick = () => go2(-1); bg.querySelector(".cv-n.next").onclick = () => go2(1); }
     bg.onclick = (e) => { if (e.target === bg) close(); };
-    let y0 = null; const im = bg.querySelector("img");
-    bg.addEventListener("touchstart", (e) => { y0 = e.touches[0].clientY; }, { passive: true });
-    bg.addEventListener("touchmove", (e) => { if (y0 === null) return; const dy = Math.max(0, e.touches[0].clientY - y0); im.style.transform = `translateY(${dy}px)`; bg.style.opacity = String(Math.max(.3, 1 - dy / 400)); }, { passive: true });
-    bg.addEventListener("touchend", (e) => { const dy = y0 === null ? 0 : e.changedTouches[0].clientY - y0; y0 = null; if (dy > 90) close(); else { im.style.transform = ""; bg.style.opacity = ""; } });
+    let x0 = null, y0 = null;
+    bg.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    bg.addEventListener("touchmove", (e) => { if (y0 === null) return; const dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
+      if (Math.abs(dx) > Math.abs(dy) && many) im.style.transform = `translateX(${dx}px)`;
+      else if (dy > 0) { im.style.transform = `translateY(${dy}px)`; bg.style.opacity = String(Math.max(.3, 1 - dy / 400)); } }, { passive: true });
+    bg.addEventListener("touchend", (e) => { if (y0 === null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = y0 = null;
+      if (many && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) go2(dx < 0 ? 1 : -1);
+      else if (dy > 90) close(); else { im.style.transform = ""; bg.style.opacity = ""; } });
     document.body.appendChild(bg);
   }
   function Dict(tab) {
@@ -823,7 +836,7 @@ window.startApp = function () {
     const ta = $("#moe"), stl = $("#st"); if (!ta) return; let deb;
     ta.oninput = () => { clearTimeout(deb); deb = setTimeout(() => { mine(id).text = ta.value.trim(); mine(id).at = now(); save(); stl.textContent = "Сохранено в «Мои образы»"; }, 500); };
   }
-  const para = (t) => t ? `<p class="dp">${esc(t)}</p>` : "";
+  const para = (t) => t ? String(t).split(/\n\s*\n/).map((x) => `<p class="dp">${esc(x.trim())}</p>`).join("") : "";
   function Sym(id, tab) {
     const x = symById(id); if (!x) return go("#/dict");
     const m = S.myimg[id] || { text: "", links: [] };
@@ -865,15 +878,15 @@ window.startApp = function () {
     let body = "";
     if (cur === "sut") body = x.gift || x.shadow ? `${para(x.gift)}${x.shadow ? `<div class="dcard"><h2 style="font-size:16px">Другая сторона</h2><p class="dp">${esc(x.shadow)}</p></div>` : ""}${(x.myths || []).length ? `<div class="dkick" style="color:#C3CBEB;margin-top:4px">в мифах и сказках</div>${mythsHTML(x.myths)}` : ""}` : soon;
     else if (cur === "karta") body = `<button type="button" class="abig" id="abig" aria-label="Открыть карту"><img src="${arcImg(n)}" alt="${esc(a[0])}"></button>${x.card ? `<div class="dcard"><h2 style="font-size:16px">Что на карте</h2><p class="dp">${esc(x.card)}</p></div>` : ""}`;
-    else if (cur === "put") body = `<details class="dwhat"><summary>Что такое путь</summary><p class="dp">${esc((C.dict && C.dict.pathInfo) || "Путь — место карты в истории от Шута к Миру: что было до нее, какой урок она приносит и куда ведет дальше.")}</p></details>${x.path ? para(x.path) : soon}`;
+    else if (cur === "put") body = `<details class="dwhat"><summary>Что такое путь</summary><p class="dp">${esc((C.dict && C.dict.pathInfo) || "Путь — место карты в истории от Шута к Миру: что было до нее, какой урок она приносит и куда ведет дальше.")}</p></details>${x.path ? `<div class="dstory">${para(x.path)}</div>` : soon}`;
     else if (cur === "son") body = (x.dream || []).length ? `<p class="small" style="color:#B9BFE0">Возможные прочтения, а не толкование.</p>${mythsHTML(x.dream)}` : soon;
-    else body = mineBlock(id, a[0], x.questions);
+    else { const rl = (x.related || []).map((t) => { const y = symByTitle(t); return y ? `<a class="chip" href="#/sym/${y.id}">${esc(t)}</a>` : `<span class="chip" style="color:var(--muted)">${esc(t)}</span>`; }).join(""); body = mineBlock(id, a[0], x.questions, rl ? `<div class="stack" style="gap:10px"><div class="dkick" style="color:#C3CBEB">рядом по смыслу</div><div class="chips">${rl}</div></div>` : ""); }
     app.innerHTML = `<div class="dict"><div class="dhead sm">${STARS}<div class="dhead-in">${back("#/tarot", "Старшие арканы")}
       <div class="dart-top"><button type="button" class="dthumb arc" id="dcard" aria-label="Открыть карту «${esc(a[0])}»"><img src="${arcImg(n)}" alt=""></button>
       <div class="stack" style="gap:6px;min-width:0"><div class="dkick" style="color:#FFC2A8">аркан ${ROM[n]}</div><h1>${esc(a[0])}</h1>${x.essence ? `<p class="dsub">${esc(x.essence)}</p>` : ""}</div></div></div></div>
       <div class="dbody">${dtabs(TB, cur, "#/arc/" + n)}<div class="stack" style="gap:14px">${body}</div>
       <div class="anav">${n > 0 ? `<a href="#/arc/${n - 1}/${cur}">‹ ${esc(ARC[n - 1][0])} · ${ROM[n - 1]}</a>` : "<span></span>"}${n < 21 ? `<a href="#/arc/${n + 1}/${cur}">${esc(ARC[n + 1][0])} · ${ROM[n + 1]} ›</a>` : "<span></span>"}</div></div></div>`;
-    const open = () => cardView(arcImg(n), a[0], "аркан " + ROM[n]);
+    const open = () => cardView(null, null, null, ARC.map((c, k) => ({ src: arcImg(k), top: c[0], sub: "аркан " + ROM[k] })), n);
     $("#dcard").onclick = open; if ($("#abig")) $("#abig").onclick = open;
     bindMine(id);
   }
