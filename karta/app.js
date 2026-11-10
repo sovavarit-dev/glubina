@@ -1187,8 +1187,18 @@ window.startApp = function () {
         if (vv && vv.src && !vv.soon && !M.voicedOnce && fromStop && !isVoiced(id)) { M.voicedOnce = true; M.after = id; playTrack(vv.id); }
         else playTrack(id);
       };
-      $("#vpick").onclick = () => voiceSheet(draw);
-      $("#vtgl").onclick = () => { if (vs.on) { vs.on = false; save(); haptic(); draw(); } else voiceSheet(draw); };
+      // включили голос: музыка замолкает, плеер встает на запись с голосом и ждет ▶; после голоса — выбранная музыка
+      const armVoice = () => {
+        const v = vs.on ? voiceById(vs.id) : null;
+        if (!v || !v.src || v.soon) { if (isVoiced(M.sel)) M.sel = M.after || (q[0] && q[0].id); draw(); return; }
+        const was = isVoiced(M.sel) ? M.after : M.sel || (M.cur && !isVoiced(M.cur) ? M.cur : null);
+        if (NOW.kind === "music" && audio.src) stopMusic(true);
+        M.after = was || (q[0] && q[0].id); M.voicedOnce = true; M.sel = v.id; M.qtab = M.tab;
+        draw();
+      };
+      const voiceOffNow = () => { vs.on = false; save(); haptic(); if (isVoiced(M.cur) && NOW.kind === "music") stopMusic(true); if (isVoiced(M.sel)) M.sel = M.after || (q[0] && q[0].id); draw(); };
+      $("#vpick").onclick = () => voiceSheet(armVoice);
+      $("#vtgl").onclick = () => { if (vs.on) voiceOffNow(); else voiceSheet(armVoice); };
       app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { M.tab = b.dataset.tab; draw(); });
       app.querySelectorAll("[data-sel]").forEach((b) => b.onclick = () => { const id = b.dataset.sel; M.sel = id; haptic(); if (NOW.kind === "music" && !audio.paused && M.cur !== id) { M.qtab = M.tab; playTrack(id, true); } draw(); });
       app.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { const id = b.dataset.add, i = S.playlist.indexOf(id); i >= 0 ? S.playlist.splice(i, 1) : S.playlist.push(id); save(); haptic(); draw(); });
