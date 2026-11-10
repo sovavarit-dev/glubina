@@ -525,7 +525,7 @@ button.choice{width:100%;text-align:left;font:inherit;color:inherit;cursor:point
 
 /* ---------- v20: музыка «вода и настроение» ---------- */
 .mpage::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,#14304F 0%,#0F1E33 45%,#0B1728 100%)}
-.mpage{padding-bottom:110px}
+.mpage{padding-bottom:180px}
 .mhead{position:relative;margin:-16px -20px 4px;height:206px;overflow:hidden;background:linear-gradient(180deg,#123B47,#16485A 55%,#14304F)}
 .mhead-bg{position:absolute;inset:0;width:100%;height:100%}
 .mhead-in{position:relative;padding:10px 20px 0}
@@ -628,3 +628,6 @@ button.choice{width:100%;text-align:left;font:inherit;color:inherit;cursor:point
 .cv-top b{font-size:20px}
 .cv-x{position:absolute;top:calc(10px + env(safe-area-inset-top));right:12px;width:44px;height:44px;border-radius:50%;border:none;background:rgba(255,255,255,.1);color:#fff;font-size:24px}
 @keyframes cvin{from{opacity:0}to{opacity:1}}
+
+.mbar-c{display:flex;align-items:center;justify-content:center;gap:28px;margin-top:8px}
+.mbar .ib.nav{color:#fff;width:44px;height:44px}

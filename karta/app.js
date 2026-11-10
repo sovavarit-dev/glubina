@@ -1105,7 +1105,9 @@ window.startApp = function () {
     rep: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>',
     moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
     play: '<svg width="22" height="22" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>',
-    pause: '<svg width="22" height="22" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+    pause: '<svg width="22" height="22" viewBox="0 0 24 24" fill="#0F1E33" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+    prev: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>',
+    next: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>'
   };
   const cap1 = (s) => { s = String(s || ""); return s.charAt(0).toUpperCase() + s.slice(1); };
   function voiceSheet(onDone) {
@@ -1166,7 +1168,7 @@ window.startApp = function () {
       const q = mine ? S.playlist.map(track).filter(Boolean) : MU;
       const vs = st.voice, vv = vs.on ? voiceById(vs.id) : null;
       const playing = (id) => M.cur === id && NOW.kind === "music" && !audio.paused;
-      app.innerHTML = `<div class="mpage"><div class="mhead"><svg class="mhead-bg" viewBox="0 0 390 210" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><path d="M0 140 Q 50 120 100 140 T 200 140 T 300 140 T 400 140 V210 H0z" fill="#2F8E9A" fill-opacity=".25"><animateTransform attributeName="transform" type="translate" values="0 0;-30 0;0 0" dur="9s" repeatCount="indefinite"/></path><path d="M-40 166 Q 20 146 80 166 T 200 166 T 320 166 T 440 166 V210 H-40z" fill="#14304F" fill-opacity=".9"><animateTransform attributeName="transform" type="translate" values="0 0;24 0;0 0" dur="11s" repeatCount="indefinite"/></path><circle cx="320" cy="72" r="40" fill="#7FE3E0" fill-opacity=".10"/><circle cx="320" cy="72" r="22" fill="#7FE3E0" fill-opacity=".25"/></svg>
+      app.innerHTML = `<div class="mpage"><div class="mhead"><svg class="mhead-bg" viewBox="0 0 390 210" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><circle cx="320" cy="72" r="40" fill="#7FE3E0" fill-opacity=".10"><animate attributeName="r" values="38;44;38" dur="6s" repeatCount="indefinite"/></circle><circle cx="320" cy="72" r="22" fill="#7FE3E0" fill-opacity=".25"/><path d="M-240 132 Q -210.0 122 -180.0 132 T -120.0 132 T -60.0 132 T 0.0 132 T 60.0 132 T 120.0 132 T 180.0 132 T 240.0 132 T 300.0 132 T 360.0 132 T 420.0 132 T 480.0 132 T 540.0 132 T 600.0 132 T 660.0 132 V210 H-240z" fill="#2F8E9A" fill-opacity=".22"><animateTransform attributeName="transform" type="translate" from="0 0" to="-120 0" dur="14s" repeatCount="indefinite"/></path><path d="M-300 148 Q -262.5 139 -225.0 148 T -150.0 148 T -75.0 148 T 0.0 148 T 75.0 148 T 150.0 148 T 225.0 148 T 300.0 148 T 375.0 148 T 450.0 148 T 525.0 148 T 600.0 148 T 675.0 148 T 750.0 148 V210 H-300z" fill="#1F6B78" fill-opacity=".35"><animateTransform attributeName="transform" type="translate" from="0 0" to="150 0" dur="18s" repeatCount="indefinite"/></path><path d="M-260 168 Q -227.5 160 -195.0 168 T -130.0 168 T -65.0 168 T 0.0 168 T 65.0 168 T 130.0 168 T 195.0 168 T 260.0 168 T 325.0 168 T 390.0 168 T 455.0 168 T 520.0 168 T 585.0 168 T 650.0 168 V210 H-260z" fill="#14304F" fill-opacity=".95"><animateTransform attributeName="transform" type="translate" from="0 0" to="-130 0" dur="11s" repeatCount="indefinite"/></path></svg>
         <div class="mhead-in">${back("#/lib", "Библиотека")}<h1>Музыкальное<br>сопровождение</h1><div class="msub">Для сна, практик и чтобы побыть с собой</div></div></div>
         <div class="stack" style="gap:12px">
         <div class="vline${vs.on ? " on" : ""}"><button type="button" class="vline-b" id="vpick"><span class="vmic">${ICM.mic}</span><b>С голосом</b>${vv ? `<span class="vname">${esc(vv.title)}</span>` : ""}</button>
@@ -1188,7 +1190,7 @@ window.startApp = function () {
       $("#vpick").onclick = () => voiceSheet(draw);
       $("#vtgl").onclick = () => { if (vs.on) { vs.on = false; save(); haptic(); draw(); } else voiceSheet(draw); };
       app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { M.tab = b.dataset.tab; draw(); });
-      app.querySelectorAll("[data-sel]").forEach((b) => b.onclick = () => { M.sel = b.dataset.sel; haptic(); draw(); });
+      app.querySelectorAll("[data-sel]").forEach((b) => b.onclick = () => { const id = b.dataset.sel; M.sel = id; haptic(); if (NOW.kind === "music" && !audio.paused && M.cur !== id) { M.qtab = M.tab; playTrack(id, true); } draw(); });
       app.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { const id = b.dataset.add, i = S.playlist.indexOf(id); i >= 0 ? S.playlist.splice(i, 1) : S.playlist.push(id); save(); haptic(); draw(); });
       const mv = (i, k) => { const a = S.playlist, j = i + k; if (j < 0 || j >= a.length) return; const x = a[i]; a[i] = a[j]; a[j] = x; save(); draw(); };
       app.querySelectorAll("[data-up]").forEach((b) => b.onclick = () => mv(Number(b.dataset.up), -1));
@@ -1196,7 +1198,7 @@ window.startApp = function () {
       paint = () => {
         const el = $("#now"); if (!el) return;
         const on = NOW.kind === "music" && audio.src;
-        const t = (on && track(M.cur)) || track(M.sel) || q[0];
+        const t = track(M.sel) || (on && track(M.cur)) || q[0];
         if (!t) { el.innerHTML = ""; return; }
         const pq = queue(), pi = pq.findIndex((x) => x.id === t.id), vo = isVoiced(t.id);
         const isPlay = on && !audio.paused && M.cur === t.id;
@@ -1209,8 +1211,9 @@ window.startApp = function () {
           <span class="mbar-t"><b>${esc(t.title)}</b><span>${sub}</span></span>
           <button type="button" class="ib${r !== "none" ? " on" : ""}" id="mrep" aria-label="Повтор: ${REP_LABEL[r]}">${ICM.rep}${r === "one" ? '<span class="badge">1</span>' : ""}</button>
           <button type="button" class="ib${st.timer ? " on" : ""}" id="mtmr" aria-label="Таймер сна">${ICM.moon}${st.timer ? `<span class="badge">${isPlay && left ? left : st.timer}</span>` : ""}</button>
-          <button type="button" class="mplay" id="mp" aria-label="${isPlay ? "Пауза" : "Играть"}">${isPlay ? ICM.pause : ICM.play}</button></div>
-          <div class="pb"><i style="width:${d ? Math.min(100, (c / d) * 100).toFixed(1) : 0}%"></i></div></div>`;
+          </div>
+          <div class="pb"><i style="width:${d ? Math.min(100, (c / d) * 100).toFixed(1) : 0}%"></i></div>
+          <div class="mbar-c"><button type="button" class="ib nav" id="mprev" aria-label="Предыдущий трек">${ICM.prev}</button><button type="button" class="mplay" id="mp" aria-label="${isPlay ? "Пауза" : "Играть"}">${isPlay ? ICM.pause : ICM.play}</button><button type="button" class="ib nav" id="mnext" aria-label="Следующий трек">${ICM.next}</button></div></div>`;
         if (el._h === html) return; el._h = html; el.innerHTML = html;
         $("#mp").onclick = () => {
           if (isPlay) stopMusic();
@@ -1218,6 +1221,15 @@ window.startApp = function () {
           else start(t.id);
           draw();
         };
+        const step = (k) => {
+          const L = pq.length ? pq : q; if (!L.length) return;
+          let i = L.findIndex((x) => x.id === t.id); if (i < 0) i = 0;
+          if (k < 0 && isPlay && audio.currentTime > 5) { audio.currentTime = 0; return; }
+          const nx = L[(i + k + L.length) % L.length]; M.sel = nx.id;
+          if (isPlay) { playTrack(nx.id, true); } else if (on) { audio.pause(); M.cur = null; NOW.kind = null; }
+          haptic(); draw();
+        };
+        $("#mprev").onclick = () => step(-1); $("#mnext").onclick = () => step(1);
         $("#mrep").onclick = () => { st.repeat = { list: "one", one: "none", none: "list" }[r]; save(); haptic(); toast(REP_LABEL[st.repeat]); paint(); };
         $("#mtmr").onclick = () => timerSheet(draw);
       };
