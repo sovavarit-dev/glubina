@@ -1196,7 +1196,7 @@ window.startApp = function () {
       app.querySelectorAll("[data-up]").forEach((b) => b.onclick = () => mv(Number(b.dataset.up), -1));
       app.querySelectorAll("[data-dn]").forEach((b) => b.onclick = () => mv(Number(b.dataset.dn), 1));
       paint = () => {
-        const el = $("#now"); if (!el) return;
+        const el = $("#now"); if (!el || M.drag) return;
         const on = NOW.kind === "music" && audio.src;
         const t = track(M.sel) || (on && track(M.cur)) || q[0];
         if (!t) { el.innerHTML = ""; return; }
@@ -1212,7 +1212,7 @@ window.startApp = function () {
           <button type="button" class="ib${r !== "none" ? " on" : ""}" id="mrep" aria-label="Повтор: ${REP_LABEL[r]}">${ICM.rep}${r === "one" ? '<span class="badge">1</span>' : ""}</button>
           <button type="button" class="ib${st.timer ? " on" : ""}" id="mtmr" aria-label="Таймер сна">${ICM.moon}${st.timer ? `<span class="badge">${isPlay && left ? left : st.timer}</span>` : ""}</button>
           </div>
-          <div class="pb"><i style="width:${d ? Math.min(100, (c / d) * 100).toFixed(1) : 0}%"></i></div>
+          <input class="mseek" id="ms" type="range" min="0" max="${Math.max(1, Math.floor(d))}" step="1" value="${Math.floor(c)}" aria-label="Перемотка" style="--p:${d ? Math.min(100, (c / d) * 100).toFixed(1) : 0}%"${on && M.cur === t.id ? "" : " disabled"}><div class="mtimes"><span>${fmt(c)}</span><span>${fmt(d)}</span></div>
           <div class="mbar-c"><button type="button" class="ib nav" id="mprev" aria-label="Предыдущий трек">${ICM.prev}</button><button type="button" class="mplay" id="mp" aria-label="${isPlay ? "Пауза" : "Играть"}">${isPlay ? ICM.pause : ICM.play}</button><button type="button" class="ib nav" id="mnext" aria-label="Следующий трек">${ICM.next}</button></div></div>`;
         if (el._h === html) return; el._h = html; el.innerHTML = html;
         $("#mp").onclick = () => {
@@ -1221,6 +1221,10 @@ window.startApp = function () {
           else start(t.id);
           draw();
         };
+        const ms = $("#ms");
+        ms.oninput = () => { M.drag = true; ms.style.setProperty("--p", (ms.value / ms.max * 100) + "%"); };
+        ms.onchange = () => { try { audio.currentTime = Number(ms.value); } catch (e) {} M.drag = false; el._h = ""; paint(); };
+        ms.addEventListener("pointerup", () => { if (M.drag) ms.onchange(); });
         const step = (k) => {
           const L = pq.length ? pq : q; if (!L.length) return;
           let i = L.findIndex((x) => x.id === t.id); if (i < 0) i = 0;
