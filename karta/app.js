@@ -2095,7 +2095,7 @@ ${b}</svg>`;
     const sy = S.sym[k], c = sy && cardById(sy.id);
     if (DECK.length) h += c
       ? `<a class="glass symrow" href="#/symbol"><span class="th"><img src="${c.img}" alt=""></span><span class="t"><span class="lbl">СИМВОЛ ДНЯ</span><b>${esc(c.title)}</b><span>${sy.note ? "откликнулось: «" + esc(sy.note.length > 70 ? sy.note.slice(0, 70) + "…" : sy.note) + "»" : "что откликается в этом образе? →"}</span></span></a>`
-      : `<a class="symfloat" href="#/symbol" aria-label="Открыть символ дня"><span class="cb"><img src="${MAIN_BACK}" alt="" onerror="this.onerror=null;this.src='${esc(C.deck.back || "")}'"></span><span><b>Символ дня всплыл</b><br><span class="small">коснись, когда захочется</span></span></a>`;
+      : `<a class="symban" href="#/symbol" aria-label="Открыть символ дня"><span class="symban-i"><img src="img/sea/card-${ph}.webp" alt=""></span><span class="symban-t"><span><b>Символ дня всплыл</b><small>коснись, когда захочется</small></span><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CFE6F5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></i></span></a>`;
     const D = S.days[k], bub = (href, ic, t) => `<a class="hbub" href="${href}"><i>${WH(ic)}</i>${t}</a>`;
     h += `<div class="glass howg"><div class="hrow"><b>${late ? "Как прошел день?" : "Как ты?"}</b></div>
       <div class="bubs">${bub("#/today", ICN.body, "Тело<br>и чувства")}${late ? bub("#/free", ICN_PEN, "Записать<br>вечер") : bub("#/dream", ICN.moon, "Что<br>снилось")}${bub("#/quick", ICN_RUN, "На бегу")}</div>
