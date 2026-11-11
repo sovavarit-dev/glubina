@@ -2136,7 +2136,18 @@ ${b}</svg>`;
     const podMeta = !eps.length ? "" : nxE ? (dd ? "дальше · " : "начать · ") + "«" + esc(nxE.title) + "»" : "все " + eps.length + " выпусков прослушаны";
     const nx0 = nextStep(), cyN = nx0 ? nx0._cy : cycle;
     const st = nx0 ? "«" + esc(cyN.title) + "» · " + cyCount(cyN) + " из " + real(cyN).length : "все циклы пройдены";
-    app.innerHTML = `<div class="libmap">${window.LIB_MAP || ""}</div><h1 class="hd-top libmap-h">Бухта</h1>`;
+    const B = "img/bukhta/";
+    app.innerHTML = `<div class="libmap bx"><div class="bx-st">
+      <a class="bx-ic bx-mk" href="#/pod" aria-label="Подкасты" style="left:80%;top:20%;width:30%"><svg class="bx-l" viewBox="0 0 480 448" aria-hidden="true"><circle cx="241" cy="150" r="120" fill="none" stroke="#F5E8D9" stroke-opacity=".55" stroke-width="2.5" stroke-dasharray="560 400" transform="rotate(-150 241 150)"/></svg><img class="bx-l bx-luch" src="${B}mayak-luch.webp" alt=""><img class="bx-l" src="${B}mayak-bashnya.webp" alt=""><img class="bx-l bx-svet" src="${B}mayak-svet.webp" alt=""></a>
+      <a class="bx-cap" href="#/pod" style="left:80%;top:32%">ПОДКАСТЫ</a>
+      <a class="bx-ic bx-vl" href="#/music" aria-label="Музыка" style="left:46.5%;top:40%;width:30%"><img class="bx-l" src="${B}volny.svg" alt=""></a>
+      <a class="bx-cap" href="#/music" style="left:46.5%;top:45.5%">МУЗЫКА</a>
+      <a class="bx-ic bx-bt" href="#/dict" aria-label="Символы" style="left:80%;top:55.5%;width:20%"><img class="bx-l bx-bvb" src="${B}butylka-voda.webp" alt=""><img class="bx-l bx-bb" src="${B}butylka.webp" alt=""><img class="bx-l bx-bv" src="${B}butylka-voda.webp" alt=""></a>
+      <a class="bx-cap" href="#/dict" style="left:80%;top:62.5%">СИМВОЛЫ</a>
+      <a class="bx-ic bx-pg" href="#" id="dvs" aria-label="Погружения" style="left:48%;top:75%;width:30%"><img class="bx-l bx-r" src="${B}pogruzhenie-koltso.webp" alt=""><img class="bx-l bx-r bx-r2" src="${B}pogruzhenie-koltso.webp" alt=""><img class="bx-l bx-r bx-r3" src="${B}pogruzhenie-koltso.webp" alt=""><span class="bx-l bx-glow"></span><img class="bx-l bx-c" src="${B}pogruzhenie-tsentr.webp" alt=""><img class="bx-l bx-c2" src="${B}pogruzhenie-tsentr.webp" alt=""></a>
+      <a class="bx-cap" href="#" data-dvs="1" style="left:48%;top:82%">ПОГРУЖЕНИЯ</a>
+    </div></div><h1 class="hd-top libmap-h">Бухта</h1>`;
+    const dcap = app.querySelector("[data-dvs]"); if (dcap) dcap.onclick = (e) => { e.preventDefault(); $("#dvs").click(); };
     $("#dvs").onclick = (e) => {
       e.preventDefault();
       const nx = nextStep(), c1 = cyDone(cycle);

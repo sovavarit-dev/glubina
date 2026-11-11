@@ -643,3 +643,31 @@ button.choice{width:100%;text-align:left;font:inherit;color:inherit;cursor:point
 .cv-n{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:64px;border:none;border-radius:14px;background:rgba(255,255,255,.1);color:#fff;font-size:32px;line-height:1}
 .cv-n.prev{left:6px}.cv-n.next{right:6px}
 .cview img{max-width:calc(100% - 100px)}
+
+/* ---------- v26: Бухта — фон и анимированные иконки ---------- */
+.libmap.bx{background:#071A2E}
+.bx-st{position:absolute;top:0;height:100%;aspect-ratio:1086/1448;left:50%;transform:translateX(-62%);background:#0E2C4A url(img/bukhta/fon.webp) center/100% 100% no-repeat}
+.bx-ic{position:absolute;transform:translate(-50%,-50%);display:block;-webkit-tap-highlight-color:transparent}
+.bx-cap{position:absolute;transform:translateX(-50%);font-weight:500;font-size:12.5px;letter-spacing:3px;color:#F5E8D9;white-space:nowrap;padding:6px 4px}
+.bx-l{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.bx-mk{aspect-ratio:480/448}.bx-mk svg{overflow:visible}
+.bx-luch{transform-origin:50.2% 33.6%;animation:bxSweep 7s ease-in-out infinite}
+.bx-svet{transform-origin:50.2% 33.6%;animation:bxBreathe 3.5s ease-in-out infinite}
+@keyframes bxSweep{0%,100%{transform:scaleX(-1) rotate(-14deg)}50%{transform:scaleX(-1) rotate(16deg)}}
+@keyframes bxBreathe{0%,100%{opacity:.75;transform:scale(.92)}50%{opacity:1;transform:scale(1.08)}}
+.bx-vl{aspect-ratio:200/110}
+.bx-bt{aspect-ratio:420/409}
+.bx-bb{transform-origin:50% 70%;animation:bxRock 6s ease-in-out infinite;-webkit-mask-image:linear-gradient(180deg,#000 0,#000 56%,rgba(0,0,0,.55) 66%,rgba(0,0,0,.18) 78%,rgba(0,0,0,.06) 90%);mask-image:linear-gradient(180deg,#000 0,#000 56%,rgba(0,0,0,.55) 66%,rgba(0,0,0,.18) 78%,rgba(0,0,0,.06) 90%)}
+.bx-bv{top:-19%;animation:bxDrift 5s ease-in-out infinite}
+.bx-bvb{top:-23%;opacity:.45;transform:scaleX(-1)}
+@keyframes bxRock{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-1.5%) rotate(2deg)}}
+@keyframes bxDrift{0%,100%{transform:translateX(-3%);opacity:.8}50%{transform:translateX(3%);opacity:1}}
+.bx-pg{aspect-ratio:1}
+.bx-r{opacity:0;animation:bxRing 6s linear infinite}.bx-r2{animation-delay:-2s}.bx-r3{animation-delay:-4s}
+@keyframes bxRing{0%{transform:scale(.2);opacity:0}15%{opacity:.95}100%{transform:scale(1);opacity:0}}
+.bx-glow{border-radius:50%;background:radial-gradient(circle,#FFF6EC 0,rgba(245,232,217,.9) 3%,rgba(180,160,240,.6) 9%,rgba(140,119,216,.25) 18%,rgba(140,119,216,0) 30%);animation:bxCore 4s ease-in-out infinite}
+.bx-c{animation:bxCore 4s ease-in-out infinite}
+.bx-c2{mix-blend-mode:screen;transform:scale(.6)}
+@keyframes bxCore{0%,100%{transform:scale(.9);opacity:.85}50%{transform:scale(1.1);opacity:1}}
+.libmap.bx~.libmap-h,.libmap-h{color:#F5E8D9;font-weight:400}
+@media (prefers-reduced-motion:reduce){.bx-luch{animation:none;transform:scaleX(-1)}.bx-svet,.bx-bb,.bx-bv,.bx-glow,.bx-c{animation:none}.bx-r{animation:none;opacity:.55}.bx-r2{transform:scale(.6)}.bx-r3{transform:scale(.35)}}
