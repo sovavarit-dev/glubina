@@ -1943,9 +1943,15 @@ window.startApp = function () {
     const st = S.sym[dkey()];
     if (!DECK.length) { app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<h1>Символ дня</h1><p class="lead">Колода появится после подключения.</p></div>`; return; }
     if (!st) {
-      app.innerHTML = `<div class="stack" style="align-items:center;text-align:center"><div style="align-self:flex-start">${back("#/", "Сегодня")}</div>
-        <div class="stack" style="gap:6px;align-items:center"><h1>Символ дня</h1><p class="small">Сделай вдох и коснись карты, когда почувствуешь, что пора.</p><p class="small" style="font-size:12px;color:var(--dim)">Это не предсказание. Карта — зеркало: важно не что она значит, а что в тебе откликнется.</p></div>
-        <button type="button" class="flip" id="flip" aria-label="Открыть карту"><div class="tcard back"><img src="${C.deck.back}" alt=""><i class="line" style="--ink:#5A4A44"></i></div></button></div>`;
+      // карта всплывает из воды; фон — по времени суток
+      app.innerHTML = `<div class="sea" style="background-image:url(img/sea/${phase()}.webp)" aria-hidden="true"></div>
+        <div class="sea-top">${back("#/", "Сегодня")}</div>
+        <button type="button" class="rise" id="flip" aria-label="Открыть карту">
+          <span class="rise-rip" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="rise-ref" aria-hidden="true"><img src="${MAIN_BACK}" alt=""></span>
+          <span class="rise-clip"><span class="rise-card"><span class="rise-in"><img src="${MAIN_BACK}" alt="" onerror="this.onerror=null;this.src='${esc(C.deck.back || "")}'"></span></span></span>
+        </button>
+        <div class="sea-txt"><h1>Символ дня</h1><p>Сделай вдох и коснись карты, когда почувствуешь, что пора.</p><p class="sea-note">Это не предсказание. Карта — зеркало: важно не что она значит, а что в тебе откликнется.</p></div>`;
       $("#flip").onclick = () => {
         const prev = S.sym[dkey(now() - 86400000)], pool = DECK.filter((c) => !prev || c.id !== prev.id);
         const c = pool[Math.floor(Math.random() * pool.length)];

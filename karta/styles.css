@@ -671,3 +671,31 @@ button.choice{width:100%;text-align:left;font:inherit;color:inherit;cursor:point
 @keyframes bxCore{0%,100%{transform:scale(.9);opacity:.85}50%{transform:scale(1.1);opacity:1}}
 .libmap.bx~.libmap-h,.libmap-h{color:#F5E8D9;font-weight:400}
 @media (prefers-reduced-motion:reduce){.bx-luch{animation:none;transform:scaleX(-1)}.bx-svet,.bx-bb,.bx-bv,.bx-glow,.bx-c{animation:none}.bx-r{animation:none;opacity:.55}.bx-r2{transform:scale(.6)}.bx-r3{transform:scale(.35)}}
+
+/* v27 · Символ дня: фон по времени суток, карта всплывает из воды */
+.sea{position:fixed;inset:0;z-index:0;background:#24456B center 55%/cover no-repeat;pointer-events:none}
+.sea::after{content:"";position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(180deg,rgba(11,23,40,0),rgba(11,23,40,.45))}
+.sea-top{position:relative;z-index:2}
+.sea-top .back{color:#fff;background:rgba(11,23,40,.32);padding:0 14px 0 10px;border-radius:22px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.rise{--ch:min(34vh,300px);--cw:calc(var(--ch)*2/3);position:fixed;z-index:1;left:50%;top:65vh;width:var(--cw);height:0;margin-left:calc(var(--cw)/-2);background:none;border:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.rise-clip{position:absolute;left:-40%;right:-40%;bottom:0;height:calc(var(--ch)*1.25);overflow:hidden;pointer-events:none}
+.rise-card{position:absolute;left:50%;bottom:calc(var(--ch)*-.07);width:var(--cw);height:var(--ch);margin-left:calc(var(--cw)/-2);transform:translateY(108%) rotate(4deg);animation:riseUp 2.8s cubic-bezier(.22,.7,.2,1) .5s forwards;perspective:900px}
+.rise-in{display:block;width:100%;height:100%;border-radius:10px;overflow:hidden;box-shadow:0 0 34px rgba(255,255,255,.38),0 0 0 1px rgba(255,255,255,.35);animation:riseBob 6s ease-in-out 3.3s infinite;transition:transform .45s ease-in}
+.rise-in img{display:block;width:100%;height:100%;object-fit:cover}
+.rise.turn .rise-in{transform:rotateY(90deg);animation:none}
+.rise-ref{position:absolute;left:0;top:2px;width:var(--cw);height:calc(var(--ch)*.45);overflow:hidden;opacity:0;transform:rotate(-4deg);transform-origin:top center;-webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.32),transparent 85%);mask-image:linear-gradient(180deg,rgba(0,0,0,.32),transparent 85%);animation:riseRef 2s ease 1.6s forwards;pointer-events:none}
+.rise-ref img{display:block;width:100%;height:calc(var(--ch)*.93);object-fit:cover;object-position:bottom;transform:scaleY(-1) skewX(-3deg);filter:blur(3px);border-radius:10px}
+.rise-rip{position:absolute;left:50%;top:0;width:0;height:0;pointer-events:none}
+.rise-rip i{position:absolute;left:calc(var(--cw)*-1);top:calc(var(--cw)*-.17);width:calc(var(--cw)*2);height:calc(var(--cw)*.34);border:2px solid rgba(255,255,255,.7);border-radius:50%;z-index:1;opacity:0;animation:riseRip 4.5s ease-out .6s infinite}
+.rise-rip i:nth-child(2){animation-delay:2.1s}
+.rise-rip i:nth-child(3){animation-delay:3.6s}
+.sea-txt{position:fixed;z-index:2;left:0;right:0;bottom:calc(96px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;padding:0 28px;text-align:center;color:#fff;text-shadow:0 1px 10px rgba(8,18,32,.7)}
+.sea-txt h1{color:#fff;margin:0 0 6px}
+.sea-txt p{margin:0;font-size:14px;line-height:1.45;color:rgba(255,255,255,.92)}
+.sea-txt .sea-note{margin-top:6px;font-size:12px;color:rgba(255,255,255,.72)}
+@keyframes riseUp{0%{transform:translateY(108%) rotate(4deg)}100%{transform:translateY(0) rotate(4deg)}}
+@keyframes riseBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5%)}}
+@keyframes riseRef{to{opacity:1}}
+@keyframes riseRip{0%{transform:scale(.35);opacity:0}15%{opacity:.8}100%{transform:scale(1.25);opacity:0}}
+@media (prefers-reduced-motion:reduce){.rise-card{animation:none;transform:rotate(4deg)}.rise-in,.rise-rip i{animation:none}.rise-ref{animation:none;opacity:1}}
+@media (max-height:700px){.rise{--ch:min(30vh,240px);top:62vh}.sea-txt .sea-note{display:none}}
