@@ -1067,6 +1067,7 @@ window.startApp = function () {
     const r = parts[0], id = parts[1];
     const hide = !NOW.kind || !audio.src || !S.profile || r === "player" || r === "hello" ||
       (NOW.kind === "music" && r === "music") || (NOW.kind === "pod" && r === "ep" && id === NOW.id);
+    document.body.classList.toggle("hasmini", !hide);
     if (hide) { mini.className = ""; mini.innerHTML = ""; mini._h = ""; return; }
     let title, sub, prog = null, href;
     if (NOW.kind === "music") {
@@ -1189,6 +1190,8 @@ window.startApp = function () {
   }
   function Music() {
     const st = mset();
+    // «С голосом» при каждом запуске выключен; остальное (повтор, таймер, вкладка, выбранный трек) сохраняется
+    if (!M.init) { M.init = 1; st.voice.on = false; if (st.tab) M.tab = st.tab; if (st.sel && track(st.sel) && !isVoiced(st.sel)) M.sel = st.sel; }
     if (!M.sel) M.sel = M.cur || (MU[0] && MU[0].id);
     const draw = () => {
       const mine = M.tab === "mine";
@@ -1197,9 +1200,9 @@ window.startApp = function () {
       const playing = (id) => M.cur === id && NOW.kind === "music" && !audio.paused;
       app.innerHTML = `<div class="mpage"><div class="mh2">${back("#/lib", "Бухта")}<img src="${V27}Muzyka-1.webp" alt=""><h1>Музыка</h1><p>Для сна, практик и чтобы побыть с собой</p></div>
         <div class="stack" style="gap:12px">
-        <div class="vline${vs.on ? " on" : ""}"><button type="button" class="vline-b" id="vpick"><span class="vmic">${ICM.mic}</span><b>С голосом</b>${vv ? `<span class="vname">${esc(vv.title)}</span>` : ""}</button>
-          <button type="button" class="tgl tglm${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></div>
-        <div class="mchips"><button type="button" data-tab="all" class="${!mine ? "on" : ""}">Вся музыка</button><button type="button" data-tab="mine" class="${mine ? "on" : ""}">Мой плейлист · ${S.playlist.length}</button></div>
+        <div class="mchips"><button type="button" data-tab="all" class="${!mine ? "on" : ""}">Вся музыка</button><button type="button" data-tab="mine" class="${mine ? "on" : ""}">Мой плейлист · ${S.playlist.length}</button>
+          <span class="vsw"><button type="button" class="vsw-l" id="vpick">Голос</button><button type="button" class="tgl tglm${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></span></div>
+        ${vv ? `<button type="button" class="vname2" id="vpick2">С голосом: <b>${esc(vv.title)}</b> · сменить</button>` : ""}
         <div class="stack" style="gap:8px">${q.length ? q.map((t, i) => { const m = MOOD[moodOf(t)], sel = M.sel === t.id; return `<div class="mtrk${sel ? " sel" : ""}" style="${sel ? `background:linear-gradient(90deg,${m[0]}40,rgba(24,43,69,.7));border-color:${m[0]}` : ""}">
           <button type="button" class="tbody" data-sel="${t.id}" aria-pressed="${sel}">${cover(t, 44)}<span class="t"><b>${esc(t.title)}${playing(t.id) ? ' <span class="eq"><i></i><i></i><i></i></span>' : ""}</b><span>${fmtMin(t.dur)} · ${moodOf(t)}</span></span></button>
           ${mine ? `<span class="ord"><button type="button" data-up="${i}" aria-label="Выше"${i ? "" : " disabled"}>↑</button><button type="button" data-dn="${i}" aria-label="Ниже"${i < q.length - 1 ? "" : " disabled"}>↓</button></span>` : ""}
@@ -1223,10 +1226,10 @@ window.startApp = function () {
         draw();
       };
       const voiceOffNow = () => { vs.on = false; save(); haptic(); if (isVoiced(M.cur) && NOW.kind === "music") stopMusic(true); if (isVoiced(M.sel)) M.sel = M.after || (q[0] && q[0].id); draw(); };
-      $("#vpick").onclick = () => voiceSheet(armVoice);
+      $("#vpick").onclick = () => voiceSheet(armVoice); if ($("#vpick2")) $("#vpick2").onclick = () => voiceSheet(armVoice);
       $("#vtgl").onclick = () => { if (vs.on) voiceOffNow(); else voiceSheet(armVoice); };
-      app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { M.tab = b.dataset.tab; draw(); });
-      app.querySelectorAll("[data-sel]").forEach((b) => b.onclick = () => { const id = b.dataset.sel; M.sel = id; haptic(); if (NOW.kind === "music" && !audio.paused && M.cur !== id) { M.qtab = M.tab; playTrack(id, true); } draw(); });
+      app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { M.tab = st.tab = b.dataset.tab; save(); draw(); });
+      app.querySelectorAll("[data-sel]").forEach((b) => b.onclick = () => { const id = b.dataset.sel; M.sel = id; if (!isVoiced(id)) { st.sel = id; save(); } haptic(); if (NOW.kind === "music" && !audio.paused && M.cur !== id) { M.qtab = M.tab; playTrack(id, true); } draw(); });
       app.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { const id = b.dataset.add, i = S.playlist.indexOf(id); i >= 0 ? S.playlist.splice(i, 1) : S.playlist.push(id); save(); haptic(); draw(); });
       const mv = (i, k) => { const a = S.playlist, j = i + k; if (j < 0 || j >= a.length) return; const x = a[i]; a[i] = a[j]; a[j] = x; save(); draw(); };
       app.querySelectorAll("[data-up]").forEach((b) => b.onclick = () => mv(Number(b.dataset.up), -1));
@@ -2179,11 +2182,25 @@ ${b}</svg>`;
     }
     app.innerHTML = h + `</div>`;
   }
+  // Бухта: точки на картинке (координаты в пикселях исходника 780×1170). Нажимается и предмет, и подпись.
+  const BX = [["#/pod", "ПОДКАСТЫ", 470, 150, 220, 180, "b"], ["#/music", "МУЗЫКА", 130, 360, 200, 160, "b"], ["#/dict", "СИМВОЛЫ", 455, 530, 185, 150, "b"], ["#/dives", "ПОГРУЖЕНИЯ", 100, 810, 240, 210, "r"]];
   function Lib() {
-    setBg("Bukhta-1.webp", { pos: "52% 50%" }); document.body.classList.add("nofade");
-    const cap = (href, l, x, y, w, hh, st) => `<a class="bx2" href="${href}" style="left:${u(x)};top:${u(y)};width:${u(w)};height:${u(hh)};${st || ""}"><span>${l}</span></a>`;
-    app.innerHTML = `<div class="vs bx2-st"><h1 style="left:${u(55)};top:${u(75)}">Бухта</h1>
-      ${cap("#/pod", "ПОДКАСТЫ", 263, 126, 120, 130)}${cap("#/music", "МУЗЫКА", 15, 260, 120, 130)}${cap("#/dict", "СИМВОЛЫ", 240, 386, 120, 120)}${cap("#/dives", "ПОГРУЖЕНИЯ", -103, 668, 240, 116, "flex-direction:row;align-items:center;justify-content:flex-end;padding-right:8px")}</div>`;
+    setBg(null); document.body.classList.add("nofade");
+    app.innerHTML = `<div class="bx2-st"><img class="bx2-img" src="${V27}Bukhta-1.webp" alt=""><h1 class="bx2-h">Бухта</h1>${BX.map(([href, l], i) => `<a class="bx3" href="${href}" data-i="${i}" aria-label="${cap1(l.toLowerCase())}"><span>${l}</span></a>`).join("")}</div>`;
+    const place = () => {
+      if (!document.body.contains(app.querySelector(".bx2-st"))) { removeEventListener("resize", place); return; }
+      const R = app.querySelector(".bx2-st").getBoundingClientRect();
+      const sc = Math.max(R.width / 780, R.height / 1170), ox = (R.width - 780 * sc) * 0.52, oy = (R.height - 1170 * sc) * 0.5;
+      app.querySelectorAll(".bx3").forEach((el) => {
+        const [, , x, y, w, h, side] = BX[+el.dataset.i];
+        Object.assign(el.style, { left: ox + x * sc + "px", top: oy + y * sc + "px", width: w * sc + "px", height: h * sc + "px" });
+        el.classList.toggle("r", side === "r");
+        const sp = el.firstElementChild; sp.style.marginLeft = "0px";
+        const b = sp.getBoundingClientRect(), over = b.right - (innerWidth - 10), under = 10 - b.left;
+        if (over > 0) sp.style.marginLeft = -over + "px"; else if (under > 0) sp.style.marginLeft = under + "px";
+      });
+    };
+    place(); addEventListener("resize", place);
   }
   function FreeNote(i) {
     S.free = S.free || [];
@@ -2519,6 +2536,28 @@ ${b}</svg>`;
     }
   }
   window.addEventListener("hashchange", render);
+  // свайп влево/вправо на главных экранах вкладок: Сегодня ↔ Бухта ↔ Проводник ↔ Моя карта
+  (function swipeTabs() {
+    let sx = 0, sy = 0, st = 0, ok = false;
+    const NOSW = ".nfil2,.mchips,.chips,.wk,.per,.sk4,#msgs,.msg,.sheet-bg,.imap,input,textarea,select,[contenteditable],.mseek,.dgrid";
+    document.addEventListener("touchstart", (e) => {
+      const t = e.touches[0]; if (!t || e.touches.length > 1) { ok = false; return; }
+      ok = !(e.target.closest && e.target.closest(NOSW)); sx = t.clientX; sy = t.clientY; st = Date.now();
+    }, { passive: true });
+    document.addEventListener("touchend", (e) => {
+      if (!ok) return; ok = false;
+      const t = e.changedTouches[0]; if (!t) return;
+      const dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - st > 700) return;
+      const r = (location.hash.replace(/^#\/?/, "") || "").split("/");
+      if (r.length > 1 && r[1]) return;
+      const i = TABS.findIndex((x) => x[0] === r[0]); if (i < 0 || !S.profile) return;
+      const j = i + (dx < 0 ? 1 : -1); if (j < 0 || j >= TABS.length) return;
+      document.body.dataset.sw = dx < 0 ? "l" : "r"; try { tg && tg.HapticFeedback && tg.HapticFeedback.selectionChanged(); } catch (e2) {}
+      go("#/" + TABS[j][0]);
+      setTimeout(() => { delete document.body.dataset.sw; }, 400);
+    }, { passive: true });
+  })();
   if (tg) {
     try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
     try { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor("#0F1E33"); tg.setBackgroundColor && tg.setBackgroundColor("#0F1E33"); tg.BackButton.onClick(() => history.back()); } catch (e) {}
