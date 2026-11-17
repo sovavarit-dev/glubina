@@ -1282,12 +1282,12 @@ window.startApp = function () {
   const epNext = (id, k) => { const e = epById(id); if (!e) return null; const L = e.series.episodes.filter((x) => x.src); const i = L.findIndex((x) => x.id === id); const n = L[i + k]; return n ? epById(n.id) : null; };
   const POD_TH = (se) => V27 + (se && se.single ? "Podkasty-3.webp" : "Podkasty-2.webp");
   function Pods() {
-    setBg("Podkasty-1.webp", { light: true });
+    setBg("Podkasty-1.webp", { light: true, pos: "78% 100%" });
     const cont = EPS.filter((e) => e.src && !podSt(e.id).done && podSt(e.id).pos > 5).sort((a, b) => (podSt(b.id).at || 0) - (podSt(a.id).at || 0))[0];
-    let h = `<div class="stack" style="gap:18px">${back("#/lib", "Бухта")}<h1>Подкасты</h1>`;
+    let h = `<div class="stack pd-main" style="gap:18px">${back("#/lib", "Бухта")}<h1>Подкасты</h1>`;
     if (cont) { const st = podSt(cont.id); h += `<a class="pd-cont" href="#/ep/${cont.id}"><img src="${POD_TH(cont.series)}" alt=""><span class="t"><span class="cap">Продолжить</span><b>${esc(cont.title)}</b><span class="pd-bar"><i style="width:${Math.min(100, (st.pos / cont.dur) * 100).toFixed(0)}%"></i></span><span class="small" style="font-size:12px">осталось ${Math.max(1, Math.round((cont.dur - st.pos) / 60))} мин</span></span><span class="pd-play">${ICN_PLAY}</span></a>`; }
     if (!PODS.length) h += `<p class="lead">Подкасты появятся после подключения.</p>`;
-    h += `<div style="height:${cont ? 190 : 300}px"></div><div class="cap">Серии и выпуски</div><div class="stack" style="gap:8px">`;
+    h += `<div class="pd-gap"></div><div class="cap">Серии и выпуски</div><div class="stack" style="gap:8px">`;
     PODS.forEach((se) => {
       if (se.single) { h += se.episodes.map((e) => `<a class="pd-row" href="#/ep/${e.id}"><img src="${e.cover || POD_TH(se)}" alt=""><span class="t"><b>${esc(e.title)}</b><span class="small">выпуск${e.dur ? " · " + Math.round(e.dur / 60) + " мин" : ""}</span></span>${icon.chev}</a>`).join(""); return; }
       const n = se.episodes.filter((e) => e.n).length || se.episodes.length, d = se.episodes.filter((e) => podSt(e.id).done).length;
