@@ -107,47 +107,51 @@ window.startApp = function () {
   function confirmReset() { return window.confirm ? window.confirm("Стереть все записи на этом устройстве?") : true; }
 
   const artOf = (cy) => (window.CYCLE_ART || [])[CYC.indexOf(cy)];
+  const CY_ART = ["Pogruzheniya-2.webp", "Pogruzheniya-3.webp", "Pogruzheniya-4.webp"];
+  const cyArt = (cy) => CY_ART[CYC.indexOf(cy) % 3];
+  const ICN_PLAY = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+  const ICN_CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const ICN_LOCK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  const dots = (cy) => { const n = real(cy).length, d = cyCount(cy); return `<span class="cy-dots">${Array.from({ length: n }, (_, i) => `<i class="${i < d ? "on" : ""}"></i>`).join("")}</span><span class="small" style="font-size:12px">${d} из ${n}</span>`; };
   function Cycle(cid) {
-    const cy = CYC.find((x) => x.id === cid) || cycle;
-    let h = `<div class="stack">${back("#/dives", "Погружения")}
-      ${artOf(cy) ? `<div class="cyart">${artOf(cy).hero}</div>` : cy.img ? `<img class="illu" src="${cy.img}" alt="">` : ""}
-      <div class="stack" style="gap:6px"><div class="kicker" style="color:var(--sage);font-weight:600;letter-spacing:.08em">ЦИКЛ ${cy.n || CYC.indexOf(cy) + 1}</div><h1>${esc(cy.title)}</h1><p class="lead" style="font-size:14px">${esc(cy.desc)}</p>${cy.note ? `<p class="small">${esc(cy.note)}</p>` : ""}</div>
-      <div class="stack" style="gap:10px">`;
+    const cy = CYC.find((x) => x.id === cid) || cycle, ci = CYC.indexOf(cy);
+    setBg("Pogruzheniya-1.webp", { pos: "0% 0" });
+    let h = `<img class="cy-hero" src="${V27}${cyArt(cy)}" alt=""><div class="stack" style="gap:20px">${back("#/dives", "Циклы")}
+      <div class="cy-h"><div class="cap">Цикл ${cy.n || ci + 1} · ${cyCount(cy)} из ${real(cy).length}</div><h1>${esc(cy.title)}</h1>${cy.desc ? `<p>${esc(cy.desc)}</p>` : ""}${cy.note ? `<p class="small">${esc(cy.note)}</p>` : ""}</div>
+      <div class="stack" style="gap:8px">`;
     cy.practices.forEach((p, i) => {
-      const done = !!counted(p.id), open = isOpen(p.id);
-      if (done) {
-        h += `<a class="prac done" href="#/prep/${p.id}"><span class="num">${icon.check}</span><span class="t"><b>${esc(p.title)}</b>${integrOpen(p.id) && !integrDone(p.id) ? '<span class="hint-terra">интеграция открыта</span>' : hasInt(p) && !integrOpen(p.id) ? `<span>интеграция — ${fmtWhen(integrAt(p.id))}</span>` : ""}</span>${icon.chev}</a>`;
-      } else if (open) {
-        h += `<a class="prac open" href="#/prep/${p.id}" style="background:var(--card3);border:1px solid #4A6A90"><span class="num">${i + 1}</span><span class="t"><b style="font-size:17px">${esc(p.title)}</b><span>${p.short ? esc(p.short) : "можно начинать"}</span></span>${icon.chev}</a>`;
-      } else {
-        h += `<div class="prac locked${p.soon ? " soon" : ""}"><span class="num">${i + 1}</span><span class="t"><b style="color:var(--muted)">${esc(p.title)}</b><span>${esc(lockHint(p))}</span></span>${p.soon ? "" : icon.lock}</div>`;
-      }
+      const done = !!counted(p.id), open = isOpen(p.id), mins = p.duration ? Math.round(p.duration / 60) + " мин" : "";
+      const n = `${i + 1}. ${esc(p.title)}`;
+      if (done) h += `<a class="pr-row" href="#/prep/${p.id}"><span class="pr-i">${ICN_CHECK}</span><span class="t"><b>${n}</b><span>${[mins, S.notes[p.id] && S.notes[p.id].image ? "заметка есть" : "", integrOpen(p.id) && !integrDone(p.id) ? "интеграция открыта" : hasInt(p) && !integrOpen(p.id) ? "интеграция — " + fmtWhen(integrAt(p.id)) : ""].filter(Boolean).join(" · ")}</span></span></a>`;
+      else if (open) h += `<a class="pr-row cur" href="#/prep/${p.id}"><span class="pr-i on">${ICN_PLAY}</span><span class="t"><b>${n}</b><span>${[mins, "можно слушать"].filter(Boolean).join(" · ")}</span></span></a>`;
+      else h += `<div class="pr-row off"><span class="pr-i lk">${p.soon ? "" : ICN_LOCK}</span><span class="t"><b>${n}</b><span>${esc(lockHint(p))}</span></span></div>`;
     });
     h += `</div></div>`;
     app.innerHTML = h;
-    try { if (matchMedia("(prefers-reduced-motion: reduce)").matches) app.querySelectorAll(".cyart svg").forEach((x) => { x.pauseAnimations(); x.setCurrentTime(9); }); } catch (e) {}
   }
 
   function Prep(id) {
     const p = prac(id);
     if (!p || p.soon || !isOpen(id)) return go(p && p._cy ? "#/cycle/" + p._cy.id : "#/dives");
     if (!S.ask) S.ask = {};
-    let h = `<div class="stack">${p._free ? back("#/dives", "Погружения") : back("#/cycle/" + p._cy.id, p._cy.title)}
-      ${p.img ? `<img class="illu" src="${p.img}" alt="${esc(p.imgAlt || p.title)}">` : `<div class="illu empty">иллюстрация скоро</div>`}
-      <div class="stack" style="gap:6px"><div class="kicker">${esc(where(p))} · ${Math.round(p.duration / 60)} мин</div><h1 style="font-size:30px">${esc(p.title)}</h1></div>
+    const mins = Math.round(p.duration / 60);
+    setBg("Pogruzheniya-1.webp");
+    let h = `${p._free ? "" : `<img class="cy-hero" src="${V27}${cyArt(p._cy)}" alt="">`}<div class="stack" style="gap:18px">${p._free ? back("#/dives", "Погружения") : back("#/cycle/" + p._cy.id, p._cy.title)}
+      <div class="cy-h"><div class="cap">${esc(p._free ? "Вне циклов" : p._cy.title + " · " + (p._i + 1) + " из " + p._cy.practices.length)}</div><h1>${esc(p.title)}</h1><p>${mins} минут</p></div>
       ${p.intro.map((t) => `<p class="lead">${esc(t)}</p>`).join("")}
-      ${p.accent ? `<div class="card blue" style="padding:18px"><div style="font-weight:800;font-size:18px;color:var(--blue)">${esc(p.accent.title)}</div><div style="font-size:15px;line-height:1.6">${esc(p.accent.text)}</div></div>` : ""}
+      ${p.accent ? `<div class="card" style="padding:18px"><div style="font-weight:500;font-size:18px;color:var(--cream)">${esc(p.accent.title)}</div><div style="font-size:15px;line-height:1.6;color:var(--text-body)">${esc(p.accent.text)}</div></div>` : ""}
       ${p.introAfter ? `<p class="lead">${esc(p.introAfter)}</p>` : ""}
-      ${p.warn ? `<div class="card terra" style="padding:16px"><div class="small hint-terra" style="font-weight:700;letter-spacing:.06em">ВНИМАНИЕ</div><div style="font-size:15px;line-height:1.55">${esc(p.warn)}</div></div>` : ""}
+      ${p.warn ? `<div class="card" style="padding:16px"><div class="cap">Внимание</div><div style="font-size:15px;line-height:1.55">${esc(p.warn)}</div></div>` : ""}
       ${p.ask ? `<label class="q"><b>Твой запрос</b><span>Одной фразой. Он сохранится и будет ждать тебя после практики.</span><textarea id="ask" rows="2" placeholder="Что меня держит в…">${esc((S.ask[id] && S.ask[id].text) || "")}</textarea></label>` : ""}
-      <div class="stack" style="gap:12px"><b>Подготовь место</b>
-        <div class="check"><i><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg></i>Надень наушники</div>
-        <div class="check"><i><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h20"/><path d="M4 12V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M4 12v6M20 12v6"/></svg></i>Найди удобное положение</div>
-        <div class="check"><i><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M3 3l18 18"/></svg></i>Выключи уведомления</div>
-        <div class="check"><i><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></i>Экран можно погасить — голос продолжит звучать</div>
+      <div class="card prep-l">
+        <div class="row"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>Наушники</div>
+        <div class="row"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Место, где никто не потревожит</div>
+        <div class="row"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>Около ${mins} минут только для себя</div>
+        <div class="row"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M3 3l18 18"/></svg>Уведомления выключены, экран можно погасить</div>
       </div>
-      <div class="small center">Остановиться можно в любой момент.</div>
-      <a class="btn" id="start" href="${S.safety ? "#/player/" + id : "#/safety/" + id}">Начать</a>
+      ${hasInt(p) ? `<p class="small center">Интеграция откроется через 8 часов после прослушивания</p>` : ""}
+      <a class="btn" id="start" href="${S.safety ? "#/player/" + id : "#/safety/" + id}">${ICN_PLAY}<span style="margin-left:10px">Начать погружение</span></a>
+      <p class="small center" style="font-size:12px">Остановиться можно в любой момент.</p>
       ${counted(id) ? `<a class="link-row" href="#/after/${id}">Заметка «сразу после» ${icon.chev}</a>` : ""}
     </div>`;
     app.innerHTML = h;
@@ -176,30 +180,16 @@ window.startApp = function () {
   let PL = null; // { id, pos, playing }
   const mix = (a, b, k) => { const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); const x = p(a), y = p(b); return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * k).toString(16).padStart(2, "0")).join(""); };
   function diveScene() {
-    let b = "";
-    const rnd = (i, k) => ((Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1 + 1) % 1;
-    for (let i = 0; i < 12; i++) { const x = 30 + Math.round(rnd(i, 1) * 330), r = [1.5, 2, 2.5, 3][i % 4], d = 12 + Math.round(rnd(i, 2) * 10), bg = (rnd(i, 3) * d).toFixed(1); b += `<circle cx="${x}" cy="760" r="${r}" fill="none" stroke="#CFE6F5" stroke-width="1" opacity="0"><animate attributeName="cy" values="760;120" dur="${d}s" begin="-${bg}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.7;.7;0" keyTimes="0;.15;.8;1" dur="${d}s" begin="-${bg}s" repeatCount="indefinite"/></circle>`; }
-    let s = "";
-    for (let i = 0; i < 22; i++) { const x = 10 + Math.round(rnd(i, 4) * 370), y = 80 + Math.round(rnd(i, 5) * 720), d = 26 + Math.round(rnd(i, 6) * 14), bg = (rnd(i, 7) * d).toFixed(1); s += `<circle cx="${x}" cy="${y}" r="1" fill="#A9C4DA" opacity=".5"><animate attributeName="cy" values="${y - 40};${y + 40}" dur="${d}s" begin="-${bg}s" repeatCount="indefinite"/></circle>`; }
-    return `<svg class="dive-svg" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs><linearGradient id="dvbg" x1="0" y1="0" x2="0" y2="1"><stop id="dvt" offset="0" stop-color="#2F5D88"/><stop id="dvm" offset=".45" stop-color="#16304F"/><stop offset="1" stop-color="#08121F"/></linearGradient>
-      <radialGradient id="dvgl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#DCEEFA" stop-opacity=".75"/><stop offset=".35" stop-color="#8CC4E8" stop-opacity=".35"/><stop offset="1" stop-color="#8CC4E8" stop-opacity="0"/></radialGradient></defs>
-      <rect width="390" height="844" fill="url(#dvbg)"/>
-      <g id="dvglw"><ellipse cx="195" cy="-10" rx="600" ry="420" fill="url(#dvgl)"><animate attributeName="opacity" values=".6;1;.6" dur="10s" repeatCount="indefinite"/></ellipse></g>
-      <g id="dvsn" opacity=".4">${s}</g><g id="dvbb">${b}</g></svg>
-      <div class="dive-depth" aria-hidden="true"><i></i><i style="top:25%"></i><i style="top:50%"></i><i style="top:75%"></i><i style="top:100%"></i><b id="dvdot"></b></div>`;
+    return `<div class="dv2" aria-hidden="true"><div class="dv2-dark" id="dvdark"></div>
+      <div class="dv2-line"><span style="top:0">поверхность</span><span style="top:100%">глубина</span><img class="dv2-pearl" id="dvpearl" src="${V27}PleerIdet-1.webp" alt=""></div></div>`;
   }
   function setDepth(t) {
     const d = t < 0.15 ? t / 0.15 : t > 0.85 ? Math.max(0, (1 - t) / 0.15) : 1; // спуск — глубина — всплытие
-    const q = (id) => document.getElementById(id);
-    if (!q("dvt")) return;
-    q("dvt").setAttribute("stop-color", mix("#2F5D88", "#0F2038", d));
-    q("dvm").setAttribute("stop-color", mix("#16304F", "#0A1626", d));
-    q("dvglw").setAttribute("transform", `translate(195 0) scale(${(1 - 0.5 * d).toFixed(3)}) translate(-195 0)`);
-    q("dvglw").setAttribute("opacity", (1 - 0.55 * d).toFixed(2));
-    q("dvbb").setAttribute("opacity", (1 - 0.7 * d).toFixed(2));
-    q("dvsn").setAttribute("opacity", (0.3 + 0.5 * d).toFixed(2));
-    q("dvdot").style.top = (d * 100).toFixed(1) + "%";
+    const dk = document.getElementById("dvdark"), pr = document.getElementById("dvpearl");
+    if (!dk) return;
+    dk.style.opacity = (0.55 * d).toFixed(2);
+    pr.style.top = (d * 100).toFixed(1) + "%";
+    const st = document.getElementById("dvst"); if (st) st.textContent = t < 0.15 ? "спуск · дыши свободно" : t > 0.85 ? "всплытие · не торопись" : "глубина";
   }
   function exitSheet() {
     if (!PL || document.querySelector(".sheet-bg")) return;
@@ -234,16 +224,12 @@ window.startApp = function () {
     if (fresh) PL = { id, pos: 0, playing: true };
     if (NOW.kind) closeAudio();
     const D = () => (p.src && diveEl.duration && isFinite(diveEl.duration) ? diveEl.duration : p.duration);
-    app.innerHTML = `<div class="dive">${diveScene()}</div><div class="player dive-ui">
-      <div class="center"><div class="kicker" style="letter-spacing:.06em;color:var(--muted2)">${esc(p._free ? "ВНЕ ЦИКЛОВ" : p._cy.title.toUpperCase() + " · " + (p._i + 1))}</div><div style="font-size:24px;font-weight:800">${esc(p.title)}</div></div>
-      <div class="orb" role="img" aria-label="Погружение идет"></div>
+    setBg("Pogruzheniya-1.webp", { pos: "0% 0" }); document.body.classList.add("nofade");
+    app.innerHTML = `${diveScene()}<div class="pl2 dive-ui">
+      <div class="row" style="justify-content:space-between"><button class="pl2-x" id="exit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Выйти</button><span class="cap" style="opacity:.6">${esc(p._free ? "Вне циклов" : p._cy.title + " · " + (p._i + 1))}</span></div>
+      <div class="pl2-b"><div class="center"><div class="pl2-t">${esc(p.title)}</div><div class="small" id="dvst">спуск · дыши свободно</div></div>
       <div class="seek"><input id="seek" type="range" min="0" max="${Math.floor(p.duration)}" value="0" aria-label="Перемотка"><div class="times"><span id="cur">0:00</span><span id="dur">${fmt(p.duration)}</span></div></div>
-      <div class="ctrls">
-        <button class="round" id="rew" aria-label="Назад на 15 секунд">${icon.rew}</button>
-        <button class="play" id="pp" aria-label="Пауза">${PL.playing ? icon.pause : icon.play}</button>
-        <button class="round" id="fwd" aria-label="Вперед на 15 секунд">${icon.fwd}</button>
-      </div>
-      <button class="exit" id="exit">Выйти</button>
+      <div class="pl2-c"><button class="pl2-r" id="rew" aria-label="Назад на 15 секунд">−15</button><button class="pl2-p" id="pp" aria-label="Пауза">${PL.playing ? icon.pause : icon.play}</button><button class="pl2-r" id="fwd" aria-label="Вперед на 15 секунд">+15</button></div></div>
     </div>`;
     const seek = $("#seek"), cur = $("#cur"), pp = $("#pp");
     const setPP = () => { pp.innerHTML = PL.playing ? icon.pause : icon.play; pp.setAttribute("aria-label", PL.playing ? "Пауза" : "Продолжить"); };
@@ -278,42 +264,59 @@ window.startApp = function () {
   }
 
   function Return(id) {
-    const ln = (d, html) => `<div class="ln" style="animation-delay:${d}s">${html}</div>`;
-    app.innerHTML = `<div class="dive ret-bg">${diveScene()}</div><div class="stack dive-ui ret">
-      ${ln(0.4, '<h1>Не торопись</h1>')}
-      ${ln(2.2, '<p class="lead">Почувствуй опору под собой</p>')}
-      ${ln(4.0, '<p class="lead">Пошевели пальцами</p>')}
-      ${ln(5.8, '<p class="lead">Потянись, как после сна</p>')}
-      <div class="ln stack" style="animation-delay:7.8s;gap:12px;margin-top:auto">
-        <a class="btn" href="#/after/${id}">Записать, что было</a>
-        <a class="card terra" href="#/observer"><div class="small hint-terra" style="font-weight:600">Если сложно вернуться в реальность</div><div style="font-weight:800;font-size:18px">Техника «Наблюдатель»</div><div class="small" style="color:var(--muted2)">прочитать и сделать · 2–3 минуты</div></a>
-        <a class="btn ghost" href="#/">Позже</a>
+    setBg("Pogruzheniya-1.webp");
+    const p = prac(id), ln = (d, html) => `<div class="ln" style="animation-delay:${d}s">${html}</div>`;
+    app.innerHTML = `<img class="ret-pearl" src="${V27}PleerIdet-1.webp" alt=""><div class="stack" style="gap:14px;padding-top:calc(min(100vw,520px) * .9)">
+      ${ln(0.3, "<h1>С возвращением</h1>")}
+      ${ln(1.2, '<p class="lead">Не торопись. Почувствуй опору под собой, пошевели пальцами, потянись, как после сна.</p>')}
+      <div class="ln stack" style="animation-delay:2.4s;gap:10px;margin-top:10px">
+        <a class="btn" href="#/after/${id}">Записать, что пришло</a>
+        ${p && hasInt(p) && counted(id) ? `<div class="card row" style="flex-direction:row;gap:12px;padding:14px 16px;font-size:14px;color:var(--text-body)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>Интеграция откроется через 8 часов</div>` : ""}
+        <a class="center" href="#/observer" style="padding:14px 0;font-weight:500;color:var(--cream)">Сложно вернуться в реальность?<br>практика «Наблюдатель»</a>
         ${counted(id) ? "" : `<p class="small center">Практика не засчитана — прошло меньше двух минут. К ней можно вернуться в любой момент.</p>`}
       </div></div>`;
-    setDepth(1);
   }
 
+  // поле с голосовым вводом
+  const MIC_I = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+  const vta = (id, val, ph, rows, attr) => `<div class="vta"><textarea id="${id}" ${attr || ""} rows="${rows || 4}" placeholder="${esc(ph || "Можно словами, можно голосом…")}">${esc(val || "")}</textarea><button type="button" class="mic" data-mic="${id}" aria-label="Наговорить голосом">${MIC_I}</button></div>`;
+  function bindMics() {
+    app.querySelectorAll("[data-mic]").forEach((b) => b.onclick = () => {
+      const t = document.getElementById(b.dataset.mic), lbl = { set textContent(v) { b.setAttribute("aria-label", v); } };
+      voice(b, lbl, (txt) => { t.value = (t.value ? t.value.trim() + " " : "") + txt; t.dispatchEvent(new Event("input")); t.dispatchEvent(new Event("change")); });
+    });
+  }
+  // «Обсудить с Настей»: обычно / пробный период / вопросы месяца закончились
+  function nastyaBox() {
+    const m = new Date(now()), used = (S.questions || []).filter((q) => { const d = new Date(q.at); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear(); }).length;
+    const trial = S.plan === "trial", lim = used >= 4;
+    const sub = trial ? "Вопросы Насте откроются после оформления подписки. Сессию можно записать уже сейчас." : lim ? used + " из 4 вопросов в этом месяце. Похоже, вопросов становится больше — может, пора поговорить на сессии?" : "Ответ придет сюда, в приложение, в течение 48 часов · " + used + " из 4 вопросов в этом месяце";
+    const ask = trial ? `<span class="btn milk dis">${ICN_LOCK}<span style="margin-left:6px">Вопрос</span></span>` : lim ? `<a class="btn milk" href="#/ask">Вопрос · 500 ₽</a>` : `<a class="btn" href="#/ask">Задать вопрос</a>`;
+    const ses = `<a class="btn ${trial || lim ? "" : "milk"}" href="#/consult">Записаться на сессию</a>`;
+    return `<div class="card nbox"><div class="row" style="gap:14px;align-items:flex-start"><span class="av-n">Н</span><span class="stack" style="gap:4px"><b style="font-size:17px;font-weight:500;color:var(--cream)">Обсудить с Настей</b><span class="small" style="font-size:13px;color:var(--text-body)">${sub}</span></span></div><div class="two">${lim ? ses + ask : ask + ses}</div></div>`;
+  }
   function After(id) {
     const p = prac(id);
     const n = S.notes[id] || { image: "", feelings: [], own: [], stand: "" };
     const all = C.feelings.concat(n.own || []);
-    app.innerHTML = `<div class="stack">${back("#/prep/" + id, p.title)}
-      ${p.after ? `<div class="card sage" style="padding:16px"><div class="small" style="font-weight:700;color:var(--sage-l);letter-spacing:.06em">НЕ СПЕШИ</div><div style="font-size:15px;line-height:1.6">${esc(p.after)}</div></div>` : ""}
-      ${p.ask && S.ask && S.ask[id] && S.ask[id].text ? `<div class="card"><div class="small" style="font-weight:700">ТВОЙ ЗАПРОС</div><div style="font-size:15px">${esc(S.ask[id].text)}</div><div class="small">Перечитай его и заметь, как он звучит теперь.</div></div>` : ""}
-      <div class="stack" style="gap:6px"><div class="kicker">Сразу после · ${esc(p.title)}</div><h1>Что было в погружении?</h1><div class="small">Заметку видишь только ты. Разбирать будем позже — сейчас только поймать.</div></div>
-      <label class="q"><b>1. Какой образ к тебе пришел?</b><span>Опиши увиденное</span><textarea id="img" rows="4" placeholder="Что было видно, где ты, что вокруг…">${esc(n.image)}</textarea></label>
-      <div class="stack" style="gap:10px"><b>2. С каким чувством ты возвращаешься?</b><div class="chips" id="feel">${all.map((f) => `<button type="button" class="chip${n.feelings.includes(f) ? " on" : ""}" data-f="${esc(f)}">${esc(f)}</button>`).join("")}<button type="button" class="chip add" id="addf">+ свое</button></div><div class="small">Свои слова сохраняются для следующих погружений.</div></div>
-      <label class="q"><b>3. Что выделяется из увиденного?</b><textarea id="stand" rows="2" placeholder="Деталь, цвет, звук, что-то одно…">${esc(n.stand)}</textarea></label>
-      <div class="stack" style="gap:8px"><a class="link-row" href="#/body/n/${id}/front" style="border-color:var(--terra-line)"><span class="stack" style="gap:2px"><b>4. Где отозвалось в теле</b><span class="small" style="font-weight:400">${n.body && Object.keys(n.body).length ? "отмечено: " + Object.keys(n.body).length : n.bodyQuiet ? "тело молчало" : "отметить на силуэте"}</span></span>${icon.chev}</a>${bodyChips(n)}</div>
-      <div class="stack" style="gap:8px"><b>5. Нарисовать образ</b><span class="small">Возьми лист и нарисуй, что было, — как получится, без оценки. Потом сфотографируй: рисунок останется в записи.</span>
-        <label class="photo">${n.photo ? `<img src="${n.photo}" alt="Рисунок образа">` : `<span>+ фото рисунка</span>`}<input type="file" accept="image/*" id="ph" hidden></label></div>
-      <button class="btn" id="save">Сохранить</button>
-      ${p.ask ? `<a class="link-row" href="#/ask" style="justify-content:center">Поделиться с Настей без посторонних глаз ${icon.chev}</a>` : ""}
-      ${p.closing && p.closing.text ? `<div class="card sage">${p.closing.title ? `<div style="font-weight:800;color:var(--sage-l)">${esc(p.closing.title)}</div>` : ""}<div style="font-size:14px">${esc(p.closing.text)}</div></div>` : ""}
-      ${p.integration ? `<p class="small center">Интеграция откроется через 8 часов — напомню.</p>` : ""}
+    const saved = !!n.savedAt;
+    app.innerHTML = `<div class="stack" style="gap:16px">${back("#/return/" + id, "Возвращение")}
+      <div class="scr-h" style="margin-top:calc(min(100vw,520px) * .52)"><div class="cap">Сразу после · ${esc(p._free ? "вне циклов" : p._cy.title + " · " + (p._i + 1))}</div><h1>Что пришло</h1><p>Образы, ощущения, слова — как есть, без разбора.</p></div>
+      ${p.ask && S.ask && S.ask[id] && S.ask[id].text ? `<div class="card"><div class="cap">Твой запрос</div><div style="font-size:15px">${esc(S.ask[id].text)}</div><div class="small">Перечитай его и заметь, как он звучит теперь.</div></div>` : ""}
+      <div class="stack" style="gap:10px"><b class="qb">Какие образы были?</b>${vta("img", n.image)}</div>
+      <div class="stack" style="gap:10px"><b class="qb">С каким чувством ты возвращаешься?</b><div class="chips" id="feel">${all.map((f) => `<button type="button" class="chip${n.feelings.includes(f) ? " on" : ""}" data-f="${esc(f)}">${esc(f)}</button>`).join("")}<button type="button" class="chip add" id="addf">+ свое</button></div></div>
+      <a class="link-row" href="#/body/n/${id}/front"><span class="row" style="gap:12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7M8 10h8M9.5 21l2.5-7 2.5 7"/></svg><span>${n.body && Object.keys(n.body).length ? "В теле отмечено: " + Object.keys(n.body).length : n.bodyQuiet ? "Тело молчало" : "Отметить, где откликнулось в теле"}</span></span>${icon.chev}</a>
+      <details class="card" ${n.photo || n.stand ? "open" : ""}><summary class="qb" style="cursor:pointer">Еще: деталь и рисунок</summary><div class="stack" style="gap:12px;margin-top:12px">
+        <label class="q"><b>Что выделяется из увиденного?</b><textarea id="stand" rows="2" placeholder="Деталь, цвет, звук, что-то одно…">${esc(n.stand)}</textarea></label>
+        <span class="small">Можно нарисовать образ — как получится, без оценки — и сфотографировать.</span>
+        <label class="photo">${n.photo ? `<img src="${n.photo}" alt="Рисунок образа">` : `<span>+ фото рисунка</span>`}<input type="file" accept="image/*" id="ph" hidden></label></div></details>
+      ${p.integration ? `<p class="small row" style="gap:10px;align-items:flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>Интеграция откроется через 8 часов — вернемся к этой записи.</p>` : ""}
+      <button class="btn" id="save">${saved ? "Сохранено. Обсудить с Проводником?" : "Сохранить"}</button>
+      ${p.closing && p.closing.text ? `<div class="card">${p.closing.title ? `<div style="font-weight:500;color:var(--cream)">${esc(p.closing.title)}</div>` : ""}<div style="font-size:14px;color:var(--text-body)">${esc(p.closing.text)}</div></div>` : ""}
     </div>`;
+    bindMics();
     const sel = new Set(n.feelings);
-    const draft = () => { S.notes[id] = Object.assign(S.notes[id] || {}, { image: $("#img").value, feelings: Array.from(sel), own: n.own || [], stand: $("#stand").value }); save(); };
+    const draft = () => { S.notes[id] = Object.assign(S.notes[id] || {}, { image: $("#img").value, feelings: Array.from(sel), own: n.own || [], stand: $("#stand").value }); save(); $("#save").textContent = "Сохранить"; };
     ["#img", "#stand"].forEach((q) => $(q).addEventListener("input", draft));
     $("#ph").onchange = (e) => photoOf(e.target.files[0], (url) => { draft(); S.notes[id].photo = url; save(); After(id); });
     app.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => { const f = b.dataset.f; sel.has(f) ? sel.delete(f) : sel.add(f); b.classList.toggle("on"); draft(); });
@@ -323,8 +326,10 @@ window.startApp = function () {
       n.own = Array.from(new Set((n.own || []).concat(t))); sel.add(t); S.notes[id] = Object.assign(n, { image: $("#img").value, stand: $("#stand").value, feelings: Array.from(sel) }); save(); After(id);
     };
     $("#save").onclick = () => {
+      const b = $("#save");
+      if (b.textContent.indexOf("Проводник") >= 0) { S.guide = Object.assign(gNew(), { dive: id }); S.guideDraft = "После погружения «" + p.title + "» пришло: " + (S.notes[id].image || "") + " "; save(); return go("#/guide"); }
       S.notes[id] = Object.assign(S.notes[id] || {}, { image: $("#img").value.trim(), feelings: Array.from(sel), own: n.own || [], stand: $("#stand").value.trim(), savedAt: now() });
-      save(); haptic(); go("#/journal/saved");
+      save(); haptic(); toast("Сохранено в Мою карту"); b.textContent = "Сохранено. Обсудить с Проводником?";
     };
   }
 
@@ -335,64 +340,52 @@ window.startApp = function () {
     r.onload = () => { const im = new Image(); im.onload = () => { const k = Math.min(1, 720 / Math.max(im.width, im.height)); const cv = document.createElement("canvas"); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height); try { cb(cv.toDataURL("image/jpeg", 0.72)); } catch (e) { toast("Не получилось сохранить фото"); } }; im.src = r.result; };
     r.readAsDataURL(file);
   }
-  function Journal(flag) {
-    const items = ALLP.filter((p) => S.notes[p.id] || counted(p.id));
-    let h = `<div class="stack">${back("#/dives", "Погружения")}`;
-    if (flag === "saved") h += `<div class="card sage" style="padding:18px;gap:12px"><div style="font-weight:800;font-size:18px;color:var(--sage-l)">Заметка сохранена</div><div style="font-size:14px">Интеграция откроется через 8 часов — напомню.</div><a class="btn" href="#/">Вернуться на главную</a></div>`;
-    h += `<h1>Мои погружения</h1>`;
+  function Journal() {
+    const items = ALLP.filter((p) => S.notes[p.id] || counted(p.id)).sort((x, y) => (counted(y.id) || 0) - (counted(x.id) || 0));
+    let h = `<div class="stack" style="gap:16px">${back("#/dives", "Погружения")}<div class="scr-h"><div class="cap">Пройденные</div><h1>Мои погружения</h1><p>Можно переслушивать в любом порядке.</p></div><div style="height:30px"></div>`;
     if (!items.length) h += `<p class="lead">Здесь появятся заметки после погружений.</p>`;
-    items.slice().reverse().forEach((p) => {
-      const n = S.notes[p.id] || {};
-      h += `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(p.title)}</b><span class="small">${counted(p.id) ? fmtWhen(counted(p.id)).replace(" в ", ", ") : ""}</span></div>
-        ${n.image ? `<div style="font-size:14px;color:var(--muted2)">${esc(n.image)}</div>` : `<div class="small">Заметки пока нет</div>`}
-        ${n.photo ? `<img class="jphoto" src="${n.photo}" alt="Рисунок образа">` : ""}
-        ${n.feelings && n.feelings.length ? `<div class="chips">${n.feelings.map((f) => `<span class="chip on" style="min-height:0;padding:5px 10px;font-size:12px">${esc(f)}</span>`).join("")}</div>` : ""}
-        ${bodyChips(n)}
-        <div class="row" style="gap:16px;flex-wrap:wrap"><a class="small" style="color:var(--blue);font-weight:700" href="#/after/${p.id}">${n.image ? "Изменить заметку" : "Записать"}</a>
-        ${n.image ? `<a class="small" style="color:var(--blue);font-weight:700" href="#" data-gd="${p.id}">Обсудить с Проводником</a>` : ""}
-        ${integrOpen(p.id) ? `<a class="small" style="color:var(--terra-l);font-weight:700" href="#/integr/${p.id}">${integrDone(p.id) ? "Интеграция" : "Интеграция открыта"}</a>` : hasInt(p) && counted(p.id) ? `<span class="small">интеграция — ${fmtWhen(integrAt(p.id))}</span>` : ""}</div></div>`;
+    items.forEach((p) => {
+      const n = S.notes[p.id] || {}, t = counted(p.id);
+      const act = integrOpen(p.id) && !integrDone(p.id) ? `<a class="pill-c" href="#/integr/${p.id}">Записать интеграцию</a>` : hasInt(p) && t && !integrOpen(p.id) ? `<span class="small row" style="gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>Интеграция откроется ${fmtWhen(integrAt(p.id))}</span>` : "";
+      h += `<div class="card jr"><div class="row" style="justify-content:space-between"><span class="small">${esc(p._free ? "Вне цикла" : p._cy.title)}</span><span class="small">${t ? dayLabel(t) : ""}</span></div>
+        <a href="#/prep/${p.id}" class="jr-t">${esc(p.title)}</a>
+        ${n.image ? `<a class="jr-x" href="#/after/${p.id}">«${esc(n.image.length > 120 ? n.image.slice(0, 120) + "…" : n.image)}»</a>` : `<a class="small" href="#/after/${p.id}" style="color:var(--cream)">Записать, что пришло</a>`}
+        ${integrDone(p.id) ? `<a class="small" href="#/integr/${p.id}" style="color:var(--cream)">Интеграция записана</a>` : act}</div>`;
     });
-    if (S.catches && S.catches.length) {
-      h += `<h2 style="margin-top:8px">Названные чувства</h2>`;
-      S.catches.slice().reverse().slice(0, 30).forEach((c) => {
-        const i = S.catches.indexOf(c);
-        h += `<a class="card" href="#/caught/${i}" style="gap:6px"><div class="row" style="justify-content:space-between"><b>${esc(c.word)}</b><span class="small">${fmtWhen(c.at).replace(" в ", ", ")}</span></div>${bodyChips(c)}</a>`;
-      });
-    }
-    h += `<a class="btn" href="#/" style="margin-top:6px">На главную</a></div>`;
-    app.innerHTML = h;
-    app.querySelectorAll("[data-gd]").forEach((b) => b.onclick = (e) => { e.preventDefault(); const p = prac(b.dataset.gd); S.guide = Object.assign(gNew(), { dive: p.id }); S.guideDraft = "Хочу разобраться с погружением «" + p.title + "». "; save(); go("#/guide"); });
+    app.innerHTML = h + `</div>`;
   }
-
   function Integr(id) {
     const p = prac(id);
     if (!p || !p.integration) return go("#/");
-    if (p.integration.soon) { app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<div class="kicker terra">Интеграция · ${esc(where(p))}</div><h1>${esc(p.title)}</h1><p class="lead">Интеграция к этой практике скоро появится. А пока побудь с тем ощущением, которое осталось в теле.</p></div>`; return; }
-    if (!integrOpen(id)) { app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<h1>${esc(p.title)}</h1><p class="lead">Интеграция откроется ${fmtWhen(integrAt(id))}.</p></div>`; return; }
-    const I = p.integration, a = (S.integr[id] && S.integr[id].answers) || {};
+    const hd = (sub) => `${back("#/journal", "Мои погружения")}<div class="scr-h" style="margin-top:calc(min(100vw,520px) * .52)"><div class="cap">Интеграция · ${esc(p._free ? "вне циклов" : p._cy.title + " · " + (p._i + 1))}</div><h1>${esc(p.title)}</h1><p>${sub}</p></div>`;
+    if (p.integration.soon) { app.innerHTML = `<div class="stack">${hd("Интеграция к этой практике скоро появится. А пока побудь с тем ощущением, которое осталось в теле.")}</div>`; return; }
+    if (!integrOpen(id)) { app.innerHTML = `<div class="stack">${hd("Интеграция откроется " + fmtWhen(integrAt(id)) + ".")}</div>`; return; }
+    const I = p.integration, a = (S.integr[id] && S.integr[id].answers) || {}, done = S.integr[id] && S.integr[id].done;
     const n = S.notes[id] || {};
-    const field = (k, t, d, ph) => `<label class="q"><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ""}<textarea data-k="${k}" rows="2" placeholder="${esc(ph || "Первое, что приходит…")}">${esc(a[k] || "")}</textarea></label>`;
-    let h = `<div class="stack">${back("#/", "Сегодня")}
-      <div class="stack" style="gap:6px"><div class="kicker terra">Интеграция · ${esc(where(p))}</div><h1 style="font-size:30px">${esc(p.title)}</h1></div>
-      ${n.image ? `<div class="card"><div class="small" style="font-weight:600">ТВОЯ ЗАМЕТКА</div><div style="font-size:14px;color:#D6E0EA">${esc(n.image)}</div></div>` : ""}
-      <p style="font-size:16px;line-height:1.6">${esc(I.lead)}</p>
-      <h2>Сопоставь с реальностью</h2>
+    const field = (k, t, d, ph) => `<div class="stack" style="gap:8px"><b class="qb">${esc(t)}</b>${d ? `<span class="small">${esc(d)}</span>` : ""}${vta("f_" + k, a[k], ph || "Можно словами, можно голосом…", 3, `data-k="${k}"`)}</div>`;
+    let h = `<div class="stack" style="gap:18px">${hd("Прошло 8 часов. Вернемся к тому, что пришло.")}
+      ${n.image ? `<button type="button" class="paper" id="paper"><img src="${V27}Integraciya-1.webp" alt=""><img class="pin" src="${V27}Segodnya5m-4.webp" alt=""><span class="paper-t"><span class="cap" style="color:#7A6650">Запись сразу после</span><span class="paper-x">«${esc(n.image)}»</span><span class="paper-h">Коснись, чтобы развернуть</span></span></button>` : ""}
+      ${I.lead ? `<p class="lead">${esc(I.lead)}</p>` : ""}
       ${I.questions.map((q, i) => field("q" + i, q.t, q.d)).join("")}`;
-    if (I.minute) h += `<div class="card sage" style="padding:18px"><div style="font-size:14px;color:#D6E0EA">${esc(I.minute.intro)}</div><div style="font-size:17px;font-weight:700;font-style:italic;color:var(--sage-l)">${esc(I.minute.q)}</div></div>${field("minute", "Что приходит", "", "Можно одним словом…")}`;
-    if (I.forks) I.forks.forEach((f, i) => { h += `<div class="card ${f.kind}" style="padding:18px"><div class="small" style="font-weight:700;color:${f.kind === "terra" ? "var(--terra-l)" : "var(--sage-l)"}">${esc(f.label.toUpperCase())}</div>${f.intro ? `<div style="font-size:14px;color:#D6E0EA">${esc(f.intro)}</div>` : ""}<div style="font-size:16px;font-weight:700;font-style:italic;color:${f.kind === "terra" ? "var(--terra-l)" : "var(--sage-l)"}">${esc(f.q)}</div></div>${field("fork" + i, "Ответ", "", "Можно одним словом…")}`; });
+    if (I.minute) h += `<div class="card" style="padding:18px"><div style="font-size:14px;color:var(--text-body)">${esc(I.minute.intro)}</div><div style="font-size:17px;font-weight:500;font-style:italic;color:var(--cream)">${esc(I.minute.q)}</div></div>${field("minute", "Что приходит", "", "Можно одним словом…")}`;
+    if (I.forks) I.forks.forEach((f, i) => { h += `<div class="card" style="padding:18px"><div class="cap">${esc(f.label)}</div>${f.intro ? `<div style="font-size:14px;color:var(--text-body)">${esc(f.intro)}</div>` : ""}<div style="font-size:16px;font-weight:500;font-style:italic;color:var(--cream)">${esc(f.q)}</div></div>${field("fork" + i, "Ответ", "", "")}`; });
     if (I.outro) h += `<p class="lead">${esc(I.outro)}</p>`;
-    h += `<button class="btn" id="done">Завершить интеграцию</button>
-      <a class="link-row" href="#/ask" style="justify-content:center;color:var(--blue)">Поделиться с Настей</a></div>`;
+    h += `<button class="btn" id="done">${done ? "Сохранено. Обсудить с Проводником?" : "Сохранить в Мою карту"}</button>${nastyaBox()}</div>`;
     app.innerHTML = h;
+    bindMics();
+    const pp = $("#paper"); if (pp) pp.onclick = () => pp.classList.toggle("open");
     const collect = () => { const o = {}; app.querySelectorAll("[data-k]").forEach((t) => { if (t.value.trim()) o[t.dataset.k] = t.value.trim(); }); return o; };
     app.querySelectorAll("[data-k]").forEach((t) => t.onchange = () => { S.integr[id] = Object.assign(S.integr[id] || {}, { answers: collect() }); save(); });
-    $("#done").onclick = () => { S.integr[id] = { answers: collect(), done: true, at: now() }; save(); haptic(); toast("Интеграция сохранена"); go("#/"); };
+    $("#done").onclick = () => {
+      if ($("#done").textContent.indexOf("Проводник") >= 0) { S.guide = Object.assign(gNew(), { dive: id }); S.guideDraft = "Интеграция после «" + p.title + "». "; save(); return go("#/guide"); }
+      S.integr[id] = { answers: collect(), done: true, at: now() }; save(); haptic(); toast("Сохранено в Мою карту"); $("#done").textContent = "Сохранено. Обсудить с Проводником?";
+    };
   }
 
   function Aid() {
     app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
       <div class="stack" style="gap:6px"><div class="kicker terra">Аптечка</div><h1>Если сейчас тяжело</h1></div>
-      <a class="choice terra" href="#/gate" style="padding:20px"><span class="t"><b style="font-size:20px">Плохо, а что — не понять</b><span>накрыло сейчас или тянется давно</span></span>${icon.chev}</a>
+      <a class="choice big" href="#/catch" style="padding:20px"><span class="t"><b style="font-size:20px">Плохо, а что — не понять</b><span>накрыло сейчас или тянется давно</span></span>${icon.chev}</a>
       <div class="kicker" style="letter-spacing:.08em;margin-top:6px">ПРАКТИКИ</div>
       <div class="stack" style="gap:8px">
         <a class="sym-row" href="#/observer"><span class="t"><b>Сложно вернуться в реальность</b><span>Наблюдатель · прочитать и сделать · 2–3 мин</span></span>${icon.chev}</a>
@@ -544,16 +537,17 @@ window.startApp = function () {
     const G = S.guide || (S.guide = Object.assign(gNew(), S.guideImg ? { img: S.guideImg } : {}));
     if (S.guideImg) { S.guideImg = null; save(); }
     const g = (S.profile && S.profile.gender) || "n";
+    setBg("ProvodnikChat-1.jpg", { top: true });
     const bubbles = G.msgs.map((m, i) => m.r === "u" ? `<div class="b me">${esc(m.t)}</div>` :
-      `<div class="b">${gText(m.t)}</div>${m.mark ? `<span class="small" style="font-size:11px;margin:-4px 0 0 6px">${m.mark.ok ? "отмечено: хорошо" : "отмечено: не так"}</span>` : `<span class="gmk" style="display:flex;gap:14px;margin:-2px 0 0 6px;font-size:12px"><a href="#" data-ok="${i}" style="color:var(--muted)">хорошо</a><a href="#" data-no="${i}" style="color:var(--muted)">не так</a></span>`}`).join("");
+      `<span class="cap gcap">ИИ-проводник</span><div class="b">${gText(m.t)}</div>${m.mark ? `<span class="small" style="font-size:11px;margin:-4px 0 0 6px">${m.mark.ok ? "отмечено: хорошо" : "отмечено: не так"}</span>` : `<span class="gmk" style="display:flex;gap:14px;margin:-2px 0 0 6px;font-size:12px"><a href="#" data-ok="${i}" style="color:var(--muted)">хорошо</a><a href="#" data-no="${i}" style="color:var(--muted)">не так</a></span>`}`).join("");
     const ent = G.entries;
     app.innerHTML = `<div class="stack">
-      <div class="stack hd-top" style="gap:6px"><div class="kicker" style="color:var(--blue);font-weight:700;letter-spacing:.08em">ТЕСТ</div><h1>Проводник</h1>
+      <div class="toppad" style="height:calc(min(100vw,520px) * .5)"></div><div class="scr-h"><div class="cap">Капитанская рубка</div><h1>Проводник</h1><p style="font-size:13px;color:var(--text-muted)">Разговор сохраняется в Моей карте</p>
       ${G.msgs.length ? "" : `<p class="lead" style="font-size:14px">Напиши, что сейчас происходит: чувство, сон, образ из погружения. Проводник задает вопросы и не толкует за тебя.</p>`}
-      <p class="small" style="font-size:12px">Тестовый режим: разговор сохраняется, чтобы улучшать проводника. Если сейчас опасно — звони 112.</p></div>
+      <p class="small" style="font-size:12px">Тестовый режим. Если сейчас опасно — звони 112.</p></div>
       <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b typing" aria-label="Проводник пишет"><i></i><i></i><i></i></div>` : ""}</div>
       ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${G.keys && G.keys.length ? `<span class="small">В «Мою карту» добавлены образы: ${G.keys.map((k) => `<a href="${imgHref(k)}" style="color:var(--blue)">${esc(k)}</a>`).join(", ")}</span>` : ""}${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Моя карта»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
-      <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Как ты?" style="flex:1;resize:none"${guideBusy ? " disabled" : ""}>${esc(S.guideDraft || "")}</textarea><button class="sendb" id="gsend"${guideBusy ? " disabled" : ""} aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+      <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Напиши, что сейчас важно…" style="flex:1;resize:none;border-radius:24px"${guideBusy ? " disabled" : ""}>${esc(S.guideDraft || "")}</textarea><button class="sendb" id="gsend"${guideBusy ? " disabled" : ""} aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
       ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--blue)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
     const ch = $("#gch"); if (ch && ch.lastElementChild) ch.lastElementChild.scrollIntoView({ block: "nearest" });
     const fresh = () => { S.guide = gNew(); save(); Guide(); };
@@ -600,10 +594,10 @@ window.startApp = function () {
   // заглушка проводника для всех, кроме тестировщиков
   function GuideSoon() {
     app.innerHTML = `<div class="stack">
-      <div class="stack hd-top" style="gap:6px"><div class="kicker" style="color:var(--blue);font-weight:700;letter-spacing:.08em">СКОРО</div><h1>Проводник</h1>
+      <div class="stack" style="gap:8px"><span class="soon-p">Скоро</span><h1>Проводник</h1>
       <p class="lead">Помогает разобраться в образах, снах и чувствах так, как это делает юнгианский аналитик и символдраматист: задает вопросы, а не выдает толкования.</p></div>
       <div class="chat"><div class="b me">Снилось, что ищу дверь наверх в старом доме, а внизу вода.</div>
-        <div class="b">Какое чувство было, пока шел поиск двери? И какая была вода — спокойная, темная, прибывающая?</div>
+        <span class="cap gcap">ИИ-проводник</span><div class="b">Какое чувство было, пока шел поиск двери? И какая была вода — спокойная, темная, прибывающая?</div>
         <div class="b">За последний месяц дом появлялся у тебя дважды: во сне и в символе дня. Есть ли в жизни сейчас что-то, что хочется «перестроить»?</div></div>
       <div class="card" style="gap:8px"><b>Как он работает</b><ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.6;color:var(--muted2)"><li>видит твои записи и замечает повторяющиеся образы</li><li>не толкует за тебя — спрашивает и помогает услышать свое</li><li>не заменяет психолога и регулярно возвращает к живому контакту</li><li>при остром состоянии — сразу ведет в Аптечку и к живой помощи</li></ul></div>
       <div class="row" style="gap:8px"><input class="inp" placeholder="Напиши, что хочется разобрать…" disabled><button class="btn" style="width:auto;padding:12px 16px" disabled>→</button></div>
@@ -644,6 +638,17 @@ window.startApp = function () {
     return Object.keys(m).map((k) => [k, m[k]]).filter((x) => x[1] > 1).sort((a, b) => b[1] - a[1]).slice(0, 12);
   }
   // «Как ты?» за 20 секунд: одно чувство и его оттенок
+  function QuickVoice() {
+    app.innerHTML = `<div class="stack" style="gap:16px">${back("#/", "Сегодня")}<div class="toppad"></div>
+      <div class="scr-h"><div class="cap">На бегу</div><h1>Пара слов — и дальше</h1><p>Наговори или напиши, разберемся потом.</p></div>
+      <div class="qv"><button type="button" class="qv-mic" id="qmic" aria-label="Наговорить">${MIC_I.replace('width="18" height="18"', 'width="34" height="34"')}</button><span class="small" id="qlbl">Нажми, чтобы наговорить</span></div>
+      <div class="row" style="gap:10px"><input class="inp" id="qline" maxlength="200" placeholder="или одной строкой…" style="border-radius:999px"><button type="button" class="qv-ok" id="qok" aria-label="Сохранить">${ICN_CHECK}</button></div>
+      <a class="center small" href="#/quick/feel" style="padding:8px 0;text-decoration:underline;text-underline-offset:4px">Отметить чувства одним касанием</a></div>`;
+    const inp = $("#qline"), lbl = $("#qlbl");
+    $("#qmic").onclick = () => voice($("#qmic"), { set textContent(v) { lbl.textContent = v === "Рассказать голосом" ? "Нажми, чтобы наговорить" : v; } }, (t) => { inp.value = (inp.value ? inp.value + " " : "") + t; });
+    const ok = () => { const t = inp.value.trim(); if (!t) return; S.free = S.free || []; S.free.push({ text: t, at: now(), quick: true }); save(); haptic(); toast("Сохранено в Мою карту"); go("#/"); };
+    $("#qok").onclick = ok; inp.onkeydown = (e) => { if (e.key === "Enter") ok(); };
+  }
   function Quick() {
     const D = today();
     const F = D.feel && D.feel.list ? D.feel : { list: D.feel ? [D.feel.shade || D.feel.base].filter(Boolean) : [], bases: D.feel && D.feel.base ? [D.feel.base] : [], word: "" };
@@ -656,7 +661,7 @@ window.startApp = function () {
     const draw = () => {
       const any = F.list.length || F.bases.length || F.word;
       app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
-        <div class="stack" style="gap:4px"><h1>Чувства сейчас</h1><span class="small">Можно выбрать несколько. Не нужно думать долго.</span></div>
+        <div class="scr-h"><h1>Чувства сейчас</h1><p>Можно выбрать несколько. Не нужно думать долго.</p></div>
         <div class="chips">${Object.keys(FEEL_BASE).map((f) => `<button type="button" class="chip${F.bases.includes(f) ? " on" : ""}" data-b="${f}" aria-pressed="${F.bases.includes(f)}">${f}</button>`).join("")}</div>
         ${F.bases.map((b) => `<div class="stack" style="gap:8px"><b>${esc(b)} — а точнее?</b><div class="chips">${FEEL_BASE[b].map((f) => `<button type="button" class="chip${F.list.includes(f) ? " terraon" : ""}" data-s="${f}" aria-pressed="${F.list.includes(f)}">${f}</button>`).join("")}</div></div>`).join("")}
         <label class="q"><b>Свое слово</b><input class="inp" id="qw" type="text" maxlength="40" placeholder="Если нужного слова нет" value="${esc(F.word || "")}"></label>
@@ -678,25 +683,25 @@ window.startApp = function () {
     if (t.getMonth() < d.getMonth() || (t.getMonth() === d.getMonth() && t.getDate() < d.getDate())) a--;
     return a;
   }
+  const LOCK_I = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   function Welcome() {
-    if (!window.WELCOME_HTML) { app.innerHTML = `<div class="stack" style="padding-top:48px"><h1>Добро пожаловать на Глубину</h1><a class="btn" href="#/hello/2">Нырнуть</a></div>`; return; }
-    app.innerHTML = `<div class="wel"><div class="stage">${window.WELCOME_HTML}</div></div>`;
-    const st = app.querySelector(".stage");
-    const fit = () => { if (!st.isConnected) return window.removeEventListener("resize", fit); const k = Math.min(window.innerWidth / 390, Math.max(window.innerHeight / 760, 1)); const H = Math.max(window.innerHeight / k, 640); st.style.height = H + "px"; st.classList.toggle("short", H < 760); st.style.transform = `translateX(-50%) scale(${k})`; };
-    fit(); window.addEventListener("resize", fit);
+    app.innerHTML = `<div class="v-wel"><div class="v-wel-t"><h1>Добро пожаловать<br>на Глубину</h1><p>Место, где можно встретиться с собой.</p><a class="btn" href="#/hello/2">Нырнуть</a></div></div>`;
   }
+  const WHY = ["Хочу понять себя", "Повторяется один сценарий", "Тесно в прежней жизни", "Сны не отпускают", "Тревожно", "Пока просто смотрю"];
   function Know() {
     const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || {};
-    const st = { gender: "" };
-    app.innerHTML = `<div class="stack">${back("#/hello", "Назад")}
-      <h1>Давай познакомимся</h1>
-      <label class="q"><b>Как к тебе обращаться?</b><input class="inp" id="nm" type="text" maxlength="40" autocomplete="given-name" value="${esc(u.first_name || "")}" placeholder="Имя"></label>
-      <div class="stack" style="gap:8px"><b style="font-size:15px">Пол</b><div class="seg3" id="gd">
-        <button type="button" data-g="f">женский</button><button type="button" data-g="m">мужской</button><button type="button" data-g="n">не указывать</button></div>
-        <div class="small">Чтобы тексты обращались к тебе правильно.</div></div>
-      <label class="q"><b>Дата рождения</b><input class="inp" id="dob" type="text" inputmode="numeric" autocomplete="bday" placeholder="дд.мм.гггг" maxlength="10" style="letter-spacing:.06em;font-variant-numeric:tabular-nums"><span class="small">Нужна, чтобы убедиться, что тебе есть 18, и чтобы Настя учитывала возраст, когда отвечает на твои вопросы.</span></label>
-      <label class="consent"><input type="checkbox" id="ok"><span>Принимаю <a href="#/policy/privacy" style="color:var(--blue);text-decoration:underline">политику конфиденциальности</a> и даю <a href="#/policy/consent" style="color:var(--blue);text-decoration:underline">согласие на обработку персональных данных</a></span></label>
-      <button class="btn" id="go" disabled>Продолжить</button>
+    const st = { gender: "", why: [] };
+    app.innerHTML = `<div class="stack v-pad" style="gap:22px">
+      <div class="scr-h"><div class="cap">Знакомство</div><h1>Давай познакомимся</h1><p>Так Проводник и тексты приложения будут обращаться к тебе по-твоему.</p></div>
+      <div class="v-panel stack" style="gap:16px">
+        <label class="q"><b>Как тебя зовут?</b><input class="inp" id="nm" type="text" maxlength="40" autocomplete="given-name" value="${esc(u.first_name || "")}" placeholder="Имя"></label>
+        <div class="stack" style="gap:8px"><b class="qb">Как к тебе обращаться?</b><div class="seg2b" id="gd"><button type="button" data-g="f">Ты пришла</button><button type="button" data-g="m">Ты пришел</button></div></div>
+        <div class="stack" style="gap:8px"><div class="row" style="justify-content:space-between"><b class="qb">Что привело на Глубину?</b><span class="small" style="font-size:12px">можно несколько</span></div><div class="chips">${WHY.map((w) => `<button type="button" class="chip" data-w="${esc(w)}">${esc(w)}</button>`).join("")}</div></div>
+        <label class="q"><b>Дата рождения</b><input class="inp" id="dob" type="text" inputmode="numeric" autocomplete="bday" placeholder="дд.мм.гггг" maxlength="10" style="letter-spacing:.06em;font-variant-numeric:tabular-nums"><span class="small">Чтобы убедиться, что тебе есть 18.</span></label>
+        <label class="consent"><input type="checkbox" id="ok"><span>Принимаю <a href="#/policy/privacy" style="text-decoration:underline">политику конфиденциальности</a> и даю <a href="#/policy/consent" style="text-decoration:underline">согласие на обработку персональных данных</a></span></label>
+      </div>
+      <button class="btn" id="go" disabled>Дальше</button>
+      <p class="small center v-lock">${LOCK_I}Видишь только ты</p>
     </div>`;
     const nm = $("#nm"), dob = $("#dob"), ok = $("#ok"), btn = $("#go");
     const parseDob = (v) => { const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v); if (!m) return null; const d = +m[1], mo = +m[2], y = +m[3]; const dt = new Date(y, mo - 1, d); return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d ? `${m[3]}-${m[2]}-${m[1]}` : null; };
@@ -706,12 +711,13 @@ window.startApp = function () {
     });
     const check = () => { btn.disabled = !(nm.value.trim() && parseDob(dob.value) && ok.checked && st.gender); };
     app.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { st.gender = b.dataset.g; app.querySelectorAll("[data-g]").forEach((x) => x.classList.toggle("on", x === b)); check(); });
+    app.querySelectorAll("[data-w]").forEach((b) => b.onclick = () => { const w = b.dataset.w; st.why = st.why.includes(w) ? st.why.filter((x) => x !== w) : st.why.concat([w]); b.classList.toggle("on", st.why.includes(w)); });
     [nm, dob, ok].forEach((e) => { e.oninput = check; e.onchange = check; });
     btn.onclick = () => {
       const iso = parseDob(dob.value); const a = iso ? ageOf(iso) : null;
       if (a === null || a < 0 || a > 110) { toast("Проверь дату рождения"); return; }
       if (a < 18) { S.profile = { minor: true, at: now() }; save(); return go("#/adult"); }
-      S.profile = { name: nm.value.trim(), gender: st.gender, dob: iso, consent: new Date().toISOString(), at: now() };
+      S.profile = { name: nm.value.trim(), gender: st.gender, why: st.why, dob: iso, consent: new Date().toISOString(), at: now() };
       save(); haptic(); go("#/");
     };
   }
@@ -780,6 +786,7 @@ window.startApp = function () {
       else if (dy > 90) close(); else { im.style.transform = ""; bg.style.opacity = ""; } });
     document.body.appendChild(bg);
   }
+  const SEC_IMG = { nature: "Slovar-3.webp", plants: "Slovar-4.webp", animals: "Slovar-5.webp", people: "Slovar-6.webp", magic: "SlovarRazdely-2.webp", body: "SlovarRazdely-3.webp", home: "SlovarRazdely-4.webp", paths: "SlovarRazdely-5.webp", colors: "SlovarRazdely-1.webp" };
   function Dict(tab) {
     const my = tab === "my";
     const myN = Object.keys(S.myimg).filter(hasMine).length;
@@ -801,10 +808,9 @@ window.startApp = function () {
     }
     const dsec = DS.find(isDreamSec), secs = DS.filter((s) => !isDreamSec(s));
     h += `<div id="res" class="stack" style="gap:8px"></div><div id="secs" class="stack" style="gap:10px">
-      ${dsec ? `<a class="dwide dream" href="#/dsec/${dsec.id}"><b>${esc(dsec.title)}</b>${neon(ART.dream || "", "0 0 140 80", 140, 76)}</a>` : ""}
-      <a class="dwide arc" href="#/tarot"><b>Старшие арканы</b>${neon(ART.tarot || "", "20 4 120 84", 128, 76)}</a>
-      <div class="dkick" style="margin-top:6px;color:#C3CBEB">разделы</div>
-      <div class="dgrid">${secs.map((s) => `<a class="dtile" href="#/dsec/${s.id}">${neon(secArt(s), "0 6 160 106", "100%", 86)}<span class="dn">${s.symbols.length}</span><b>${esc(s.title)}</b></a>`).join("")}</div></div></div></div>`;
+      <div class="dwides">${dsec ? `<a class="dwide" href="#/dsec/${dsec.id}"><b>${esc(dsec.title).replace(" ", "<br>")}</b><img src="${V27}Slovar-1.webp" alt=""></a>` : ""}<a class="dwide" href="#/tarot"><b>Старшие<br>арканы</b><img src="${V27}Slovar-2.webp" alt=""></a></div>
+      <div class="dkick" style="margin-top:14px">Разделы</div>
+      <div class="dgrid">${secs.map((s) => `<a class="dtile" href="#/dsec/${s.id}">${SEC_IMG[s.id] ? `<img src="${V27}${SEC_IMG[s.id]}" alt="">` : ""}<b>${esc(s.title)}</b><span class="dn">${s.symbols.length}</span></a>`).join("")}</div></div></div></div>`;
     app.innerHTML = h;
     const q = $("#q"), res = $("#res"), secsEl = $("#secs");
     q.oninput = () => {
@@ -819,7 +825,7 @@ window.startApp = function () {
   function DSec(id) {
     const sec = DS.find((x) => x.id === id); if (!sec) return go("#/dict");
     app.innerHTML = `<div class="dict"><div class="dhead sm">${STARS}<div class="dhead-in">${back("#/dict", "Словарь")}
-      <h1>${esc(sec.title)}</h1>${sec.intro ? `<p class="dsub">${esc(sec.intro)}</p>` : ""}</div></div>
+      <div class="dart-top">${SEC_IMG[sec.id] || isDreamSec(sec) ? `<img class="dsec-i" src="${V27}${SEC_IMG[sec.id] || "Slovar-1.webp"}" alt="">` : ""}<div class="stack" style="gap:6px;min-width:0"><div class="dkick">Раздел</div><h1>${esc(sec.title)}</h1>${sec.intro ? `<p class="dsub">${esc(sec.intro)}</p>` : ""}</div></div></div></div>
       <div class="dbody"><div class="stack" style="gap:8px">${sec.symbols.map((x) => symRow(Object.assign({ sec: sec }, x))).join("")}</div></div></div>`;
   }
   // карта колоды к символу: по имени карты
@@ -866,7 +872,7 @@ window.startApp = function () {
   function Tarot() {
     const intro = C.dict && C.dict.tarotIntro;
     app.innerHTML = `<div class="dict"><div class="dhead sm">${STARS}<div class="dhead-in">${back("#/dict", "Словарь")}
-      <h1>Старшие арканы</h1><p class="dsub">22 этапа на пути к себе: от Шута к Миру</p></div></div>
+      <img class="arc-i" src="${V27}Arkany-1.webp" alt=""><h1>Старшие<br>арканы</h1><p class="dsub" style="max-width:60%">22 этапа на пути к себе: от Шута к Миру</p></div></div>
       <div class="dbody">${intro ? `<p class="dp">${esc(intro)}</p>` : ""}<div class="apath">${ARC.map((a, i) => `<a class="arow${S.myimg["arc" + i] && S.myimg["arc" + i].text ? " has" : ""}" href="#/arc/${i}"><span class="anum">${ROM[i]}</span><span class="aname">${esc(a[0])}</span></a>`).join("")}</div></div></div>`;
   }
   function Arc(n, tab) {
@@ -989,7 +995,7 @@ window.startApp = function () {
     NOW.kind = null; NOW.id = null; M.cur = null; paintMini(); paint();
   }
   audio.onended = () => {
-    if (NOW.kind === "pod") { const st = podSt(NOW.id); st.done = true; st.pos = 0; save(); paint(); paintMini(); return; }
+    if (NOW.kind === "pod") { const st = podSt(NOW.id); st.done = true; st.pos = 0; save(); const nx = S.podAuto && epNext(NOW.id, 1); if (nx) { playEp(nx.id); if (location.hash.indexOf("#/ep/") === 0) go("#/ep/" + nx.id); } paint(); paintMini(); return; }
     const q = queue(), i = q.findIndex((t) => t.id === M.cur);
     if (isVoiced(M.cur)) { const nx = (M.after && track(M.after)) || q[0]; M.after = null; if (nx) playTrack(nx.id, true); else { stopMusic(true); paint(); paintMini(); } return; }
     let r = mset().repeat; if (M.endless && r === "none") r = "list";
@@ -1112,7 +1118,8 @@ window.startApp = function () {
     if (/свет|ветер|утр|рассв/.test(s)) return "свет";
     return MOODK[Math.max(0, MU.findIndex((x) => x.id === t.id)) % MOODK.length];
   };
-  const cover = (t, sz) => { const m = MOOD[moodOf(t)]; return `<span class="mcov" style="width:${sz}px;height:${sz}px;background:radial-gradient(120% 120% at 20% 10%,${m[0]},${m[1]});box-shadow:0 4px 14px ${m[0]}55"><svg viewBox="0 0 44 44" width="${sz}" height="${sz}" aria-hidden="true">${m[2]}</svg></span>`; };
+  const MCOV = { "вода": "Muzyka-2.webp", "сон": "Muzyka-3.webp", "свет": "Muzyka-4.webp", "тепло": "Muzyka-5.webp", "лес": "Muzyka-2.webp" };
+  const cover = (t, sz) => `<img class="mcov" src="${V27}${MCOV[moodOf(t)]}" alt="" style="width:${sz}px;height:${sz}px">`;
   const ICM = {
     mic: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     rep: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>',
@@ -1181,8 +1188,7 @@ window.startApp = function () {
       const q = mine ? S.playlist.map(track).filter(Boolean) : MU;
       const vs = st.voice, vv = vs.on ? voiceById(vs.id) : null;
       const playing = (id) => M.cur === id && NOW.kind === "music" && !audio.paused;
-      app.innerHTML = `<div class="mpage"><div class="mhead"><svg class="mhead-bg" viewBox="0 0 390 210" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><circle cx="320" cy="72" r="40" fill="#7FE3E0" fill-opacity=".10"><animate attributeName="r" values="38;44;38" dur="6s" repeatCount="indefinite"/></circle><circle cx="320" cy="72" r="22" fill="#7FE3E0" fill-opacity=".25"/><path d="M-240 132 Q -210.0 122 -180.0 132 T -120.0 132 T -60.0 132 T 0.0 132 T 60.0 132 T 120.0 132 T 180.0 132 T 240.0 132 T 300.0 132 T 360.0 132 T 420.0 132 T 480.0 132 T 540.0 132 T 600.0 132 T 660.0 132 V210 H-240z" fill="#2F8E9A" fill-opacity=".22"><animateTransform attributeName="transform" type="translate" from="0 0" to="-120 0" dur="14s" repeatCount="indefinite"/></path><path d="M-300 148 Q -262.5 139 -225.0 148 T -150.0 148 T -75.0 148 T 0.0 148 T 75.0 148 T 150.0 148 T 225.0 148 T 300.0 148 T 375.0 148 T 450.0 148 T 525.0 148 T 600.0 148 T 675.0 148 T 750.0 148 V210 H-300z" fill="#1F6B78" fill-opacity=".35"><animateTransform attributeName="transform" type="translate" from="0 0" to="150 0" dur="18s" repeatCount="indefinite"/></path><path d="M-260 168 Q -227.5 160 -195.0 168 T -130.0 168 T -65.0 168 T 0.0 168 T 65.0 168 T 130.0 168 T 195.0 168 T 260.0 168 T 325.0 168 T 390.0 168 T 455.0 168 T 520.0 168 T 585.0 168 T 650.0 168 V210 H-260z" fill="#14304F" fill-opacity=".95"><animateTransform attributeName="transform" type="translate" from="0 0" to="-130 0" dur="11s" repeatCount="indefinite"/></path></svg>
-        <div class="mhead-in">${back("#/lib", "Бухта")}<h1>Музыкальное<br>сопровождение</h1><div class="msub">Для сна, практик и чтобы побыть с собой</div></div></div>
+      app.innerHTML = `<div class="mpage"><div class="mh2">${back("#/lib", "Бухта")}<img src="${V27}Muzyka-1.webp" alt=""><h1>Музыка</h1><p>Для сна, практик и чтобы побыть с собой</p></div>
         <div class="stack" style="gap:12px">
         <div class="vline${vs.on ? " on" : ""}"><button type="button" class="vline-b" id="vpick"><span class="vmic">${ICM.mic}</span><b>С голосом</b>${vv ? `<span class="vname">${esc(vv.title)}</span>` : ""}</button>
           <button type="button" class="tgl tglm${vs.on ? " on" : ""}" id="vtgl" role="switch" aria-checked="${vs.on}" aria-label="С голосом"><i></i></button></div>
@@ -1266,71 +1272,59 @@ window.startApp = function () {
   }
 
   // ---------- подкасты: экраны ----------
+  const epNext = (id, k) => { const e = epById(id); if (!e) return null; const L = e.series.episodes.filter((x) => x.src); const i = L.findIndex((x) => x.id === id); const n = L[i + k]; return n ? epById(n.id) : null; };
+  const POD_TH = (se) => V27 + (se && se.single ? "Podkasty-3.webp" : "Podkasty-2.webp");
   function Pods() {
-    let h = `<div class="stack">${back("#/lib", "Бухта")}
-      <div class="stack" style="gap:6px"><h1>Подкасты</h1><div class="small">Теория и письменные практики. Записи сохраняются сами.</div></div>`;
+    setBg("Podkasty-1.webp", { light: true });
+    const cont = EPS.filter((e) => e.src && !podSt(e.id).done && podSt(e.id).pos > 5).sort((a, b) => (podSt(b.id).at || 0) - (podSt(a.id).at || 0))[0];
+    let h = `<div class="stack" style="gap:18px">${back("#/lib", "Бухта")}<h1>Подкасты</h1>`;
+    if (cont) { const st = podSt(cont.id); h += `<a class="pd-cont" href="#/ep/${cont.id}"><img src="${POD_TH(cont.series)}" alt=""><span class="t"><span class="cap">Продолжить</span><b>${esc(cont.title)}</b><span class="pd-bar"><i style="width:${Math.min(100, (st.pos / cont.dur) * 100).toFixed(0)}%"></i></span><span class="small" style="font-size:12px">осталось ${Math.max(1, Math.round((cont.dur - st.pos) / 60))} мин</span></span><span class="pd-play">${ICN_PLAY}</span></a>`; }
     if (!PODS.length) h += `<p class="lead">Подкасты появятся после подключения.</p>`;
+    h += `<div style="height:${cont ? 190 : 300}px"></div><div class="cap">Серии и выпуски</div><div class="stack" style="gap:8px">`;
     PODS.forEach((se) => {
-      if (se.single) { h += `<div class="lbl" style="margin-top:6px">ОТДЕЛЬНЫЕ ВЫПУСКИ</div>` + se.episodes.map((e) => `<a class="epcard" href="#/ep/${e.id}">${e.cover ? `<img src="${e.cover}" alt="">` : ""}<span class="t"><b>${esc(e.title)}</b><span>${esc(e.sub || "")}${e.dur ? " · " + Math.round(e.dur / 60) + " мин" : ""}</span></span></a>`).join(""); return; }
-      const n = se.episodes.filter((e) => e.src).length, d = se.episodes.filter((e) => podSt(e.id).done).length;
-      h += `<a class="card" href="#/series/${se.id}" style="gap:6px;padding:18px"><div class="row" style="justify-content:space-between"><span class="kicker" style="letter-spacing:.08em">СЕРИЯ</span><span class="small" style="color:var(--sage)">${d} из ${n}</span></div><div style="font-weight:800;font-size:19px">${esc(se.title)}</div><div class="small">${esc(se.short || "")}</div></a>`;
-    });
-    app.innerHTML = h + `</div>`;
-  }
-  // обложка серии: пять этапов — пять звезд на орбитах вокруг солнца (Самости); пройденные горят
-  function seriesCover(se) {
-    const orb = [[76, 60, 0, 4], [62, 44, 140, 3.5], [48, 32, 250, 3.5], [34, 22, 40, 3], [20, 14, 200, 3]];
-    const stages = se.episodes.filter((e) => e.n);
-    let g = orb.map((o) => `<circle cx="175" cy="85" r="${o[0]}" fill="none" stroke="#2A4263"/>`).join("");
-    g += orb.map((o, i) => { const e = stages[i], lit = e && podSt(e.id).done, c = lit ? "#8CC4E8" : "#3A5578";
-      return `<g transform="rotate(${o[2]} 175 85)"><g class="orbit" style="animation-duration:${o[1]}s"><circle cx="175" cy="${85 - o[0]}" r="${o[3] + 4}" fill="${c}" opacity=".15"/><circle cx="175" cy="${85 - o[0]}" r="${o[3]}" fill="${c}"/></g></g>`; }).join("");
-    return `<svg width="100%" viewBox="0 0 350 170" aria-hidden="true" style="display:block;border-radius:20px;background:var(--card2)">
-      <defs><radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#A9CBB3" stop-opacity=".55"/><stop offset="1" stop-color="#A9CBB3" stop-opacity="0"/></radialGradient></defs>
-      <circle class="tw" cx="52" cy="40" r="1.5" fill="#F0C7B5"/><circle class="tw" style="animation-delay:-2s" cx="300" cy="30" r="1.5" fill="#E8EEF4"/><circle class="tw" style="animation-delay:-4s" cx="310" cy="140" r="1.5" fill="#F0C7B5"/><circle class="tw" style="animation-delay:-1s" cx="40" cy="128" r="1.2" fill="#E8EEF4"/><circle cx="270" cy="150" r="1" fill="#E8EEF4"/><circle cx="85" cy="18" r="1" fill="#E8EEF4"/>
-      ${g}
-      <path class="flow" d="M175.0 9.0 L181.9 9.8 L188.7 11.2 L195.2 13.2 L201.6 15.8 L207.6 18.9 L213.2 22.6 L218.5 26.7 L223.4 31.3 L227.7 36.3 L231.6 41.6 L234.9 47.2 L237.7 53.0 L240.0 59.1 L241.6 65.3 L242.7 71.5 L243.2 77.8 L243.1 84.1 L242.4 90.3 L241.2 96.4 L239.4 102.3 L237.1 107.9 L234.3 113.3 L231.1 118.4 L227.4 123.1 L223.4 127.4 L219.0 131.3 L214.3 134.8 L209.3 137.8 L204.1 140.3 L198.7 142.3 L193.2 143.8 L187.7 144.7 L182.1 145.2 L176.6 145.1 L171.1 144.5 L165.7 143.5 L160.5 141.9 L155.6 139.9 L150.8 137.5 L146.3 134.7 L142.2 131.4 L138.4 127.9 L134.9 124.0 L131.9 119.9 L129.3 115.6 L127.1 111.0 L125.3 106.3 L124.0 101.6 L123.2 96.7 L122.8 91.9 L122.8 87.0 L123.3 82.3 L124.3 77.6 L125.6 73.1 L127.3 68.8 L129.4 64.7 L131.9 60.9 L134.7 57.3 L137.7 54.0 L141.1 51.1 L144.6 48.5 L148.3 46.2 L152.2 44.3 L156.2 42.9 L160.3 41.8 L164.4 41.0 L168.6 40.7 L172.7 40.8 L176.7 41.2 L180.7 42.0 L184.5 43.2 L188.1 44.7 L191.6 46.5 L194.8 48.6 L197.8 50.9 L200.5 53.5 L203.0 56.3 L205.1 59.3 L207.0 62.4 L208.5 65.7 L209.7 69.0 L210.6 72.4 L211.1 75.8 L211.3 79.2 L211.3 82.6 L210.9 85.9 L210.2 89.2 L209.2 92.3 L207.9 95.2 L206.4 98.0 L204.7 100.6 L202.7 103.0 L200.6 105.2 L198.3 107.1 L195.9 108.8 L193.3 110.2 L190.7 111.4 L188.0 112.3 L185.3 113.0 L182.6 113.3 L179.9 113.4 L177.2 113.3 L174.6 112.9 L172.1 112.3 L169.7 111.5 L167.5 110.4 L165.3 109.2 L163.4 107.8 L161.6 106.3 L160.0 104.6 L158.6 102.8 L157.4 100.9 L156.4 98.9 L155.6 96.9 L155.0 94.9 L154.6 92.8 L154.4 90.8 L154.4 88.8 L154.6 86.9 L155.0 85.0" fill="none" stroke="#8CC4E8" stroke-width="1.4" stroke-dasharray="3 6" stroke-linecap="round" opacity=".55"/>
-      <circle class="sunglow" cx="175" cy="85" r="20" fill="url(#sun)"/><circle cx="175" cy="85" r="5" fill="#A9CBB3"/></svg>`;
-  }
-  function Series(sid) {
-    const se = PODS.find((x) => x.id === sid); if (!se) return go("#/pod");
-    const cur = se.episodes.find((e) => e.src && !podSt(e.id).done);
-    let h = `<div class="stack" style="gap:20px">${back("#/pod", "Подкасты")}${seriesCover(se)}
-      <div class="stack" style="gap:8px"><div class="kicker" style="letter-spacing:.08em">${esc(se.kicker || "СЕРИЯ")}</div><h1>${esc(se.title)}</h1><p class="lead">${esc(se.desc)}</p><div class="small">${se.episodes.length} выпусков · письменная практика к каждому</div></div>
-      ${se.order ? `<div class="card sage" style="flex-direction:row;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:#D3E4D8;padding:12px 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A9CBB3" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h6"/></svg><span>${esc(se.order)}</span></div>` : ""}
-      <div class="stack" style="gap:8px">`;
-    se.episodes.forEach((e) => {
-      const st = podSt(e.id), soon = !e.src, isCur = cur && cur.id === e.id;
-      const num = e.n ? String(e.n) : "";
-      const badge = st.done ? `<span class="epn done">${icon.check}</span>` : soon ? `<span class="epn soon">${num}</span>` : `<span class="epn${isCur ? " cur" : ""}">${num || "•"}</span>`;
-      const meta = soon ? "скоро" : Math.round(e.dur / 60) + " мин";
-      const prog = !st.done && st.pos > 5 && e.dur ? `<span class="row" style="gap:8px;margin-top:6px"><span class="bar"><span style="width:${Math.min(100, (st.pos / e.dur) * 100).toFixed(0)}%"></span></span><span class="small" style="color:var(--blue);font-weight:700">с ${fmt(st.pos)}</span></span>` : "";
-      const inner = `${badge}<span class="t"><b>${esc(e.title)}</b><span>${esc(e.sub)} · ${meta}</span>${prog}</span>`;
-      h += soon ? `<div class="ep soon">${inner}</div>` : `<a class="ep${isCur ? " cur" : st.done ? " done" : ""}" href="#/ep/${e.id}">${inner}</a>`;
+      if (se.single) { h += se.episodes.map((e) => `<a class="pd-row" href="#/ep/${e.id}"><img src="${e.cover || POD_TH(se)}" alt=""><span class="t"><b>${esc(e.title)}</b><span class="small">выпуск${e.dur ? " · " + Math.round(e.dur / 60) + " мин" : ""}</span></span>${icon.chev}</a>`).join(""); return; }
+      const n = se.episodes.filter((e) => e.n).length || se.episodes.length, d = se.episodes.filter((e) => podSt(e.id).done).length;
+      h += `<a class="pd-row" href="#/series/${se.id}"><img src="${POD_TH(se)}" alt=""><span class="t"><b>${esc(se.title)}</b><span class="row" style="gap:8px"><span class="cy-dots ink">${Array.from({ length: Math.min(n, 8) }, (_, i) => `<i class="${i < d ? "on" : ""}"></i>`).join("")}</span><span class="small" style="font-size:12px">${d} из ${n}</span></span></span>${icon.chev}</a>`;
     });
     app.innerHTML = h + `</div></div>`;
   }
+  function Series(sid) {
+    const se = PODS.find((x) => x.id === sid); if (!se) return go("#/pod");
+    setBg("PodkastVypusk-1.webp", { light: true, top: true });
+    const cur = se.episodes.find((e) => e.src && !podSt(e.id).done);
+    let h = `<img class="cy-hero" src="${V27}Podkasty-2.webp" alt=""><div class="stack" style="gap:18px">${back("#/pod", "Подкасты")}<div style="height:calc(min(100vw,520px) * .62)"></div>
+      <div class="scr-h"><div class="cap">${esc(se.kicker || "Серия")}</div><h1>${esc(se.title)}</h1>${se.desc ? `<p>${esc(se.desc)}</p>` : ""}<span class="small">${se.episodes.length} выпусков · письменная практика к каждому</span></div>
+      ${se.order ? `<div class="card" style="font-size:13px;line-height:1.5">${esc(se.order)}</div>` : ""}
+      <div class="stack" style="gap:8px">`;
+    se.episodes.forEach((e) => {
+      const st = podSt(e.id), soon = !e.src, isCur = cur && cur.id === e.id;
+      const meta = soon ? "скоро" : Math.round(e.dur / 60) + " мин";
+      const inner = `<span class="pr-i${st.done ? "" : isCur ? " on" : " lk"}">${st.done ? ICN_CHECK : soon ? (e.n || "") : ICN_PLAY}</span><span class="t"><b>${esc(e.title)}</b><span>${esc(e.sub || "")}${e.sub ? " · " : ""}${meta}${!st.done && st.pos > 5 ? " · с " + fmt(st.pos) : ""}</span></span>`;
+      h += soon ? `<div class="pr-row off">${inner}</div>` : `<a class="pr-row${isCur ? " cur" : ""}" href="#/ep/${e.id}">${inner}</a>`;
+    });
+    app.innerHTML = h + `</div></div>`;
+  }
+  const ICN_PREV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>', ICN_NEXT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>';
   function Episode(id) {
     const e = epById(id); if (!e || !e.src) return go("#/pod");
-    const se = e.series, st = podSt(id);
-    app.innerHTML = `<div class="stack" style="gap:22px">${se.single ? back("#/pod", "Подкасты") : back("#/series/" + se.id, se.title)}
-      ${e.cover ? `<img class="illu" src="${e.cover}" alt="">` : ""}
-      <div class="stack" style="gap:6px"><div class="kicker" style="letter-spacing:.08em">${se.single ? "ВЫПУСК" : e.n ? `ЭТАП ${e.n} ИЗ ${se.episodes.filter((x) => x.n).length}` : "ВВОДНЫЙ ВЫПУСК"}</div><h1 style="font-size:30px">${esc(e.title)}</h1><p class="lead">${esc(e.desc)}</p></div>
-      <div class="pplayer" id="pp-box"></div>
+    setBg("PodkastVypusk-1.webp", { light: true, top: true });
+    const se = e.series, st = podSt(id), nStage = se.episodes.filter((x) => x.n).length;
+    app.innerHTML = `<img class="cy-hero" src="${V27}Podkasty-2.webp" alt=""><div class="stack" style="gap:18px">${se.single ? back("#/pod", "Подкасты") : back("#/series/" + se.id, "Подкасты")}<div style="height:calc(min(100vw,520px) * .62)"></div>
+      <div class="scr-h"><div class="cap">${se.single ? "Выпуск" : esc(se.title) + (e.n ? " · " + e.n + " из " + nStage : " · вводный")}</div><h1>${esc(e.title)}</h1>${e.desc ? `<p>${esc(e.desc)}</p>` : ""}</div>
+      <div class="pd-pl" id="pp-box"></div>
       <div id="prac"></div></div>`;
     paint = () => {
       const box = $("#pp-box"); if (!box) return;
       const mine = NOW.kind === "pod" && NOW.id === id && audio.src;
       const d = (mine && audio.duration) || e.dur, c = mine ? audio.currentTime || 0 : st.done ? 0 : st.pos || 0;
-      const playing = mine && !audio.paused;
-      const rate = S.podRate || 1;
-      const html = `<div class="row" style="gap:14px"><button class="play sm" id="epp" aria-label="${playing ? "Пауза" : "Слушать"}">${playing ? icon.pause : icon.play}</button>
-        <div style="flex:1;display:flex;flex-direction:column;gap:2px"><input id="eps" type="range" min="0" max="${Math.floor(d)}" value="${Math.floor(c)}" aria-label="Перемотка"><div class="times"><span>${fmt(c)}</span><span>${fmt(d)}</span></div></div></div>
-        <div class="row" style="justify-content:center;gap:10px"><button class="pill" id="epr">−15 с</button><button class="pill" id="eprate">${String(rate).replace(".", ",")}×</button><button class="pill" id="epf">+15 с</button></div>`;
+      const playing = mine && !audio.paused, rate = S.podRate || 1, pv = epNext(id, -1), nx = epNext(id, 1);
+      const html = `<input id="eps" type="range" min="0" max="${Math.floor(d)}" value="${Math.floor(c)}" aria-label="Перемотка"><div class="times"><span>${fmt(c)}</span><span>−${fmt(Math.max(0, d - c))}</span></div>
+        <div class="pd-c"><button class="pd-s" id="eprate" aria-label="Скорость">${String(rate).replace(".", ",")}×</button><button class="pd-s" id="epv" aria-label="Предыдущий выпуск" ${pv ? "" : "disabled"}>${ICN_PREV}</button><button class="pd-pp" id="epp" aria-label="${playing ? "Пауза" : "Слушать"}">${playing ? icon.pause : icon.play}</button><button class="pd-s" id="epn" aria-label="Следующий выпуск" ${nx ? "" : "disabled"}>${ICN_NEXT}</button><button class="pd-tg${S.podAuto ? " on" : ""}" id="epauto" role="switch" aria-checked="${!!S.podAuto}" aria-label="Автопереключение выпусков"><i></i></button></div>`;
       if (box._h === html) return; box._h = html; box.innerHTML = html;
       $("#epp").onclick = () => { if (playing) { audio.pause(); podSave(true); } else playEp(id); paint(); };
-      const jump = (k) => { if (mine) { audio.currentTime = Math.max(0, Math.min(d, audio.currentTime + k)); } else { st.pos = Math.max(0, Math.min(d, (st.pos || 0) + k)); st.done = false; save(); } paint(); };
-      $("#epr").onclick = () => jump(-15); $("#epf").onclick = () => jump(15);
-      $("#eprate").onclick = () => { const rs = [1, 1.25, 1.5, 0.75], nx = rs[(rs.indexOf(rate) + 1) % rs.length]; S.podRate = nx; save(); if (mine) audio.playbackRate = nx; paint(); };
+      $("#epv").onclick = () => pv && go("#/ep/" + pv.id); $("#epn").onclick = () => nx && go("#/ep/" + nx.id);
+      $("#epauto").onclick = () => { S.podAuto = !S.podAuto; save(); toast(S.podAuto ? "Следующий выпуск включится сам" : "Автопереключение выключено"); paint(); };
+      $("#eprate").onclick = () => { const rs = [1, 1.25, 1.5, 0.75], n2 = rs[(rs.indexOf(rate) + 1) % rs.length]; S.podRate = n2; save(); if (mine) audio.playbackRate = n2; paint(); };
       $("#eps").onchange = (ev) => { const v = Number(ev.target.value); if (mine) audio.currentTime = v; else { st.pos = v; st.done = false; save(); } paint(); };
     };
     paint();
@@ -1345,8 +1339,10 @@ window.startApp = function () {
     const ta = (k, ph, rows) => `<textarea data-a="${k}" rows="${rows || 3}" placeholder="${esc(ph || "Первое, что приходит…")}">${esc(A[k] || "")}</textarea>`;
     const stepHead = (n, s) => `<div class="sn"><i>${n}</i><b>${esc(s.q)}</b></div>${s.hint ? `<div class="hint">${esc(s.hint)}</div>` : ""}`;
     const bansOf = (ans) => ((ans && ans.roles) || []).map((x) => (x.b || "").trim()).filter(Boolean);
-    let h = `<div class="stack" style="gap:22px"><div style="height:1px;background:var(--card3)"></div>
-      <div class="stack" style="gap:6px"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="kicker" style="letter-spacing:.08em;color:var(--sage);font-weight:700">ПИСЬМЕННАЯ ПРАКТИКА</span><span class="small">${esc(P.mins || "")}</span></div><h2 style="font-size:22px">${esc(P.title)}</h2></div>`;
+    const opened = box.dataset.open === "1";
+    let h = `<div class="card pd-pr"><button type="button" class="pd-prh" id="prtog" aria-expanded="${opened}"><span class="pd-pri"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></span><span class="t"><b>Письменная практика</b><span>${esc(P.title || "к этому выпуску")}${P.mins ? " · " + esc(P.mins) : ""}</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" style="transform:rotate(${opened ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></button>`;
+    if (!opened) { box.innerHTML = h + `</div>`; $("#prtog").onclick = () => { box.dataset.open = "1"; drawPractice(e); }; return; }
+    h += `<div class="stack" style="gap:22px;margin-top:8px">`;
     if (P.parts.length > 1) h += `<div class="seg2 ptabs">${P.parts.map((x, i) => `<a href="#" data-part="${i}" class="${i === part ? "on" : ""}">${i + 1}. ${esc(x.tab || x.title)}</a>`).join("")}</div>`;
     if (pt.intro) h += `<p class="lead" style="font-size:14px">${esc(pt.intro)}</p>`;
     pt.steps.forEach((s, i) => {
@@ -1387,7 +1383,8 @@ window.startApp = function () {
     if (P.quote) h += `<p class="quote">${esc(P.quote)}</p>`;
     if (P.link) h += `<button type="button" class="card blue linkcard" id="plink"><span class="t"><b>${esc(P.link.title)}</b><span class="small">${esc(P.link.sub)}</span></span>${icon.chev}</button>`;
     if (P.note) h += `<div class="row small" style="align-items:flex-start"><span style="flex-shrink:0;margin-top:2px">${icon.checkS}</span><span>${esc(P.note)}</span></div>`;
-    box.innerHTML = h + `</div>`;
+    box.innerHTML = h + `</div></div>`;
+    $("#prtog").onclick = () => { box.dataset.open = ""; drawPractice(e); };
     // события
     let deb;
     const store = () => { clearTimeout(deb); deb = setTimeout(save, 400); };
@@ -1447,14 +1444,19 @@ window.startApp = function () {
     const n = S.notes[key] || (S.notes[key] = { image: "", feelings: [], own: [], stand: "" });
     return { obj: n, back: "#/after/" + key, title: "В каких частях тело отозвалось?" };
   }
+  const silImg = (side) => V27 + ((S.profile && S.profile.gender === "f") ? (side === "back" ? "Telo1b-1.webp" : "Telo1-1.webp") : (side === "back" ? "Siluety-2.webp" : "Siluety-1.webp"));
+  // точки силуэта в координатах картинки 520×780 (вид спереди: правая сторона человека слева)
+  const ZPT = { head: [258, 60, 40, 46], throat: [258, 128, 22, 16], rsh: [185, 180, 30, 24], lsh: [330, 180, 30, 24], chest: [258, 215, 52, 36], belly: [258, 290, 48, 34], pelvis: [258, 365, 54, 30],
+    rarm: [172, 248, 18, 38], relb: [160, 302, 16, 16], rfa: [146, 350, 16, 30], rhand: [120, 422, 22, 30], larm: [344, 248, 18, 38], lelb: [356, 302, 16, 16], lfa: [370, 350, 16, 30], lhand: [398, 422, 22, 30],
+    rthigh: [220, 462, 30, 52], rknee: [213, 560, 22, 20], rshin: [210, 640, 20, 48], rfoot: [198, 745, 26, 18], lthigh: [298, 462, 30, 52], lknee: [305, 560, 22, 20], lshin: [308, 640, 20, 48], lfoot: [318, 745, 26, 18],
+    nape: [258, 55, 40, 44], neckb: [258, 125, 20, 16], lblade: [215, 210, 32, 32], rblade: [300, 210, 32, 32], midback: [258, 265, 45, 28], lower: [258, 320, 50, 24], sacrum: [258, 372, 45, 24], lthb: [225, 480, 32, 58], rthb: [292, 480, 32, 58], lcalf: [222, 620, 22, 48], rcalf: [295, 620, 22, 48] };
+  const bodyFig = (side, zs, isOn, attr) => `<div class="bfig"><img src="${silImg(side)}" alt=""><svg class="bodysvg2" viewBox="0 0 520 780" role="img" aria-label="Силуэт ${side === "front" ? "спереди" : "со спины"}"><defs><radialGradient id="zglow"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/><stop offset=".3" stop-color="#B9A6FF" stop-opacity=".85"/><stop offset="1" stop-color="#7C64D8" stop-opacity="0"/></radialGradient></defs>${zs.filter((z) => isOn(z[0])).map((z) => { const q = ZPT[z[0]] || [258, 390, 30, 30]; return `<ellipse class="zg" cx="${q[0]}" cy="${q[1]}" rx="${Math.max(q[2], 28) * 1.3}" ry="${Math.max(q[3], 22) * 1.1}" fill="url(#zglow)"/>`; }).join("")}${zs.map((z) => { const q = ZPT[z[0]] || [258, 390, 30, 30]; return `<ellipse class="zone2${isOn(z[0]) ? " on" : ""}" ${attr}="${z[0]}" cx="${q[0]}" cy="${q[1]}" rx="${q[2]}" ry="${q[3]}"><title>${z[1]}</title></ellipse>`; }).join("")}</svg></div>`;
   function Body(kind, key, side) {
     const H0 = bodyHost(kind, key); if (!H0) return go("#/");
     side = side === "back" ? "back" : "front";
     const B = H0.obj.body || (H0.obj.body = {});
     const zs = ZONES[side], marked = Object.keys(B);
-    const svg = `<svg class="bodysvg" viewBox="0 0 200 420" role="img" aria-label="Силуэт ${side === "front" ? "спереди" : "со спины"}">
-      ${side === "back" ? `<g stroke="#2A4263" stroke-width="1.5" stroke-dasharray="3 3" fill="none">${BACK_GHOST.map((d) => `<path d="${d}"/>`).join("")}</g>` : ""}
-      <g stroke-width="1.5" stroke-linejoin="round">${zs.map((z) => `<path class="zone${B[z[0]] ? " on" : ""}" data-z="${z[0]}" d="${z[2]}"><title>${z[1]}</title></path>`).join("")}</g></svg>`;
+    const svg = bodyFig(side, zs, (z) => !!B[z], "data-z");
     app.innerHTML = `<div class="stack" style="gap:12px;padding-bottom:190px">
       <div class="row" style="justify-content:space-between"><a class="back" href="${H0.back}" aria-label="Закрыть"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9FB2C8" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
         <div class="seg2 mini2"><a href="#/body/${kind}/${key}/front" class="${side === "front" ? "on" : ""}">Спереди</a><a href="#/body/${kind}/${key}/back" class="${side === "back" ? "on" : ""}">Сзади</a></div></div>
@@ -1552,24 +1554,28 @@ window.startApp = function () {
   };
   const deepLine = (d) => SEASONS[d.season] ? SEASONS[d.season].t + (d.weather && d.weather.length ? " · " + d.weather.join(", ") : "") : "";
   const steps = (n) => `<div class="dsteps" aria-label="Шаг ${n} из 5">${[1, 2, 3, 4, 5].map((i) => `<span class="${i <= n ? "on" : ""}"></span>`).join("")}</div>`;
+  const SEA_IMG = { winter: "Nikuda1-1.webp", spring: "Nikuda1-3.webp", summer: "Nikuda1-4.webp", autumn: "Nikuda1-5.webp" };
+  const dsteps = (n) => `<div class="dsteps2" aria-label="Шаг ${n} из 4">${[1, 2, 3, 4].map((i) => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</div>`;
   function Deep(step, arg) {
     const D = S.deepDraft || (S.deepDraft = {});
     const Z = SEASONS[D.season];
     if (step === "done") return DeepDone(arg);
+    const cap = `<div class="cap">Ничего не чувствую · через образ</div>`;
     if (!step || !Z) {
-      app.innerHTML = `<div class="stack">${back("#/gate", "Назад")}${steps(1)}
-        <div class="stack" style="gap:6px"><div class="kicker">Тянется давно · через образ</div><h1>Плохо, а что — не понять?</h1><p class="lead" style="font-size:14px">Не будем искать слова. Если бы твое состояние было временем года — каким?</p></div>
-        <div class="seasons">${Object.keys(SEASONS).map((k) => { const x = SEASONS[k]; return `<button type="button" data-se="${k}" style="background:${x.bg}">${x.ic(56)}<b style="color:${x.c}">${x.t}</b></button>`; }).join("")}</div>
-        <p class="small center">Первое, что пришло, — и есть ответ.</p></div>`;
+      setBg("Segodnya5m-1.webp", { pos: "0% 0" });
+      app.innerHTML = `<div class="stack" style="gap:14px">${back("#/catch", "Назад")}${dsteps(1)}
+        <div class="scr-h">${cap}<h1>Какое время года сейчас внутри?</h1><p>Первое, что приходит. Без правильного ответа.</p></div>
+        <div class="sea4">${["winter", "spring", "summer", "autumn"].map((k) => `<button type="button" class="seac" data-se="${k}"><img class="seac-f" src="${V27}Nikuda1-2.webp" alt=""><img class="seac-i" src="${V27}${SEA_IMG[k]}" alt=""><img class="seac-r" src="${V27}Segodnya5m-4.webp" alt=""><b>${SEASONS[k].t}</b></button>`).join("")}</div></div>`;
       app.querySelectorAll("[data-se]").forEach((b) => b.onclick = () => { S.deepDraft = { season: b.dataset.se, weather: [], at: now() }; save(); go("#/deep/2"); });
       return;
     }
+    setBg(SEA_IMG[D.season], { light: true });
     if (step === "2") {
       const own = (D.weather || []).filter((w) => !Z.w.includes(w));
-      app.innerHTML = `<div class="stack">${back("#/deep", "Назад")}${steps(2)}
-        <div class="row" style="gap:14px;align-items:center">${Z.ic(44)}<div class="stack" style="gap:4px"><div class="kicker">${Z.t}</div><h1>Какая погода?</h1><p class="small">Можно выбрать несколько.</p></div></div>
-        <div class="chips">${Z.w.concat(own).map((w) => `<button type="button" class="chip${D.weather.includes(w) ? " on" : ""}" data-w="${esc(w)}">${esc(w)}</button>`).join("")}<button type="button" class="chip" id="wadd" style="border-style:dashed;color:var(--muted)">+ свой вариант</button></div>
-        <div class="row" id="wbox" style="gap:8px;display:none"><input class="inp" id="wown" maxlength="30" placeholder="Своя погода"><button type="button" class="btn" id="wok" style="width:auto;padding:12px 16px">OK</button></div>
+      app.innerHTML = `<div class="stack" style="gap:16px">${back("#/deep", "Времена года")}${dsteps(2)}
+        <div class="scr-h">${cap}<h1>${Z.t}. Какая здесь погода?</h1></div>
+        <div class="chips">${Z.w.concat(own).map((w) => `<button type="button" class="chip${D.weather.includes(w) ? " on" : ""}" data-w="${esc(w)}">${esc(cap1(w))}</button>`).join("")}<button type="button" class="chip add" id="wadd">+ свой вариант</button></div>
+        <div class="row" id="wbox" style="gap:8px;display:none"><input class="inp" id="wown" maxlength="30" placeholder="Своя погода"><button type="button" class="btn" id="wok" style="width:auto;padding:0 18px;height:48px">OK</button></div>
         <button class="btn" id="next"${D.weather.length ? "" : " disabled"}>Дальше</button></div>`;
       app.querySelectorAll("[data-w]").forEach((b) => b.onclick = () => { const w = b.dataset.w, i = D.weather.indexOf(w); if (i < 0) D.weather.push(w); else D.weather.splice(i, 1); save(); Deep("2"); });
       $("#wadd").onclick = () => { $("#wbox").style.display = "flex"; $("#wown").focus(); };
@@ -1578,12 +1584,13 @@ window.startApp = function () {
       return;
     }
     if (step === "3") {
-      app.innerHTML = `<div class="stack">${back("#/deep/2", "Назад")}${steps(3)}
-        <div class="stack" style="gap:6px"><div class="kicker">${esc(deepLine(D))}</div><h1>Какое воспоминание или образ приходит с этой погодой?</h1><p class="lead" style="font-size:14px">Любое: давнее, недавнее, совсем маленькое. Или просто картинка.</p></div>
-        <label class="stack" style="gap:8px"><b style="font-size:15px">Воспоминание или образ</b><textarea id="mem" rows="6" maxlength="2000" placeholder="Что видно, где ты, кто рядом…">${esc(D.mem || "")}</textarea></label>
+      app.innerHTML = `<div class="stack" style="gap:16px">${back("#/deep/2", Z.t)}${dsteps(3)}
+        <div class="scr-h">${cap}<h1>${esc(cap1(deepLine(D).replace(" · ", ", ")))}</h1></div>
+        <b class="qb">Какое воспоминание или образ приходит с этой погодой?</b>${vta("mem", D.mem, "", 6)}
         <button class="btn" id="next"${(D.mem || "").trim() ? "" : " disabled"}>Дальше</button>
-        <button type="button" class="choice" id="none"><span class="t"><b>Ничего не пришло</b><span>это тоже ответ — останемся в самой погоде</span></span>${icon.chev}</button>
-        <a href="#/aid" class="small center" style="color:var(--terra-l);padding:8px 0">Если воспоминание тяжелое — Аптечка</a></div>`;
+        <button type="button" class="center" id="none" style="background:none;border:none;padding:8px 0;font:500 14px var(--font);color:inherit;text-decoration:underline;text-underline-offset:4px">Ничего не пришло — останемся в самой погоде</button>
+        <a href="#/aid" class="small center" style="padding:4px 0">Если воспоминание тяжелое — Аптечка</a></div>`;
+      bindMics();
       const m = $("#mem"); m.oninput = () => { D.mem = m.value; save(); $("#next").disabled = !m.value.trim(); };
       $("#next").onclick = () => go("#/deep/4");
       $("#none").onclick = () => { D.mem = ""; save(); go("#/deep/4"); };
@@ -1591,28 +1598,30 @@ window.startApp = function () {
     }
     if (step === "4") {
       const hasMem = (D.mem || "").trim();
-      app.innerHTML = `<div class="stack">${back("#/deep/3", "Назад")}${steps(4)}
-        <div class="stack" style="gap:6px"><div class="kicker">${hasMem ? "Внутри образа" : "В самой погоде"}</div><h1>${hasMem ? "Чего тебе не хватало в этом образе или воспоминании?" : "Чего тебе не хватает в этой погоде?"}</h1></div>
-        <label class="stack" style="gap:8px"><b style="font-size:15px">Чего не хватало</b><textarea id="lack" rows="3" maxlength="1000" placeholder="Тепла, чтобы кто-то…">${esc(D.lack || "")}</textarea></label>
-        <label class="stack" style="gap:8px"><b style="font-size:15px">${hasMem ? "Что тогда хотелось?" : "Чего хочется в ней?"}</b><textarea id="want" rows="3" maxlength="1000" placeholder="Хотелось… / не хотелось…">${esc(D.want || "")}</textarea></label>
+      app.innerHTML = `<div class="stack" style="gap:16px">${back("#/deep/3", "Образ")}${dsteps(4)}
+        <div class="scr-h">${cap}<h1>${hasMem ? "В этом образе" : "В самой погоде"}</h1></div>
+        <b class="qb">${hasMem ? "Чего тебе не хватало в этом образе или воспоминании?" : "Чего тебе не хватает в этой погоде?"}</b>${vta("lack", D.lack, "", 3)}
+        <b class="qb">${hasMem ? "Что тогда хотелось?" : "Чего хочется в ней?"}</b>${vta("want", D.want, "", 3)}
         <button class="btn" id="next">Дальше</button></div>`;
+      bindMics();
       const l = $("#lack"), w = $("#want"), nx = $("#next"), upd = () => { D.lack = l.value; D.want = w.value; save(); nx.disabled = !(l.value.trim() || w.value.trim()); };
       l.oninput = upd; w.oninput = upd; nx.disabled = !((D.lack || "").trim() || (D.want || "").trim());
       nx.onclick = () => go("#/deep/5");
       return;
     }
     if (step === "5") {
-      const row = (k, v) => v && v.trim() ? `<div class="stack" style="gap:2px"><span class="small" style="font-size:12px">${k}</span><span style="font-size:14px;line-height:1.45">${esc(v.trim())}</span></div>` : "";
-      app.innerHTML = `<div class="stack">${back("#/deep/4", "Назад")}${steps(5)}
-        <div class="card" style="gap:8px;background:var(--sage-bg);border:1px solid var(--sage)"><b style="font-size:13px;color:var(--sage-l)">А теперь вернемся в настоящее</b><span style="font-size:15px;line-height:1.55">Сделай вдох. Почувствуй опору под собой. Посмотри на свою жизнь сейчас — не на ту, что в образе.</span></div>
-        <div class="card" style="gap:8px;background:#152740">${row("Погода", deepLine(D).toLowerCase())}${row("Тогда не хватало", D.lack)}${row("Тогда хотелось", D.want)}</div>
-        <div class="stack" style="gap:6px"><div class="kicker">Здесь и сейчас</div><h1>Где сегодня звучит то, чего тогда не хватало и что хотелось?</h1><p class="lead" style="font-size:14px">Может, у этого теперь другое имя: не любовь, а признание; не деньги, а свое дело.</p></div>
-        <label class="stack" style="gap:8px"><b style="font-size:15px">В моей жизни сейчас…</b><textarea id="nowt" rows="5" maxlength="2000" placeholder="Сейчас мне не хватает… А не хочется идти туда, где…">${esc(D.now || "")}</textarea></label>
-        <button class="btn" id="next">Дальше</button></div>`;
+      const found = [D.lack && "Не хватало: " + D.lack.trim(), D.want && "Хотелось: " + D.want.trim()].filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join("");
+      app.innerHTML = `<div class="stack" style="gap:16px">${back("#/deep/4", "Назад")}${dsteps(4)}
+        <div class="scr-h">${cap}<h1>Обратно в сегодня</h1></div>
+        ${found ? `<div class="card found"><div class="cap">Найдено в образе</div>${found}</div>` : ""}
+        <b class="qb">Где этому есть место в сегодняшнем дне?</b>${vta("nowt", D.now, "Одно маленькое действие или человек…", 4)}
+        <button class="btn" id="next">Сохранить в Мою карту</button>
+        <a class="center" href="#/ask" style="padding:6px 0;font-weight:500;font-size:14px">Поделиться с Настей</a></div>`;
+      bindMics();
       const t = $("#nowt"); t.oninput = () => { D.now = t.value; save(); };
       $("#next").onclick = () => {
         const rec = { at: now(), season: D.season, weather: D.weather.slice(), mem: (D.mem || "").trim(), lack: (D.lack || "").trim(), want: (D.want || "").trim(), now: (D.now || "").trim() };
-        S.deep.push(rec); S.deepDraft = null; save(); haptic(); go("#/deep/done/" + (S.deep.length - 1));
+        S.deep.push(rec); S.deepDraft = null; save(); haptic(); toast("Сохранено в Мою карту"); go("#/deep/done/" + (S.deep.length - 1));
       };
       return;
     }
@@ -1623,12 +1632,12 @@ window.startApp = function () {
     if (!d) return go("#/notes");
     app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
       <div class="stack center" style="gap:10px;padding:16px 0 4px;align-items:center">
-        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true"><circle cx="36" cy="36" r="34" fill="#24382F"/><path d="M24 37l8 8 16-17" stroke="#A9CBB3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true"><circle cx="36" cy="36" r="34" fill="rgba(245,238,228,.16)" stroke="rgba(245,232,217,.4)"/><path d="M24 37l8 8 16-17" stroke="#F5E8D9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <div class="small">${esc(deepLine(d))}</div><h1>Запись готова</h1><p class="lead" style="font-size:14px;max-width:300px">Образ сказал о сегодняшнем дне. Можно вернуться к нему позже — он сохранится.</p></div>
       <label class="choice" style="cursor:pointer"><span class="t"><b>Сохранить в «Моя карта»</b><span id="dsv" style="color:var(--sage-l)">${d.off ? "не сохранено" : "Сохранено"}</span></span><input type="checkbox" id="dkeep" role="switch"${d.off ? "" : " checked"} style="width:22px;height:22px;accent-color:#8FB39A"></label>
       <a class="choice" href="#/feels"><span class="t"><b>Назвать чувство словом</b><span>таблица чувств — если хочется имени</span></span>${icon.chev}</a>
       <a class="choice" href="#/ask"><span class="t"><b>Поделиться с Настей</b><span>вопрос о том, что открылось</span></span>${icon.chev}</a>
-      <a class="btn" href="#/" style="background:var(--sage-bg);border:1px solid var(--sage);color:var(--sage-l)">На сегодня достаточно</a></div>`;
+      <a class="btn" href="#/">На сегодня достаточно</a></div>`;
     $("#dkeep").onchange = (e) => { d.off = !e.target.checked; save(); $("#dsv").textContent = d.off ? "не сохранено" : "Сохранено"; };
   }
   function DeepView(i) {
@@ -1646,11 +1655,11 @@ window.startApp = function () {
     if (!dir) {
       app.innerHTML = `<div class="stack">${back("#/gate", "Назад")}
         <div class="stack" style="gap:6px"><div class="kicker terra">Накрыло сейчас · назвать чувство</div><h1>Плохо, а что — не понять?</h1><p class="lead" style="font-size:14px">Это не пустота, а клубок из нескольких чувств, сваренных в один суп. Распутаем за три шага.</p></div>
-        <div class="card blue" style="padding:16px"><div style="font-size:15px">Закрой глаза на 10 секунд и почувствуй: <b>куда течет энергия?</b></div></div>
-        <a class="choice terra" href="#/catch/up"><span class="ic">${arrow("up")}</span><span class="t"><b>Вверх</b><span>хочется кричать, бежать, что-то швырнуть</span></span>${icon.chev}</a>
+        <div class="note-p"><img src="${V27}Integraciya-1.webp" alt=""><span>Закрой глаза на 10 секунд и почувствуй:<br><b>куда течет энергия?</b></span></div>
+        <a class="choice" href="#/catch/up"><span class="ic on">${arrow("up")}</span><span class="t"><b>Вверх</b><span>хочется кричать, бежать, что-то швырнуть</span></span>${icon.chev}</a>
         <a class="choice" href="#/catch/down"><span class="ic">${arrow("down")}</span><span class="t"><b>Вниз</b><span>хочется выключиться, свернуться, под одеяло</span></span>${icon.chev}</a>
         <a class="choice dashed" href="#/deep"><span class="t"><b>Никуда — ничего не чувствую</b><span>замерло, пусто, не понимаю, о чем речь</span></span>${icon.chev}</a>
-        <a class="link-row" href="#/feels" style="justify-content:center;border-style:dashed;color:var(--blue)">Не понимаю — покажи всю таблицу</a></div>`;
+        <a class="center" href="#/feels" style="padding:12px 0;font-size:14px;font-weight:500;text-decoration:underline;text-underline-offset:4px">Не понимаю — покажи всю таблицу</a></div>`;
       return;
     }
     const D = CATCH[dir]; if (!D) return go("#/catch");
@@ -1777,9 +1786,9 @@ window.startApp = function () {
       const side = i === "back" ? "back" : "front", zs = ZONES[side], marked = Object.keys(D.zones);
       app.innerHTML = `<div class="stack" style="gap:12px;padding-bottom:190px">
         <div class="row" style="justify-content:space-between">${back("#/", "Сегодня")}<div class="seg2 mini2"><a href="#/today/body/front" class="${side === "front" ? "on" : ""}">Спереди</a><a href="#/today/body/back" class="${side === "back" ? "on" : ""}">Сзади</a></div></div>
-        <div class="stack" style="gap:4px"><h1 style="font-size:24px">Где сегодня откликается тело?</h1><div class="small">Отметь места, где что-то ощущается — напряжение, тепло, пустота</div></div>
+        <div class="scr-h"><h1>Где сегодня откликается тело?</h1><p>Отметь места, где что-то ощущается — напряжение, тепло, пустота</p></div>
         <div class="bodywrap"><span style="left:6px">${side === "front" ? "правая" : "левая"}</span><span style="right:6px">${side === "front" ? "левая" : "правая"}</span>
-        <svg class="bodysvg" viewBox="0 0 200 420" role="img" aria-label="Силуэт">${side === "back" ? `<g stroke="#2A4263" stroke-width="1.5" stroke-dasharray="3 3" fill="none">${BACK_GHOST.map((d) => `<path d="${d}"/>`).join("")}</g>` : ""}<g stroke-width="1.5" stroke-linejoin="round">${zs.map((z) => `<path class="zone${D.zones[z[0]] ? " on" : ""}" data-tz="${z[0]}" d="${z[2]}"><title>${z[1]}</title></path>`).join("")}</g></svg></div></div>
+        ${bodyFig(side, zs, (z) => !!D.zones[z], "data-tz")}</div></div>
         <div class="bodybar">${marked.length ? `<div class="chips">${marked.map((z) => `<span class="chip terra sm">${esc(zoneTitle(z))}</span>`).join("")}</div>` : ""}
           <a class="btn" href="${marked.length ? "#/today/z/0" : "#/today/feel"}">${marked.length ? "Дальше · " + marked.length + " " + plural(marked.length, "место", "места", "мест") : "Дальше"}</a>
           <button type="button" class="link-row" id="calm" style="justify-content:center;border:none;color:var(--muted);font-weight:500;min-height:36px;padding:4px">Сегодня спокойно</button></div>`;
@@ -1892,19 +1901,18 @@ window.startApp = function () {
     const d = new Date(past ? dayTs(k) : now()), mon = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
     const draw = () => {
       const first = D.images[0];
-      app.innerHTML = `<div class="stack">${past ? back("#/notes", "Моя карта") : back("#/", "Сегодня")}
-        <div class="stack" style="gap:6px"><div class="kicker">${past ? "Сон" : d.getHours() < 12 ? "Утро" : "Сегодня"} · ${d.getDate()} ${mon[d.getMonth()]}</div><h1>${past ? "Сон" : "Что снилось?"}</h1><p class="small">Без толкований — только то, что было, и твои ассоциации.</p></div>
-        <label class="q"><b>Сон</b><textarea id="dtx" rows="5" placeholder="Что было, где ты, кто рядом…">${esc(D.text)}</textarea></label>
-        ${window.KARTA_API && navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? `<button type="button" class="micb" id="dmic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span id="dmict">Рассказать голосом</span></button>` : ""}
-        <div class="stack" style="gap:8px"><b style="font-size:15px">Главные образы</b>
+      app.innerHTML = `<div class="stack" style="gap:16px">${past ? back("#/notes", "Моя карта") : back("#/", "Сегодня")}<div class="toppad"></div>
+        <div class="scr-h"><div class="cap">Сновидение · ${past ? d.getDate() + " " + mon[d.getMonth()] : WDAY[d.getDay()] + ", " + PH_RU[phase()]}</div><h1>${past ? "Сон" : "Что приснилось?"}</h1><p>Запиши сразу, пока сон не растаял.</p></div>
+        ${vta("dtx", D.text, "Сюжет, места, люди — как помнится…", 5)}
+        <div class="stack" style="gap:8px"><b class="qb">Образы из сна</b>
           <div class="chips">${D.images.map((x, j) => { const y = symByTitle(x); return `<span class="chip on sm">${y ? `<a href="#/sym/${y.id}" style="text-decoration:underline">${esc(x)}</a>` : esc(x)} <button type="button" data-dx="${j}" aria-label="Убрать" style="background:none;border:none;color:inherit;padding:0 0 0 4px">×</button></span>`; }).join("")}</div>
           <div class="row"><input class="inp" id="dimg" placeholder="образ: дом, дверь, вода…" maxlength="40"><button type="button" class="pill" id="dadd" style="min-height:48px">Добавить</button></div>
-          <span class="small" style="font-size:12px">Образы, которые есть в словаре, становятся ссылками.</span></div>
+          <span class="small" style="font-size:12px">Образ из Словаря символов откроется по нажатию</span></div>
         ${first ? `<label class="q"><b>Что первое приходит, если подумать о «${esc(first)}»?</b><textarea id="das" rows="2" placeholder="Первое, что приходит…">${esc(D.assoc)}</textarea></label>` : ""}
-        <div class="stack" style="gap:8px"><b style="font-size:15px">Чувство при пробуждении</b><div class="chips">${chipSel(FE.concat(D.feel.filter((x) => !FE.includes(x))), D.feel, "df", "on")}</div></div>
+        <div class="stack" style="gap:8px"><b class="qb">Какое чувство осталось после сна?</b><div class="chips">${chipSel(FE.concat(D.feel.filter((x) => !FE.includes(x))), D.feel, "df", "on")}</div></div>
         <button class="btn" id="dsave">Сохранить</button></div>`;
       $("#dtx").oninput = (e) => { D.text = e.target.value; save(); };
-      if ($("#dmic")) $("#dmic").onclick = () => voice($("#dmic"), $("#dmict"), (t) => { D.text = (D.text ? D.text.replace(/\s+$/, "") + " " : "") + t; save(); const x = $("#dtx"); if (x) x.value = D.text; });
+      bindMics();
       const das = $("#das"); if (das) das.oninput = (e) => { D.assoc = e.target.value; save(); };
       const add = () => { const v = $("#dimg").value.trim().toLowerCase(); if (!v) return; D.images.push(v); save(); draw(); const n = $("#dimg"); if (n) n.focus(); };
       $("#dadd").onclick = add; $("#dimg").onkeydown = (e) => { if (e.key === "Enter") add(); };
@@ -1940,45 +1948,52 @@ window.startApp = function () {
     im.src = c.img;
   }
   function SymDay() {
-    const st = S.sym[dkey()];
-    if (!DECK.length) { app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<h1>Символ дня</h1><p class="lead">Колода появится после подключения.</p></div>`; return; }
+    let st = S.sym[dkey()];
+    if (!DECK.length) { app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<h1>Послание дня</h1><p class="lead">Колода появится после подключения.</p></div>`; return; }
     if (!st) {
-      // карта всплывает из воды; фон — по времени суток
-      app.innerHTML = `<div class="sea" style="background-image:url(img/sea/${phase()}.webp)" aria-hidden="true"></div>
-        <div class="sea-top">${back("#/", "Сегодня")}</div>
-        <button type="button" class="rise" id="flip" aria-label="Открыть карту">
-          <span class="rise-rip" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="rise-ref" aria-hidden="true"><img src="${MAIN_BACK}" alt=""></span>
-          <span class="rise-clip"><span class="rise-card"><span class="rise-in"><img src="${MAIN_BACK}" alt="" onerror="this.onerror=null;this.src='${esc(C.deck.back || "")}'"></span></span></span>
-        </button>
-        <div class="sea-txt"><h1>Символ дня</h1><p>Сделай вдох и коснись карты, когда почувствуешь, что пора.</p><p class="sea-note">Это не предсказание. Карта — зеркало: важно не что она значит, а что в тебе откликнется.</p></div>`;
-      $("#flip").onclick = () => {
-        const prev = S.sym[dkey(now() - 86400000)], pool = DECK.filter((c) => !prev || c.id !== prev.id);
-        const c = pool[Math.floor(Math.random() * pool.length)];
-        S.sym[dkey()] = { id: c.id, at: now(), note: "" }; save(); haptic();
-        const f = $("#flip"); f.classList.add("turn"); setTimeout(() => SymDay(), 450);
-      };
-      return;
+      const prev = S.sym[dkey(now() - 86400000)], pool = DECK.filter((c) => !prev || c.id !== prev.id);
+      const c0 = pool[Math.floor(Math.random() * pool.length)];
+      st = S.sym[dkey()] = { id: c0.id, at: now(), note: "" }; save(); haptic();
     }
-    const c = cardById(st.id) || DECK[0], y = symByTitle(c.title);
-    app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
-      <div class="stack" style="align-items:center">${cardFace(c)}</div>
-      <label class="q"><b>Что откликается в этом образе сегодня?</b><textarea id="snote" rows="3" placeholder="Первое, что приходит…">${esc(st.note || "")}</textarea></label>
-      ${y ? `<a class="quietlink" id="sdict" href="#/sym/${y.id}">${esc(c.title)} в словаре символов →</a>` : ""}
-      <button class="link-row" id="shr" style="justify-content:center;color:var(--blue)">Поделиться картой в сторис</button>
-      <p class="small center">Новая карта — завтра.</p></div>`;
-    $("#snote").oninput = (e) => { st.note = e.target.value; save(); };
+    setBg("Segodnya5m-1.webp", { pos: "100% 0" }); document.body.classList.add("dim");
+    const c = cardById(st.id) || DECK[0], y = symByTitle(c.title), d0 = new Date(st.at || now());
+    const txt = y ? [y.essence, (y.questions || [])[0]].filter(Boolean).join(" ") : "";
+    app.innerHTML = `<div class="stack" style="gap:16px">${back("#/", "Сегодня")}
+      <div class="scroll-p"><img class="scroll-bg" src="${V27}Poslanie-1.webp" alt=""><div class="scroll-in">
+        <div class="scroll-cap">Послание дня · ${d0.getDate()} ${MONS[d0.getMonth()].toUpperCase()}</div>
+        <button type="button" class="scroll-card" id="dcard" aria-label="Открыть карту «${esc(c.title)}»"><img src="${c.img}" alt="Карта: ${esc(c.title)}"></button>
+        <div class="scroll-t">${esc(c.title)}</div>
+        ${txt ? `<p class="scroll-p1">${esc(txt)}</p>` : ""}
+        ${y ? `<a class="scroll-dict" href="#/sym/${y.id}">${esc(c.title)} в словаре символов</a>` : ""}</div></div>
+      <div class="stack" id="srec" style="gap:10px;${st.note ? "" : "display:none"}"><label class="q"><b>Что откликается в этом образе сегодня?</b><textarea id="snote" rows="3" placeholder="Первое, что приходит…">${esc(st.note || "")}</textarea></label></div>
+      <div class="two"><button type="button" class="btn" id="srecb">${st.note ? "Сохранено" : "Записать отклик"}</button><a class="btn ghost" href="#/guide" id="sg">К Проводнику</a></div>
+      <button type="button" class="link-row" id="shr" style="justify-content:center;border:none;background:none;-webkit-backdrop-filter:none;backdrop-filter:none;color:var(--text-muted);font-size:14px">Поделиться картой в сторис</button></div>`;
+    $("#dcard").onclick = () => cardView(c.img, c.title);
+    $("#snote").oninput = (e) => { st.note = e.target.value; save(); $("#srecb").textContent = "Сохранено"; };
+    $("#srecb").onclick = () => { const b = $("#srec"); if (b.style.display === "none") { b.style.display = ""; $("#snote").focus(); } else { save(); toast("Сохранено в Мою карту"); } };
+    $("#sg").onclick = () => { S.guideDraft = "Сегодня выпал символ «" + c.title + "». " + (st.note ? "Откликнулось: " + st.note + ". " : ""); save(); };
     $("#shr").onclick = () => shareCard(c);
   }
 
   // ---------- «Сегодня» и вкладки ----------
-  const TABS = [["", "Сегодня", '<path d="M3 16h18"/><path d="M7 16a5 5 0 0 1 10 0"/><path d="M12 6v2M5.6 9.6l1.4 1.4M18.4 9.6 17 11"/><path d="M5 20q1.75-1.3 3.5 0t3.5 0 3.5 0 3.5 0"/>'], ["lib", "Бухта", '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M8 10h8"/><path d="M4.5 14a7.5 7.5 0 0 0 15 0"/><path d="M3 15.5 4.5 14 6 15.5M18 15.5l1.5-1.5 1.5 1.5"/>'], ["guide", "Проводник", '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'], ["notes", "Моя карта", '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7 16c2-1 2-4 5-4s3-3 5-4" stroke-dasharray="2 2.4"/><path d="M15.5 6.5l3 3M18.5 6.5l-3 3"/>']];
+  const TABS = [["", "Сегодня", '<path d="M3 18h18M6 21h12M7 15a5 5 0 0 1 10 0M12 5v3M5 9l1.8 1.4M19 9l-1.8 1.4"/>'], ["lib", "Бухта", '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M8 10h8M4 13a8 8 0 0 0 16 0"/>'], ["guide", "Проводник", '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'], ["notes", "Моя карта", '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/>']];
   const tabsEl = document.getElementById("tabs") || (() => { const d = document.createElement("nav"); d.id = "tabs"; d.setAttribute("aria-label", "Разделы"); document.body.appendChild(d); return d; })();
   const waterEl = document.getElementById("water") || (() => { const d = document.createElement("div"); d.id = "water"; d.setAttribute("aria-hidden", "true"); document.body.insertBefore(d, document.body.firstChild); return d; })();
+  const bgEl = document.getElementById("bgill") || (() => { const d = document.createElement("div"); d.id = "bgill"; d.setAttribute("aria-hidden", "true"); document.body.insertBefore(d, document.body.firstChild); return d; })();
+  const V27 = "img/v27/";
+  // фон экрана: иллюстрация во весь экран (уезжает вместе с содержимым), светлая тема для подкастов и времен года
+  function setBg(img, o) {
+    o = o || {};
+    bgEl.style.backgroundImage = img ? "url(" + V27 + img + ")" : "none";
+    bgEl.style.backgroundPosition = o.pos || "50% 0";
+    bgEl.classList.toggle("top", !!o.top); bgEl.style.transform = o.flip ? "scaleX(-1)" : "";
+    document.body.classList.toggle("lt", !!o.light);
+    try { tg && tg.setHeaderColor && tg.setHeaderColor(o.light ? "#E9DCCB" : "#0F1E33"); } catch (e) {}
+  }
   function paintTabs(active) {
     document.body.classList.toggle("tabs", active >= 0);
     if (active < 0) { tabsEl.innerHTML = ""; return; }
-    tabsEl.innerHTML = TABS.map(([r, l, p], i) => `<a href="#/${r}" class="${i === active ? "on" : ""}"${i === active ? ' aria-current="page"' : ""}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>${l}</a>`).join("");
+    tabsEl.innerHTML = TABS.map(([r, l, p], i) => `<a href="#/${r}" class="${i === active ? "on" : ""}"${i === active ? ' aria-current="page"' : ""}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>${l}</a>`).join("");
   }
   function waterSVG() {
     const H = 844; let seed = 5; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
@@ -2007,19 +2022,8 @@ ${b}</svg>`;
   const bedEl = document.getElementById("bed") || (() => { const d = document.createElement("div"); d.id = "bed"; d.setAttribute("aria-hidden", "true"); document.body.insertBefore(d, document.body.firstChild); return d; })();
   bedEl.innerHTML = `<svg viewBox="0 0 390 150" preserveAspectRatio="xMidYMax slice" width="100%" height="100%"><path d="M0 40 Q 60 10 120 32 T 240 24 T 390 30 V150 H0Z" fill="#132845"/><path d="M0 80 Q 80 58 160 76 T 300 70 T 390 78 V150 H0Z" fill="#0E1E36"/><g><path d="M180 150 q-5 -40 8 -60 q10 18 2 60z" fill="#3A2E33"/><path d="M200 150 q3 -50 18 -66 q5 26 -8 66z" fill="#4A3036"/><circle cx="218" cy="84" r="3.5" fill="#C9775A" opacity=".7"/></g></svg>`;
   // mode: "full" — вода с анимацией; "tint" — оттенок времени суток только сверху; иначе — темный фон
-  function setWater(mode) {
-    const ph = phase(), pal = PAL[ph], B = document.body;
-    B.classList.toggle("water", mode === "full");
-    B.classList.toggle("tint", mode === "tint");
-    B.classList.toggle("light", mode === "full" && ph !== "night");
-    if (mode === "full") {
-      B.style.setProperty("--wbg", "linear-gradient(180deg," + pal.map((x) => x[1] + " " + x[0] + "%").join(",") + ")");
-      B.style.setProperty("--wsun", "radial-gradient(ellipse 70% 60% at 70% 0," + SUN[ph] + ",rgba(255,255,255,0))");
-      if (!waterEl.innerHTML) waterEl.innerHTML = waterSVG();
-    }
-    if (mode === "tint") B.style.setProperty("--tbg", "linear-gradient(180deg," + (ph === "night" ? "#1A2F50" : pal[2][1] + "99") + " 0,rgba(15,30,51,0) 360px)");
-    try { tg && tg.setHeaderColor && tg.setHeaderColor(mode === "full" ? pal[0][1] : "#0F1E33"); } catch (e) {}
-  }
+  function setWater() {}
+
   const dayTs = (k) => new Date(k + "T12:00:00").getTime();
   const dayLabel = (ts) => {
     const t = new Date(now()); t.setHours(0, 0, 0, 0); const d = new Date(ts); d.setHours(0, 0, 0, 0);
@@ -2086,96 +2090,102 @@ ${b}</svg>`;
   const WH = (x) => x.replace(/stroke="#0F1E33"/g, 'stroke="#E8EEF4"').replace(/width="18" height="18"/, 'width="24" height="24"');
   const ICN_PEN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
   const ICN_RUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/></svg>';
-  function Main() {
-    const pendingInt = ALLP.filter((p) => integrOpen(p.id) && !integrDone(p.id));
-    const waitingInt = ALLP.filter((p) => counted(p.id) && hasInt(p) && !integrOpen(p.id) && !integrDone(p.id));
-    const nx = nextStep(), k = dkey(), nm = S.profile && S.profile.name, ph = phase(), late = ph === "evening" || ph === "night", d0 = new Date(now());
-    let h = `<div class="mainwrap">
-      <div class="row hd-top" style="justify-content:space-between;gap:12px;align-items:flex-start"><a class="hello" href="#/me" aria-label="Профиль и настройки"><span>${HELLO[ph]}${nm ? ", " + esc(nm) : ""}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9FB2C8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg><span class="hsub">${WDAY[d0.getDay()]}, ${d0.getDate()} ${MONS[d0.getMonth()]}</span></a><a class="sos" href="#/aid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F0C7B5" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="sos-t">Если сложно</span></a></div>`;
-    const sy = S.sym[k], c = sy && cardById(sy.id);
-    if (DECK.length) h += c
-      ? `<a class="glass symrow" href="#/symbol"><span class="th"><img src="${c.img}" alt=""></span><span class="t"><span class="lbl">СИМВОЛ ДНЯ</span><b>${esc(c.title)}</b><span>${sy.note ? "откликнулось: «" + esc(sy.note.length > 70 ? sy.note.slice(0, 70) + "…" : sy.note) + "»" : "что откликается в этом образе? →"}</span></span></a>`
-      : `<a class="symban" href="#/symbol" aria-label="Открыть символ дня"><span class="symban-i"><img src="img/sea/card-${ph}.webp" alt=""></span><span class="symban-t"><span><b>Символ дня всплыл</b><small>коснись, когда захочется</small></span><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CFE6F5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></i></span></a>`;
-    const D = S.days[k], bub = (href, ic, t) => `<a class="hbub" href="${href}"><i>${WH(ic)}</i>${t}</a>`;
-    h += `<div class="glass howg"><div class="hrow"><b>${late ? "Как прошел день?" : "Как ты?"}</b></div>
-      <div class="bubs">${bub("#/today", ICN.body, "Тело<br>и чувства")}${late ? bub("#/free", ICN_PEN, "Записать<br>вечер") : bub("#/dream", ICN.moon, "Что<br>снилось")}${bub("#/quick", ICN_RUN, "На бегу")}</div>
-      ${D && D.done ? `<a class="donerow" href="#/inside"><b>✓</b><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">сегодня: ${esc(daySummary(k))}</span>${icon.chev}</a>` : ""}</div>`;
-    let now2 = "";
-    if (isNight()) {
-      const m = mset();
-      now2 = `<a class="nowcard glass" href="#/music"><span class="pl" style="background:#0F1E33"><svg width="30" height="30" viewBox="0 0 44 44" aria-hidden="true"><path d="M28 27.5A9 9 0 1 1 18.5 15a7 7 0 0 0 9.5 12.5z" fill="#CFE6F5"/></svg></span><span class="t"><span class="small" style="font-size:12px">Если сложно заснуть</span><b style="font-size:16px">Музыкальное сопровождение</b><span class="small" style="font-size:12px;color:var(--blue)">${m.timer ? "таймер " + m.timer + " мин · " : ""}можно свернуть</span></span>${icon.chev}</a>`;
-    } else if (nx) {
-      const open = isOpen(nx.id);
-      now2 = `<a class="nowcard glass" href="${open ? "#/prep/" + nx.id : "#/cycle/" + nx._cy.id}">${nx.img ? `<img class="thumb" src="${nx.img}" alt="">` : ""}<span class="t"><span class="small" style="font-size:12px">${esc(where(nx))}</span><b>${esc(nx.title)}</b><span class="small" style="font-size:12px;color:${open ? "var(--blue)" : "var(--muted)"}">${open ? "погружение" + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : "") : esc(lockHint(nx))}</span></span><span class="pl${open ? "" : " off"}">${open ? PLAY("#0F1E33") : icon.lock}</span></a>`;
-    }
-    if (pendingInt.length === 1) now2 += `<a class="introw sage" href="#/integr/${pendingInt[0].id}"><span class="dot"></span><span style="flex:1">Открыта интеграция к «${esc(pendingInt[0].title)}»</span>${icon.chev}</a>`;
-    else if (pendingInt.length > 1) now2 += `<a class="introw sage" href="#/journal"><span class="dot"></span><span style="flex:1">Открыто интеграций: ${pendingInt.length}</span>${icon.chev}</a>`;
-    else if (waitingInt.length) now2 += `<div class="introw wait"><span class="dot"></span><span style="flex:1">Интеграция к «${esc(waitingInt[0].title)}» — ${fmtWhen(integrAt(waitingInt[0].id))}</span></div>`;
-    if (now2) h += `<div class="stack" style="gap:8px">${now2}</div>`;
-    h += seabed() + `</div>`;
-    app.innerHTML = h;
+  const PH_RU = { morning: "утро", day: "день", evening: "вечер", night: "ночь" };
+  const u = (x) => `calc(var(--u) * ${x})`;
+  // сообщения сверху на «Сегодня»: смахнуть вверх — закрыть, влево-вправо — листать
+  function todayMsgs() {
+    const out = [], hid = (S.msgHide && S.msgHide[dkey()]) || [];
+    (S.questions || []).forEach((q, i) => { if (q.answer && !q.seen) out.push({ id: "q" + i, cap: "Сейчас · Настя", t: "Настя ответила", sub: "На твой вопрос: " + q.text, href: "#/ask", ic: "msg" }); });
+    const pend = ALLP.filter((p) => integrOpen(p.id) && !integrDone(p.id));
+    pend.forEach((p) => out.push({ id: "i" + p.id, cap: "Интеграция", t: "Можно вернуться к «" + p.title + "»", sub: "Прошло 8 часов. Вернемся к тому, что пришло.", href: "#/integr/" + p.id, ic: "dive" }));
+    const nx = nextStep();
+    if (!isNight() && nx && isOpen(nx.id) && !pend.length) out.push({ id: "n" + nx.id, cap: "Дальше по пути", t: nx.title, sub: where(nx) + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : ""), href: "#/prep/" + nx.id, ic: "dive" });
+    if (isNight()) out.push({ id: "night", cap: "Если не спится", t: "Музыкальное сопровождение", sub: "Для сна и чтобы просто побыть с собой", href: "#/music", ic: "moon" });
+    return out.filter((m) => !hid.includes(m.id));
   }
-  function Dives(part) {
-    const nx = nextStep(), c1 = cyDone(cycle);
-    const tone = ["c0", "c1", "c2", "c3"];
-    const free = part === "free";
-    let h = `<div class="stack" style="gap:20px">${back("#/lib", "Бухта")}<h1>${free ? "По запросу" : "Циклы"}</h1>`;
-    if (!free && nx) h += `<a class="nowcard" href="${isOpen(nx.id) ? "#/prep/" + nx.id : "#/cycle/" + nx._cy.id}" style="padding:12px 14px"><span class="pl" style="width:40px;height:40px">${isOpen(nx.id) ? PLAY("#0F1E33") : icon.lock}</span><span class="t"><span class="small" style="font-size:12px">${esc(where(nx))}</span><b style="font-size:15px">${esc(nx.title)}${nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : ""}</b>${isOpen(nx.id) ? "" : `<span class="small" style="font-size:12px">${esc(lockHint(nx))}</span>`}</span>${icon.chev}</a>`;
-    if (free) { h += `<div class="stack" style="gap:10px"><div class="stack" style="gap:2px"><span class="small">${c1 ? "в любой день, без порядка" : "откроются после цикла «" + esc(cycle.title) + "» · " + cyCount(cycle) + " из " + real(cycle).length}</span></div><div class="free">`;
-    FREE.forEach((f, i) => {
-      const open = isOpen(f.id);
-      const inner = `<span class="pl">${open ? PLAY("#C3D0DE") : icon.lock}</span><b>${esc(f.title)}</b><span class="small" style="font-size:12px;line-height:1.4">${esc(f.short || "")}</span><span class="small" style="margin-top:auto;font-size:12px">${f.soon ? "скоро" : Math.round(f.duration / 60) + " мин"}</span>`;
-      h += open ? `<a class="fcard ${tone[f.tone || i % 3]}" href="#/prep/${f.id}">${inner}</a>` : `<div class="fcard ${tone[f.tone || i % 3]} lock">${inner}</div>`;
+  const MSG_IC = { msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', dive: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>', moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>' };
+  function paintMsgs() {
+    const box = $("#msgs"); if (!box) return;
+    const L = todayMsgs(); let i = Math.min(+box.dataset.i || 0, L.length - 1);
+    if (!L.length) { box.innerHTML = ""; return; }
+    const m = L[i];
+    box.innerHTML = `<div class="msg" id="msg1"><span class="msg-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MSG_IC[m.ic]}</svg></span><span class="msg-t"><span class="cap">${esc(m.cap)}</span><b>${esc(m.t)}</b><span>${esc(m.sub)}</span></span><a class="msg-go" href="${m.href}">Открыть</a></div>${L.length > 1 ? `<div class="msg-dots">${L.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>` : ""}`;
+    const el = $("#msg1"); let x0 = 0, y0 = 0;
+    el.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    el.addEventListener("touchend", (e) => {
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      if (dy < -30 && Math.abs(dy) > Math.abs(dx)) { S.msgHide = S.msgHide || {}; (S.msgHide[dkey()] = S.msgHide[dkey()] || []).push(m.id); save(); box.dataset.i = 0; paintMsgs(); }
+      else if (Math.abs(dx) > 40) { box.dataset.i = (i + (dx < 0 ? 1 : -1) + L.length) % L.length; paintMsgs(); }
     });
-    h += `</div></div></div>`; app.innerHTML = h; return; }
-    h += `<div class="stack" style="gap:8px"><div class="row" style="justify-content:flex-end;align-items:baseline">${ALLP.some((p) => counted(p.id)) ? `<a class="small" href="#/journal" style="color:var(--blue);font-weight:700;font-size:12px">пройденные →</a>` : ""}</div><div class="cycl">`;
-    CYC.forEach((cy, i) => {
-      const first = cy.practices[0], open = isOpen(first.id) || cyCount(cy) > 0;
-      h += `<a class="cyrow${open ? "" : " lock"}" href="#/cycle/${cy.id}">${artOf(cy) ? `<span class="cyic">${artOf(cy).icon}</span>` : cy.img ? `<img src="${cy.img}" alt="">` : ""}<span class="t"><span class="small" style="font-size:11px;letter-spacing:.06em">ЦИКЛ ${cy.n || i + 1}</span><b>${esc(cy.title)}</b><span class="small" style="font-size:12px">${open ? cyCount(cy) + " из " + real(cy).length : esc(lockHint(first))}</span></span>${open ? icon.chev : icon.lock}</a>`;
-    });
-    h += `</div></div></div>`;
+    el.querySelector(".msg-go").onclick = () => { if (m.id[0] === "q") { const q = S.questions[+m.id.slice(1)]; if (q) { q.seen = true; save(); } } };
+  }
+  function Main() {
+    const k = dkey(), nm = S.profile && S.profile.name, ph = phase(), d0 = new Date(now()), am = d0.getHours() < 14;
+    const sy = S.sym[k], c = sy && cardById(sy.id), y = c && symByTitle(c.title);
+    const q = y ? ((y.questions || [])[0] || y.essence || "") : "";
+    const top = 226, porthole = DECK.length && !c;
+    const pT = porthole ? 540 : 468;
+    const btn = (href, img, l, w, h, ix) => `<a class="t-gauge" href="${href}" style="left:${u(ix)};top:${u(pT + 53)}"><img src="${V27}${img}" alt="" style="width:${u(34)};height:${u(34)};left:${u(w)};top:${u(15)}"><span style="top:${u(73)}">${l}</span></a>`;
+    let h = `<div class="vs" id="today">
+      <a class="t-hd" href="#/me" aria-label="Профиль и настройки" style="left:${u(24)};right:${u(100)};top:${u(56)}"><span class="cap">${WDAY[d0.getDay()]} · ${PH_RU[ph]}</span><h1>${HELLO[ph]}${nm ? ", " + esc(nm) : ""}</h1></a>
+      <a class="t-ring" href="#/aid" aria-label="Если сложно — открыть Аптечку" style="left:${u(284)};top:${u(127)};width:${u(84)}"><img src="${V27}Segodnya5m-2.webp" alt=""></a>`;
+    if (porthole) h += `<a class="t-port" href="#/symbol" aria-label="Открыть послание дня" style="left:${u(65)};top:${u(196)};width:${u(260)};height:${u(260)}"><img src="${V27}Segodnya4-1.webp" alt=""></a>
+      <div class="t-portt" style="top:${u(472)}"><b>К тебе приплыла бутылка</b><span>Коснись стекла, чтобы открыть</span></div>`;
+    else if (c) h += `<a class="t-sym" href="#/symbol" aria-label="Послание дня: ${esc(c.title)}" style="left:${u(24)};right:${u(24)};top:${u(top)};height:${u(200)}">
+        <span class="t-card" style="left:${u(4)};top:${u(6)};width:${u(112)};height:${u(168)}"><img src="${c.img}" alt=""><img class="t-rivet" src="${V27}Segodnya5m-4.webp" alt="" style="width:${u(20)};height:${u(21)};top:${u(-9)};margin-left:${u(-10)}"></span>
+        <span class="t-symt" style="left:${u(140)};top:${u(8)}"><span class="cap">Послание дня</span><span class="t-tt">${esc(c.title)}</span><span class="t-q">${esc(sy.note ? "«" + sy.note + "»" : q)}</span><span class="t-wr" style="width:${u(128)};height:${u(41)}"><img src="${V27}Segodnya5m-5.webp" alt=""><span>${sy.note ? "Дописать" : "Записать"}</span></span></span></a>`;
+    h += `<img class="t-panel" src="${V27}Segodnya5m-6.webp" alt="" style="left:${u(5)};top:${u(pT)};width:${u(380)};height:${u(185)}">
+      <div class="t-how" style="left:${u(124)};top:${u(pT + 25)};width:${u(140)}">КАК ТЫ?</div>
+      ${btn("#/today", "Segodnya5m-7.webp", "Тело и чувства", 40, 0, 32)}${am ? btn("#/dream", "Segodnya5m-8.webp", "Сновидение", 37, 0, 142) : btn("#/free", "Segodnya5-1.webp", "Заметки", 37, 0, 142)}${btn("#/quick", "Segodnya5m-9.webp", "На бегу", 32, 0, 253)}
+      <div class="t-msgs" id="msgs" data-i="0"></div></div>`;
     app.innerHTML = h;
+    paintMsgs();
+  }
+  function Dives() {
+    const nx = nextStep(), c1 = cyDone(cycle);
+    let h = `<div class="stack" style="gap:18px">${back("#/lib", "Бухта")}
+      <div class="row" style="justify-content:space-between;align-items:flex-end"><div class="scr-h"><div class="cap">Погружения</div><h1>Циклы</h1></div>${ALLP.some((p) => counted(p.id)) ? `<a class="pill-g" href="#/journal">Мои погружения</a>` : ""}</div>`;
+    if (nx) {
+      const open = isOpen(nx.id);
+      h += `<a class="dv-next" href="${open ? "#/prep/" + nx.id : "#/cycle/" + nx._cy.id}"><img src="${V27}${nx._cy ? cyArt(nx._cy) : CY_ART[0]}" alt=""><span class="t"><span class="cap">Дальше по пути</span><b>${esc(nx.title)}</b><span class="small">${esc(where(nx))}${nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : ""}</span>${open ? `<span class="pill-c">${ICN_PLAY}Слушать</span>` : `<span class="small">${esc(lockHint(nx))}</span>`}</span></a>`;
+    } else h += `<div style="height:120px"></div>`;
+    h += `<div class="cap" style="margin-top:6px">Все циклы</div><div class="stack" style="gap:8px">`;
+    CYC.forEach((cy) => {
+      const first = cy.practices[0], open = isOpen(first.id) || cyCount(cy) > 0;
+      h += `<a class="cy-row${open ? "" : " off"}" href="#/cycle/${cy.id}"><img src="${V27}${cyArt(cy)}" alt=""><span class="t"><b>${esc(cy.title)}</b><span class="row" style="gap:8px">${open ? dots(cy) : `<span class="small" style="font-size:12px">${esc(lockHint(first))}</span>`}</span></span>${open ? icon.chev : ICN_LOCK}</a>`;
+    });
+    h += `</div>`;
+    if (FREE.length) {
+      h += `<div class="cap" style="margin-top:10px">Вне циклов</div><p class="small" style="margin-top:-10px">${c1 ? "В любой день, без порядка." : "Откроются после цикла «" + esc(cycle.title) + "»."}</p><div class="stack" style="gap:8px">`;
+      FREE.forEach((f) => {
+        const open = isOpen(f.id);
+        const inner = `<span class="pr-i${open ? " on" : " lk"}">${open ? ICN_PLAY : f.soon ? "" : ICN_LOCK}</span><span class="t"><b>${esc(f.title)}</b><span>${esc(f.soon ? "скоро" : [f.duration ? Math.round(f.duration / 60) + " мин" : "", f.short || ""].filter(Boolean).join(" · "))}</span></span>`;
+        h += open ? `<a class="pr-row" href="#/prep/${f.id}">${inner}</a>` : `<div class="pr-row off">${inner}</div>`;
+      });
+      h += `</div>`;
+    }
+    app.innerHTML = h + `</div>`;
   }
   function Lib() {
-    const eps = EPS.filter((e) => e.src), dd = eps.filter((e) => podSt(e.id).done).length;
-    const nxE = eps.find((e) => !podSt(e.id).done);
-    const podMeta = !eps.length ? "" : nxE ? (dd ? "дальше · " : "начать · ") + "«" + esc(nxE.title) + "»" : "все " + eps.length + " выпусков прослушаны";
-    const nx0 = nextStep(), cyN = nx0 ? nx0._cy : cycle;
-    const st = nx0 ? "«" + esc(cyN.title) + "» · " + cyCount(cyN) + " из " + real(cyN).length : "все циклы пройдены";
-    const B = "img/bukhta/";
-    app.innerHTML = `<div class="libmap bx"><div class="bx-st">
-      <a class="bx-ic bx-mk" href="#/pod" aria-label="Подкасты" style="left:80%;top:20%;width:30%"><svg class="bx-l" viewBox="0 0 480 448" aria-hidden="true"><circle cx="241" cy="150" r="120" fill="none" stroke="#F5E8D9" stroke-opacity=".55" stroke-width="2.5" stroke-dasharray="560 400" transform="rotate(-150 241 150)"/></svg><img class="bx-l bx-luch" src="${B}mayak-luch.webp" alt=""><img class="bx-l" src="${B}mayak-bashnya.webp" alt=""><img class="bx-l bx-svet" src="${B}mayak-svet.webp" alt=""></a>
-      <a class="bx-cap" href="#/pod" style="left:80%;top:32%">ПОДКАСТЫ</a>
-      <a class="bx-ic bx-vl" href="#/music" aria-label="Музыка" style="left:46.5%;top:40%;width:30%"><img class="bx-l" src="${B}volny.svg" alt=""></a>
-      <a class="bx-cap" href="#/music" style="left:46.5%;top:45.5%">МУЗЫКА</a>
-      <a class="bx-ic bx-bt" href="#/dict" aria-label="Символы" style="left:80%;top:55.5%;width:20%"><img class="bx-l bx-bvb" src="${B}butylka-voda.webp" alt=""><img class="bx-l bx-bb" src="${B}butylka.webp" alt=""><img class="bx-l bx-bv" src="${B}butylka-voda.webp" alt=""></a>
-      <a class="bx-cap" href="#/dict" style="left:80%;top:62.5%">СИМВОЛЫ</a>
-      <a class="bx-ic bx-pg" href="#" id="dvs" aria-label="Погружения" style="left:48%;top:75%;width:30%"><img class="bx-l bx-r" src="${B}pogruzhenie-koltso.webp" alt=""><img class="bx-l bx-r bx-r2" src="${B}pogruzhenie-koltso.webp" alt=""><img class="bx-l bx-r bx-r3" src="${B}pogruzhenie-koltso.webp" alt=""><span class="bx-l bx-glow"></span><img class="bx-l bx-c" src="${B}pogruzhenie-tsentr.webp" alt=""><img class="bx-l bx-c2" src="${B}pogruzhenie-tsentr.webp" alt=""></a>
-      <a class="bx-cap" href="#" data-dvs="1" style="left:48%;top:82%">ПОГРУЖЕНИЯ</a>
-    </div></div><h1 class="hd-top libmap-h">Бухта</h1>`;
-    const dcap = app.querySelector("[data-dvs]"); if (dcap) dcap.onclick = (e) => { e.preventDefault(); $("#dvs").click(); };
-    $("#dvs").onclick = (e) => {
-      e.preventDefault();
-      const nx = nextStep(), c1 = cyDone(cycle);
-      const bg = document.createElement("div"); bg.className = "sheet-bg";
-      bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dsh"><div class="grip"></div><h2 id="dsh" style="font-size:19px">Погружения</h2>
-        <a class="opt" href="#/dives/cycles"><span class="oi">${ICO.cyc}</span><span class="t"><b>Циклы</b><span>${nx ? "сейчас: «" + esc(nx._cy.title) + "» · " + cyCount(nx._cy) + " из " + real(nx._cy).length : "путь по шагам, каждая следующая — через 48 часов"}</span></span>${icon.chev}</a>
-        <a class="opt" href="#/dives/free"><span class="oi">${ICO.req}</span><span class="t"><b>По запросу</b><span>${c1 ? "одна практика под то, что сейчас" : "откроются после «" + esc(cycle.title) + "» · " + cyCount(cycle) + " из " + real(cycle).length}</span></span>${icon.chev}</a></div>`;
-      bg.onclick = (ev) => { if (ev.target === bg || ev.target.closest("a")) bg.remove(); };
-      document.body.appendChild(bg);
-    };
+    setBg("Bukhta-1.webp", { pos: "52% 50%" }); document.body.classList.add("nofade");
+    const cap = (href, l, x, y, w, hh, st) => `<a class="bx2" href="${href}" style="left:${u(x)};top:${u(y)};width:${u(w)};height:${u(hh)};${st || ""}"><span>${l}</span></a>`;
+    app.innerHTML = `<div class="vs bx2-st"><h1 style="left:${u(55)};top:${u(75)}">Бухта</h1>
+      ${cap("#/pod", "ПОДКАСТЫ", 263, 126, 120, 130)}${cap("#/music", "МУЗЫКА", 15, 260, 120, 130)}${cap("#/dict", "СИМВОЛЫ", 240, 386, 120, 120)}${cap("#/dives", "ПОГРУЖЕНИЯ", -103, 668, 240, 116, "flex-direction:row;align-items:center;justify-content:flex-end;padding-right:8px")}</div>`;
   }
   function FreeNote(i) {
     S.free = S.free || [];
-    const n = i !== undefined && S.free[+i] ? S.free[+i] : null;
-    app.innerHTML = `<div class="stack">${back("#/notes", "Моя карта")}
-      <div class="stack" style="gap:6px"><h1>Свободная заметка</h1><p class="small">Мысль, совпадение, образ из дня — что угодно.</p></div>
-      <textarea id="fn" rows="7" placeholder="Что хочется записать…">${n ? esc(n.text) : ""}</textarea>
+    const n = i !== undefined && S.free[+i] ? S.free[+i] : null, d0 = new Date(n ? n.at : now());
+    app.innerHTML = `<div class="stack" style="gap:16px">${n ? back("#/notes", "Моя карта") : back("#/", "Сегодня")}<div class="toppad"></div>
+      <div class="scr-h"><div class="cap">Заметки · ${PH_RU[phase()]}</div><h1>Как прошел день?</h1><p>Что было, что осталось внутри.</p></div>
+      ${vta("fn", n ? n.text : "", "Можно словами, можно голосом…", 4)}
+      <b class="qb">Что сегодня зацепило?</b>${vta("fh", n ? n.hook || "" : "", "Встреча, фраза, образ…", 2)}
+      <a class="link-row" href="#/sovp"><span class="row" style="gap:12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/></svg>Было совпадение?</span>${icon.chev}</a>
       <button type="button" class="btn" id="fs">Сохранить</button></div>`;
+    bindMics();
     $("#fs").onclick = () => {
-      const t = $("#fn").value.trim(); if (!t) return go("#/notes");
-      if (n) n.text = t; else S.free.push({ text: t, at: now() });
-      save(); haptic(); go("#/notes");
+      const t = $("#fn").value.trim(), hk = $("#fh").value.trim(); if (!t && !hk) return go(n ? "#/notes" : "#/");
+      if (n) { n.text = t; n.hook = hk; } else S.free.push({ text: t, hook: hk, at: now() });
+      save(); haptic(); toast("Сохранено в Мою карту"); go(n ? "#/notes" : "#/");
     };
   }
   let NF = "all", NM = "day", ND = null;
@@ -2266,61 +2276,126 @@ ${b}</svg>`;
     if (x.kind === "free") { const c = S.free[x.i]; col = "#A9BBD0"; kind = c.src === "guide" ? "ПРОВОДНИК" : "ЗАМЕТКА"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; href = "#/free/" + x.i; }
     if (x.kind === "deep") { const d = S.deep[x.i]; col = "#B9D5D6"; kind = "ЧЕРЕЗ ОБРАЗ"; t = deepLine(d); sub = d.now || d.lack || d.mem || ""; if (sub.length > 90) sub = sub.slice(0, 90) + "…"; href = "#/deepv/" + x.i; }
     if (x.kind === "word") { const c = S.catches[x.i]; col = "#C9775A"; kind = "НАЗВАННОЕ ЧУВСТВО"; t = c.word; href = "#/caught/" + x.i; }
+    if (x.kind === "sovp") { const c = S.sovp[x.i]; col = "#E3D2BE"; kind = "СОВПАДЕНИЕ"; t = c.text.length > 90 ? c.text.slice(0, 90) + "…" : c.text; sub = c.with ? "перекликается: " + c.with : ""; href = "#/sovp/" + x.i; }
     if (x.kind === "dive") { const n = S.notes[x.p.id] || {}; col = "#8CC4E8"; kind = "ПОГРУЖЕНИЕ"; t = x.p.title; sub = n.image ? (n.image.length > 90 ? n.image.slice(0, 90) + "…" : n.image) : ""; ch = chipsOf(n.feelings || [], "#24382F", "#D3E4D8"); href = "#/after/" + x.p.id; }
-    const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span style="color:${col}">${kind}</span><span>${x.ts ? dayLabel(x.ts) : ""}</span></span>${t ? `<b>${esc(t)}</b>` : ""}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
+    const inner = `<span class="bar" style="background:${col}"></span><span class="t"><span class="hd"><span>${kind}</span><span>${x.ts ? (NM === "day" ? new Date(x.ts).toTimeString().slice(0, 5) : dayLabel(x.ts)) : ""}</span></span>${t ? `<b>${esc(t)}</b>` : ""}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}${ch}</span>`;
     return href ? `<a class="note" href="${href}">${inner}</a>` : `<div class="note">${inner}</div>`;
   }
-  function Notes() {
+  function noteItems() {
     const items = [];
-    Object.keys(S.days || {}).forEach((k) => { const d = S.days[k]; if (d && d.done) items.push({ kind: "day", ts: dayTs(k), k }); });
-    Object.keys(S.dreams || {}).forEach((k) => { const d = S.dreams[k]; if (d && d.text) items.push({ kind: "dream", ts: dayTs(k), k }); });
+    Object.keys(S.days || {}).forEach((k) => { const d = S.days[k]; if (d && d.done) items.push({ kind: "day", ts: d.at || dayTs(k), k }); });
+    Object.keys(S.dreams || {}).forEach((k) => { const d = S.dreams[k]; if (d && d.text) items.push({ kind: "dream", ts: d.savedAt || dayTs(k), k }); });
     Object.keys(S.sym || {}).forEach((k) => { if (cardById(S.sym[k].id)) items.push({ kind: "sym", ts: S.sym[k].at || dayTs(k), k }); });
     (S.catches || []).forEach((c, i) => items.push({ kind: "word", ts: c.at, i }));
     (S.free || []).forEach((c, i) => { if (!c.off && c.src !== "guide") items.push({ kind: "free", ts: c.at, i }); });
+    (S.sovp || []).forEach((c, i) => items.push({ kind: "sovp", ts: c.at, i }));
     guideTalks().forEach((T) => items.push({ kind: "talk", ts: T.at, T }));
     (S.deep || []).forEach((d, i) => { if (!d.off) items.push({ kind: "deep", ts: d.at, i }); });
     ALLP.forEach((p) => { const n = S.notes[p.id]; if (n || counted(p.id)) items.push({ kind: "dive", ts: counted(p.id) || (n && n.savedAt) || 0, p }); });
-    items.sort((a, b) => b.ts - a.ts);
-    const idx = imgIndex(), L = topImgs(idx, 8);
-    let h = `<div class="stack" style="gap:14px"><div class="row hd-top" style="justify-content:space-between;align-items:flex-start;gap:12px"><div class="stack" style="gap:4px"><h1>Моя карта</h1><span class="small">Видишь только ты.</span></div><button type="button" class="addbtn" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>`;
-    h += L.length ? constellation(L) : `<div class="card dashed"><div class="small">Здесь появятся твои образы: из снов, погружений и символов дня. Чем чаще образ возвращается, тем ярче он светится.</div></div>`;
-    if (items.length) h += weekCard(idx);
-    if (NM === "day") {
-      const days = []; for (let i = 6; i >= 0; i--) days.push(dkey(now() - i * 86400000));
-      const has = (k) => items.some((x) => x.ts && dkey(x.ts) === k);
-      if (!ND || !days.includes(ND)) ND = has(days[6]) ? days[6] : days.slice().reverse().find(has) || days[6];
-      h += `<div class="dstrip">${days.map((k) => { const dots = dayDots(k).concat(S.sym[k] ? ["#F0C7B5"] : [], (S.deep || []).some((d) => !d.off && dkey(d.at) === k) ? ["#B9D5D6"] : []); return `<button type="button" class="${k === ND ? "on" : ""}" data-day="${k}">${["вс", "пн", "вт", "ср", "чт", "пт", "сб"][new Date(dayTs(k)).getDay()]}<span class="dd">${dots.slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join("")}</span></button>`; }).join("")}</div>`;
-      const dl = items.filter((x) => x.ts && dkey(x.ts) === ND);
-      h += `<div class="stack" style="gap:8px">${dl.length ? dl.map(noteItem).join("") : `<div class="small" style="padding:4px 2px">В этот день записей нет.</div>`}</div>`;
-      if (items.length) h += `<a href="#" class="link-row" id="nall" style="justify-content:center;border:none;color:var(--blue)">Все записи →</a>`;
-    } else {
-      const F = [["all", "Все"], ["feel", "Чувства"], ["body", "Тело"], ["image", "Образы"], ["thought", "Мысли"], ["dive", "Погружения"], ["dream", "Сны"], ["day", "Как ты"]];
-      h += `<a href="#" class="back" id="nday">${icon.back}По дням</a><div class="nfil">${F.map(([k, l]) => `<button type="button" class="${NF === k ? "on" : ""}" data-nf="${k}">${l}</button>`).join("")}</div>`;
-      // рубрики: части разговоров с Проводником раскладываются по своим вкладкам
-      const piece = (p, T) => ({ kind: "gpart", ts: T.at, p, T });
-      const list = NF === "all" ? items : ["feel", "body", "image", "thought"].includes(NF)
-        ? items.filter((x) => (NF === "feel" && x.kind === "word") || (NF === "body" && x.kind === "day") || (NF === "image" && (x.kind === "dream" || x.kind === "deep"))).concat(guideTalks().flatMap((T) => T.parts.filter((p) => (GCAT[String(p.type).toLowerCase()] || "thought") === NF).map((p) => piece(p, T)))).sort((a, b) => b.ts - a.ts)
-        : items.filter((x) => x.kind === NF);
-      h += list.length ? list.map(noteItem).join("") : `<div class="card dashed"><div class="small">Здесь будут твои записи: после погружений, сны, «Как ты?» и названные чувства.</div></div>`;
-    }
+    return items.sort((a, b) => b.ts - a.ts);
+  }
+  const NFIL = [["all", "Все"], ["dream", "Сны"], ["free", "Заметки"], ["feel", "Чувства"], ["body", "Тело"], ["sovp", "Совпадения"], ["dive", "Погружения"], ["talk", "Проводник"]];
+  const nfOk = (x, f) => f === "all" || (f === "feel" && (x.kind === "word" || x.kind === "day")) || (f === "body" && x.kind === "day") || (f === "dream" && x.kind === "dream") || (f === "free" && (x.kind === "free" || x.kind === "deep" || x.kind === "sym")) || (f === "sovp" && x.kind === "sovp") || (f === "dive" && x.kind === "dive") || (f === "talk" && x.kind === "talk");
+  function Notes() {
+    const items = noteItems();
+    let h = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><div class="scr-h"><h1>Моя карта</h1><span class="small">Видишь только ты.</span></div><div class="row" style="gap:8px"><a class="pill-g" href="#/svodka"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="margin-right:6px"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Сводка</a><button type="button" class="addbtn2" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F3654" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div>`;
+    const days = []; for (let i = 6; i >= 0; i--) days.push(dkey(now() - i * 86400000));
+    const has = (k) => items.some((x) => x.ts && dkey(x.ts) === k);
+    if (!ND || !days.includes(ND)) ND = has(days[6]) ? days[6] : days.slice().reverse().find(has) || days[6];
+    h += `<div class="wk">${days.map((k) => `<button type="button" class="${k === ND && NM === "day" ? "on" : ""}" data-day="${k}">${["вс", "пн", "вт", "ср", "чт", "пт", "сб"][new Date(dayTs(k)).getDay()]}${has(k) ? "<i></i>" : ""}</button>`).join("")}</div>`;
+    h += `<div class="nfil2">${NFIL.map(([k, l]) => `<button type="button" class="${NF === k ? "on" : ""}" data-nf="${k}">${l}</button>`).join("")}</div>`;
+    const list = items.filter((x) => nfOk(x, NF) && (NM !== "day" || (x.ts && dkey(x.ts) === ND)));
+    if (!list.length) h += `<div class="card dashed"><div class="small">${NM === "day" ? "В этот день записей нет." : "Здесь будут твои записи: сны, заметки, чувства, погружения и совпадения."}</div></div>`;
+    let lastDay = "";
+    list.forEach((x) => { const k = dkey(x.ts); if (k !== lastDay) { const d = new Date(x.ts); h += `<div class="cap" style="margin-top:4px">${WDAY[d.getDay()]}, ${d.getDate()} ${MONS[d.getMonth()]}</div>`; lastDay = k; } h += noteItem(x); });
+    h += `<a href="#" class="center small" id="nall" style="padding:10px 0;text-decoration:underline;text-underline-offset:4px">${NM === "day" ? "Все записи" : "По дням"}</a>`;
     app.innerHTML = h + `</div>`;
     app.querySelectorAll("[data-nf]").forEach((b) => b.onclick = () => { NF = b.dataset.nf; Notes(); });
-    app.querySelectorAll("[data-day]").forEach((b) => b.onclick = () => { ND = b.dataset.day; Notes(); });
-    if ($("#nall")) $("#nall").onclick = (e) => { e.preventDefault(); NM = "all"; Notes(); };
-    if ($("#nday")) $("#nday").onclick = (e) => { e.preventDefault(); NM = "day"; Notes(); };
-    $("#addN").onclick = () => {
-      const blu = (x) => x.replace('stroke="#0F1E33"', 'stroke="#8CC4E8"').replace(/width="18" height="18"/, 'width="20" height="20"');
-      const o = (href, ic, t, sub) => `<a class="opt" href="${href}"><span class="oi">${ic}</span><span class="t"><b>${t}</b><span>${sub}</span></span>${icon.chev}</a>`;
+    app.querySelectorAll("[data-day]").forEach((b) => b.onclick = () => { ND = b.dataset.day; NM = "day"; Notes(); });
+    $("#nall").onclick = (e) => { e.preventDefault(); NM = NM === "day" ? "all" : "day"; Notes(); };
+    $("#addN").onclick = newEntrySheet;
+  }
+  function newEntrySheet() {
+    const ic = (p) => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+    const o = (href, i, t, sub) => `<a class="opt" href="${href}"><span class="oi">${ic(i)}</span><span class="t"><b>${t}</b><span>${sub}</span></span></a>`;
+    const bg = document.createElement("div"); bg.className = "sheet-bg";
+    bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ash"><div class="grip"></div><div class="cap" id="ash">Новая запись</div>
+      ${o("#/dream", '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', "Сон", "Что приснилось, пока помнится")}
+      ${o("#/free", '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>', "Заметка", "Мысль, событие, что-то из дня")}
+      ${o("#/quick/feel", '<path d="M3 12h4l2-5 4 10 2-5h6"/>', "Чувства", "Что сейчас внутри и насколько сильно")}
+      ${o("#/today", '<circle cx="12" cy="4.5" r="2"/><path d="M12 7v7M8 10h8M9.5 21l2.5-7 2.5 7"/>', "Тело", "Где откликается и как ощущается")}
+      ${o("#/sovp", '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>', "Совпадение", "Образ из сна или практики встретился в жизни")}</div>`;
+    bg.onclick = (ev) => { if (ev.target === bg || ev.target.closest("a")) bg.remove(); };
+    document.body.appendChild(bg);
+  }
+  // совпадение: что встретилось в жизни и с чем перекликается
+  function Sovp(i) {
+    S.sovp = S.sovp || [];
+    const old = i !== undefined && S.sovp[+i] ? S.sovp[+i] : null;
+    const D = S.sovpDraft && !old ? S.sovpDraft : (S.sovpDraft = old ? Object.assign({}, old) : { text: "", feel: "", kind: "", with: "", ref: "" });
+    const K = [["dive", "Практика", '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'], ["dream", "Сон", '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'], ["mem", "Воспоминание", '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 8v4l3 2"/>'], ["own", "Свой образ", '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.3 6L12 16.6 6.6 19.4l1.3-6L3.4 9.3l6-.7z"/>']];
+    const draw = () => {
+      app.innerHTML = `<div class="stack" style="gap:16px;padding-top:20px"><a class="circ-b" href="#/notes" aria-label="Назад">${icon.back}</a>
+        <div class="scr-h"><div class="cap">Совпадение</div><h1>Что-то встретилось снова</h1></div>
+        <div class="card" style="gap:14px;padding:18px">
+          <b class="qb">Что ты ${S.profile && S.profile.gender === "m" ? "заметил" : "заметила"} в жизни?</b><textarea id="stx" rows="3" placeholder="Например: на соседней улице сносят старый дом…">${esc(D.text)}</textarea>
+          ${D.feelOpen || D.feel ? `<b class="qb">Какое чувство или ощущение появилось?</b><input class="inp" id="sfe" maxlength="80" value="${esc(D.feel)}">` : `<button type="button" class="lnk" id="sfo">+ Какое чувство или ощущение появилось?</button>`}
+          <b class="qb">С чем перекликается?</b>
+          <div class="sk4">${K.map(([k, l, ic]) => `<button type="button" class="${D.kind === k ? "on" : ""}" data-k="${k}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg>${l}</button>`).join("")}</div>
+          ${D.with ? `<div class="swith"><div class="row" style="justify-content:space-between"><span class="cap" style="font-size:10px">${esc(D.withLbl || "")}</span><button type="button" class="lnk" id="sch" style="font-size:12px">изменить</button></div><span>${esc(D.with)}</span></div>` : D.kind === "mem" || D.kind === "own" ? `<input class="inp" id="swi" maxlength="120" placeholder="${D.kind === "mem" ? "Какое воспоминание…" : "Какой образ…"}">` : ""}
+        </div>
+        <button class="btn" id="ssave">Сохранить в Мою карту</button></div>`;
+      $("#stx").oninput = (e) => { D.text = e.target.value; save(); };
+      if ($("#sfo")) $("#sfo").onclick = () => { D.feelOpen = true; draw(); $("#sfe").focus(); };
+      if ($("#sfe")) $("#sfe").oninput = (e) => { D.feel = e.target.value; save(); };
+      if ($("#swi")) $("#swi").onchange = (e) => { D.with = e.target.value.trim(); D.withLbl = D.kind === "mem" ? "Воспоминание" : "Свой образ"; save(); draw(); };
+      if ($("#sch")) $("#sch").onclick = () => { D.with = ""; save(); pick(D.kind); };
+      app.querySelectorAll("[data-k]").forEach((b) => b.onclick = () => { D.kind = b.dataset.k; D.with = ""; save(); if (D.kind === "dream" || D.kind === "dive") pick(D.kind); else draw(); });
+      $("#ssave").onclick = () => {
+        if (!D.text.trim()) { toast("Напиши, что встретилось"); return; }
+        const rec = { text: D.text.trim(), feel: (D.feel || "").trim(), kind: D.kind, with: D.with || "", withLbl: D.withLbl || "", at: old ? old.at : now() };
+        if (old) Object.assign(old, rec); else S.sovp.push(rec); S.sovpDraft = null; save(); haptic(); toast("Сохранено в Мою карту"); go("#/notes");
+      };
+    };
+    const pick = (kind) => {
+      const list = kind === "dream" ? Object.keys(S.dreams || {}).filter((k) => S.dreams[k] && S.dreams[k].text).sort().reverse().map((k) => ({ lbl: "Сон · " + new Date(dayTs(k)).getDate() + " " + MONS[new Date(dayTs(k)).getMonth()], t: S.dreams[k].text }))
+        : ALLP.filter((p) => counted(p.id) || S.notes[p.id]).map((p) => ({ lbl: "Погружение · " + (p._free ? "вне циклов" : p._cy.title), t: p.title + (S.notes[p.id] && S.notes[p.id].image ? ": " + S.notes[p.id].image : "") }));
       const bg = document.createElement("div"); bg.className = "sheet-bg";
-      bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ash"><div class="grip"></div><h2 id="ash" style="font-size:19px">Что записать?</h2>
-        ${o("#/dream", blu(ICN.moon), "Сон", "что снилось и что откликается")}
-        ${o("#/journal", ICO.req, "Погружение", "образы и чувства после практики")}
-        ${o("#/symbol", blu(ICN.card), "Символ", "образ, который зацепил")}
-        ${o("#/gate", blu(ICN.body), "Чувства", "назвать, что сейчас внутри")}
-        ${o("#/free", '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>', "Свободная заметка", "мысль, совпадение, что угодно")}</div>`;
-      bg.onclick = (ev) => { if (ev.target === bg || ev.target.closest("a")) bg.remove(); };
+      bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grip"></div><div class="row" style="justify-content:space-between"><span class="cap">${kind === "dream" ? "Выбери сон" : "Выбери практику"}</span><span class="small" style="font-size:12px">из Моей карты</span></div>
+        ${list.length ? list.slice(0, 20).map((x, j) => `<button type="button" class="pk" data-j="${j}"><span class="cap" style="font-size:10px">${esc(x.lbl)}</span><span>${esc(x.t.length > 110 ? x.t.slice(0, 110) + "…" : x.t)}</span></button>`).join("") : `<p class="small">${kind === "dream" ? "Снов пока нет." : "Пройденных погружений пока нет."}</p>`}</div>`;
+      bg.onclick = (ev) => { if (ev.target === bg) bg.remove(); const b = ev.target.closest("[data-j]"); if (b) { const x = list[+b.dataset.j]; D.with = x.t; D.withLbl = x.lbl; save(); bg.remove(); draw(); } };
       document.body.appendChild(bg);
     };
+    draw();
+  }
+  // сводка: что повторялось за неделю, месяц, год
+  let SVP = "month", SVO = 0;
+  function Svodka() {
+    const t0 = new Date(now()); let from, to, title;
+    if (SVP === "week") { const d = new Date(t0); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + SVO * 7); from = d.getTime(); to = from + 7 * 86400000; const e = new Date(to - 1); title = d.getDate() + " " + MONS[d.getMonth()] + " — " + e.getDate() + " " + MONS[e.getMonth()]; }
+    else if (SVP === "year") { const y = t0.getFullYear() + SVO; from = new Date(y, 0, 1).getTime(); to = new Date(y + 1, 0, 1).getTime(); title = String(y); }
+    else { const m = new Date(t0.getFullYear(), t0.getMonth() + SVO, 1); from = m.getTime(); to = new Date(m.getFullYear(), m.getMonth() + 1, 1).getTime(); title = cap1(["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"][m.getMonth()]) + " " + m.getFullYear(); }
+    const inR = (ts) => ts >= from && ts < to, items = noteItems().filter((x) => inR(x.ts));
+    const cnt = (k) => items.filter((x) => x.kind === k).length;
+    const per = SVP === "week" ? "неделю" : SVP === "year" ? "год" : "месяц";
+    const idx = imgIndex(), imgs = Object.values(idx).map((x) => ({ w: x.w, n: x.refs.filter((r) => inR(r.ts)).length })).filter((x) => x.n).sort((a, b) => b.n - a.n).slice(0, 7);
+    const pos = [[34, 30], [62, 18], [20, 62], [70, 52], [46, 72], [84, 80], [12, 26]];
+    const feel = {}, body = {};
+    items.forEach((x) => { if (x.kind === "word") { const w = S.catches[x.i].word; feel[w] = (feel[w] || 0) + 1; } if (x.kind === "day") { const d = S.days[x.k]; ((d.feel && d.feel.list) || []).forEach((w) => { feel[w] = (feel[w] || 0) + 1; }); Object.keys(d.zones || {}).forEach((z) => { const t = zoneTitle(z); body[t] = (body[t] || 0) + 1; }); } });
+    const bars = (o) => { const L = Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 5), mx = L.length ? L[0][1] : 1; return L.map(([k, v]) => `<div class="sbar"><span>${esc(cap1(k))}</span><i><b style="width:${(v / mx) * 100}%"></b></i><em>${v}</em></div>`).join(""); };
+    const sv = items.filter((x) => x.kind === "sovp").map((x) => S.sovp[x.i]);
+    const dives = items.filter((x) => x.kind === "dive");
+    app.innerHTML = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="gap:12px"><a class="circ-b" href="#/notes" aria-label="Назад">${icon.back}</a><div class="scr-h"><h1>Сводка</h1><span class="small">Что повторялось за период</span></div></div>
+      <div class="per">${[["week", "Неделя"], ["month", "Месяц"], ["year", "Год"]].map(([k, l]) => `<button type="button" class="${SVP === k ? "on" : ""}" data-p="${k}">${l}</button>`).join("")}</div>
+      <div class="row" style="justify-content:space-between"><button type="button" class="ib2" id="pv" aria-label="Раньше">‹</button><b style="font-weight:500">${title}</b><button type="button" class="ib2" id="nx" aria-label="Позже"${SVO >= 0 ? " disabled" : ""}>›</button></div>
+      <div class="st4"><div><b>${cnt("dream")}</b><span>${plural(cnt("dream"), "сон", "сна", "снов")}</span></div><div><b>${cnt("free") + cnt("sovp")}</b><span>заметок</span></div><div><b>${cnt("word") + cnt("day")}</b><span>чувства, тело</span></div><div><b>${dives.length}</b><span>погружения</span></div></div>
+      <div class="imap"><div class="cap">Образы за ${per}</div>${imgs.length ? imgs.map((x, j) => `<a href="${imgHref(x.w)}" style="left:${pos[j][0]}%;top:${pos[j][1]}%"><i style="width:${8 + Math.min(10, x.n * 2)}px;height:${8 + Math.min(10, x.n * 2)}px"></i>${esc(cap1(x.w))} · ${x.n}</a>`).join("") : `<p class="small" style="position:absolute;left:16px;right:16px;top:44%;color:#3F5266">Образы появятся, когда будут сны и погружения.</p>`}</div>
+      <div class="card" style="gap:10px"><div class="row" style="justify-content:space-between"><span class="cap">Совпадения за ${per}</span><b style="font-weight:500">${sv.length}</b></div>${sv.length ? sv.slice(0, 4).map((c) => `<div class="svi"><span class="svi-i"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></span><span class="stack" style="gap:2px"><b style="font-weight:500">${esc(c.text.length > 50 ? c.text.slice(0, 50) + "…" : c.text)}</b>${c.with ? `<span class="small">${esc(c.withLbl ? c.withLbl + " — " : "")}${esc(c.with.slice(0, 60))}</span>` : ""}</span></div>`).join("") : `<span class="small">Пока не было. Совпадение можно записать через «+» в Моей карте.</span>`}</div>
+      ${Object.keys(feel).length ? `<div class="card" style="gap:10px"><div class="row" style="justify-content:space-between"><span class="cap">Чувства</span><span class="small" style="font-size:11px">чаще всего</span></div>${bars(feel)}</div>` : ""}
+      ${Object.keys(body).length ? `<div class="card" style="gap:10px"><div class="row" style="justify-content:space-between"><span class="cap">Тело</span><span class="small" style="font-size:11px">где откликалось</span></div>${bars(body)}</div>` : ""}
+      ${dives.length ? `<div class="card" style="gap:6px"><span class="cap">Погружения</span><b style="font-weight:500">${dives.length} ${plural(dives.length, "погружение", "погружения", "погружений")}</b><span class="small">${esc(dives.map((x) => x.p.title).slice(0, 4).join(", "))}</span></div>` : ""}</div>`;
+    app.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { SVP = b.dataset.p; SVO = 0; Svodka(); });
+    $("#pv").onclick = () => { SVO--; Svodka(); }; $("#nx").onclick = () => { if (SVO < 0) { SVO++; Svodka(); } };
   }
   const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
   function renameImg(a, b) { S.ren = S.ren || {}; if (S.ren[b] === a) delete S.ren[b]; S.ren[a] = b; S.hide = (S.hide || []).filter((x) => x !== b); save(); }
@@ -2360,23 +2435,29 @@ ${b}</svg>`;
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
-    const LIBR = ["lib", "dives", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "free", "journal", "export", "img", "deepv", "talk"];
+    const LIBR = ["lib", "dives", "journal", "integr", "after", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "svodka", "sovp", "free", "export", "img", "deepv", "talk"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
-    const tabI = ["player", "after", "return", "hello", "adult"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) ? 3 : 0;
+    const tabI = ["player", "hello", "adult"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) && !(r === "free" && !id) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
-    if (r !== "policy" && (!S.profile || S.profile.minor)) { paintTabs(-1); setWater(""); }
+    if (r !== "policy" && (!S.profile || S.profile.minor)) { paintTabs(-1); setWater(""); setBg(r === "hello" && id === "2" ? "Anketa-1.webp" : "Main-1.jpg"); }
     if (r !== "policy") {
       if (!S.profile) return r === "hello" && id === "2" ? Know() : Welcome();
       if (S.profile.minor) return Minor();
     }
     paint = () => {};
+    document.body.classList.remove("dim", "nofade");
     paintMini();
     const FULL = ["", "lib", "guide", "notes", "img"], DARK = ["prep", "safety", "player", "after", "return"];
     paintTabs(tabI); setWater(FULL.includes(r || "") ? "full" : DARK.includes(r) || tabI < 0 ? "" : "tint");
+    const BG = { "": ["Segodnya5m-1.webp", "100% 0"], symbol: ["Segodnya5m-1.webp", "100% 0"], lib: ["Bukhta-1.webp"], dives: ["Pogruzheniya-1.webp"], journal: ["Pogruzheniya-1.webp"], cycle: ["Pogruzheniya-1.webp"], prep: ["Pogruzheniya-1.webp"], safety: ["Pogruzheniya-1.webp"], player: ["Pogruzheniya-1.webp"], "return": ["Pogruzheniya-1.webp"], after: ["ZapisPosle-1.webp", "", 1], integr: ["ZapisPosle-1.webp", "", 1], deepv: ["ZapisPosle-1.webp", "", 1], music: ["Anketa-1.webp"], dream: ["PanelSon-1.webp", "", 2], free: ["PanelZametki-1.webp", "", 2], quick: [id === "feel" ? "Anketa-1.webp" : "PanelNaBegu-1.webp", "", id === "feel" ? 0 : 2], catch: [!id ? "Anketa-1.webp" : id === "down" ? "AptVniz-1.webp" : "AptVverh-1.webp"], caught: ["AptVverh-1.webp"], feels: ["AptTablica-1.webp"], deep: ["Nikuda1-5.webp"], talk: ["ProvodnikChat-1.jpg"] };
+    const bg = BG[r || ""] || ["Anketa-1.webp"];
+    setBg(bg[0], { pos: bg[1], top: bg[2], flip: bg[2] === 1 });
     switch (r) {
-      case "dives": return Dives(id);
+      case "dives": return Dives();
       case "lib": return Lib();
       case "notes": return Notes();
+      case "svodka": return Svodka();
+      case "sovp": return Sovp(id);
       case "img": return ImgPage(decodeURIComponent(id || ""));
       case "deepv": return DeepView(id);
       case "talk": return Talk(id);
@@ -2396,12 +2477,12 @@ ${b}</svg>`;
       case "me": return Me();
       case "guide": return Guide();
       case "export": return Export(id);
-      case "quick": return Quick();
+      case "quick": return id === "feel" ? Quick() : QuickVoice();
       case "prep": return Prep(id);
       case "player": return Player(id);
       case "return": return Return(id);
       case "after": return After(id);
-      case "journal": return Journal(id);
+      case "journal": return Journal();
       case "integr": return Integr(id);
       case "aid": return Aid();
       case "observer": return Observer();
