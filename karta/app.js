@@ -1247,12 +1247,11 @@ window.startApp = function () {
         const sub = vo ? "с голосом, дальше музыка" : (pq.length > 1 && pi >= 0 ? pi + 1 + " из " + pq.length + " · " : "") + (isPlay ? (left ? "затихнет через " + left + " мин" : "играет") : on && M.cur === t.id ? "пауза" : "выбран");
         const m = MOOD[moodOf(t)];
         const html = `<div class="mbar" style="background:linear-gradient(110deg,${m[0]}F2,${m[1]}F2 70%);border-color:${m[0]}"><div class="mbar-r">${cover(t, 44)}
-          <span class="mbar-t"><b>${esc(t.title)}</b><span>${sub}</span></span>
-          <button type="button" class="ib${r !== "none" ? " on" : ""}" id="mrep" aria-label="Повтор: ${REP_LABEL[r]}">${ICM.rep}${r === "one" ? '<span class="badge">1</span>' : ""}</button>
-          <button type="button" class="ib${st.timer ? " on" : ""}" id="mtmr" aria-label="Таймер сна">${ICM.moon}${st.timer ? `<span class="badge">${isPlay && left ? left : st.timer}</span>` : ""}</button>
-          </div>
-          <input class="mseek" id="ms" type="range" min="0" max="${Math.max(1, Math.floor(d))}" step="1" value="${Math.floor(c)}" aria-label="Перемотка" style="--p:${d ? Math.min(100, (c / d) * 100).toFixed(1) : 0}%"${on && M.cur === t.id ? "" : " disabled"}><div class="mtimes"><span>${fmt(c)}</span><span>${fmt(d)}</span></div>
-          <div class="mbar-c"><button type="button" class="ib nav" id="mprev" aria-label="Предыдущий трек">${ICM.prev}</button><button type="button" class="mplay" id="mp" aria-label="${isPlay ? "Пауза" : "Играть"}">${isPlay ? ICM.pause : ICM.play}</button><button type="button" class="ib nav" id="mnext" aria-label="Следующий трек">${ICM.next}</button></div></div>`;
+          <span class="mbar-t"><b>${esc(t.title)}</b><span>${sub}</span></span></div>
+          <div class="mseek-r"><span>${fmt(c)}</span><input class="mseek" id="ms" type="range" min="0" max="${Math.max(1, Math.floor(d))}" step="1" value="${Math.floor(c)}" aria-label="Перемотка" style="--p:${d ? Math.min(100, (c / d) * 100).toFixed(1) : 0}%"${on && M.cur === t.id ? "" : " disabled"}><span>${fmt(d)}</span></div>
+          <div class="mbar-c"><button type="button" class="ib${st.timer ? " on" : ""}" id="mtmr" aria-label="Таймер сна"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="14" r="7"/><path d="M12 10v4l2.5 1.5M10 3h4M12 3v4"/></svg>${st.timer ? `<span class="badge">${isPlay && left ? left : st.timer}</span>` : ""}</button>
+            <button type="button" class="ib nav" id="mprev" aria-label="Предыдущий трек">${ICM.prev}</button><button type="button" class="mplay" id="mp" aria-label="${isPlay ? "Пауза" : "Играть"}">${isPlay ? ICM.pause : ICM.play}</button><button type="button" class="ib nav" id="mnext" aria-label="Следующий трек">${ICM.next}</button>
+            <button type="button" class="ib${r !== "none" ? " on" : ""}" id="mrep" aria-label="Повтор: ${REP_LABEL[r]}">${ICM.rep}${r === "one" ? '<span class="badge">1</span>' : r !== "none" ? '<i class="rdot"></i>' : ""}</button></div></div>`;
         if (el._h === html) return; el._h = html; el.innerHTML = html;
         $("#mp").onclick = () => {
           if (isPlay) stopMusic();
@@ -2183,7 +2182,7 @@ ${b}</svg>`;
     app.innerHTML = h + `</div>`;
   }
   // Бухта: точки на картинке (координаты в пикселях исходника 780×1170). Нажимается и предмет, и подпись.
-  const BX = [["#/pod", "ПОДКАСТЫ", 470, 150, 220, 180, "b"], ["#/music", "МУЗЫКА", 130, 360, 200, 160, "b"], ["#/dict", "СИМВОЛЫ", 455, 530, 185, 150, "b"], ["#/dives", "ПОГРУЖЕНИЯ", 100, 810, 240, 210, "r"]];
+  const BX = [["#/pod", "ПОДКАСТЫ", 470, 150, 220, 180, "b"], ["#/music", "МУЗЫКА", 130, 360, 200, 160, "b"], ["#/dict", "СИМВОЛЫ", 455, 530, 185, 150, "b"], ["#/dives", "ПОГРУЖЕНИЯ", 100, 810, 240, 200, "b"]];
   function Lib() {
     setBg(null); document.body.classList.add("nofade");
     app.innerHTML = `<div class="bx2-st"><img class="bx2-img" src="${V27}Bukhta-1.webp" alt=""><h1 class="bx2-h">Бухта</h1>${BX.map(([href, l], i) => `<a class="bx3" href="${href}" data-i="${i}" aria-label="${cap1(l.toLowerCase())}"><span>${l}</span></a>`).join("")}</div>`;
