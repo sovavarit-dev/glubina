@@ -1108,3 +1108,45 @@ body.lt .found{background:var(--glass-light)}
 .sbar i{height:6px;border-radius:3px;background:rgba(245,232,217,.12);overflow:hidden}.sbar i b{display:block;height:100%;background:var(--cream);border-radius:3px}
 .sbar em{font-style:normal;color:var(--text-muted);text-align:right}
 .wk{padding:6px;border-radius:30px;background:var(--glass-dark);border:1px solid var(--glass-dark-line)}.wk button{border:0;background:none;height:44px}
+/* v28.1 · читаемость поверх акварели */
+:root{--muted:#C3D0DE;--text-muted:#C3D0DE}
+.card,.note,.opt,.choice,.sym-row,.prac,.nowcard,.glass,.trk,.cy-row,.pr-row,.sheet,.msg,.jr,.nbox,.paper,.st4,.imap,#tabs,.mbar,.chat .b{--muted:#9FB2C8;--text-muted:#A9BACC}
+#bgill::before{content:"";position:absolute;left:0;right:0;top:0;height:260px;z-index:1;background:linear-gradient(180deg,rgba(11,23,40,.55),rgba(11,23,40,0))}
+body.lt #bgill::before,body.nofade #bgill::before{display:none}
+body:not(.lt) #app{text-shadow:0 1px 12px rgba(7,17,31,.8)}
+#app :is(.btn,.card,.note,.opt,.choice,.sym-row,.prac,.glass,.cy-row,.pr-row,.chip,.chips button,.nfil2 button,.wk,.per,.sk4,.st4,.imap,.msg,.jr,.nbox,.paper,.sbar,.pill-c,.pill-g,input,textarea,.inp,.dtile,.seac,.chat .b,.tile,button){text-shadow:none}
+.back,.back span{color:#C3D0DE}
+.kicker,.cap{color:var(--caps)}
+body.lt .back,body.lt .back span{color:#3F5266}
+/* меню: отступ и затемнение под ним */
+body.tabs #app{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+body.tabs::after{content:"";position:fixed;left:0;right:0;bottom:0;height:calc(140px + env(safe-area-inset-bottom));z-index:7;pointer-events:none;background:linear-gradient(180deg,rgba(15,30,51,0),rgba(15,30,51,.92) 55%,#0F1E33)}
+body.tabs.lt::after{background:linear-gradient(180deg,rgba(234,223,207,0),rgba(234,223,207,.92) 55%,#EADFCF)}
+body.lt #tabs{background:rgba(250,244,236,.7);border-color:rgba(255,255,255,.7)}
+body.lt #tabs a{color:#3F5266}body.lt #tabs a.on{color:#1F3654}
+/* безопасная зона сверху */
+#app{padding-top:calc(16px + env(safe-area-inset-top))}
+/* мелкие подписи */
+.st4 span{font-size:12px;color:#C3D0DE}
+.pr-row .t span{font-size:12.5px;color:#C3D0DE}
+.dtile .dn{font-size:12px;opacity:1;color:#C3D0DE}
+.cy-row .t span{font-size:12px}
+/* проводник */
+.g-sub{font-size:14px;line-height:1.45;color:#C3D0DE;margin:0}
+.g-how{margin:0;padding-left:18px;font-size:14px;line-height:1.6;color:#C3D0DE}
+.g-soon{font-size:14px;color:var(--caps);letter-spacing:.04em;margin:4px 0}
+.chat .b.me{background:rgba(245,238,228,.14);border:1px solid rgba(255,250,240,.3);color:var(--cream)}
+.gdock{position:fixed;left:16px;right:16px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:9;max-width:488px;margin:0 auto;display:flex;gap:8px;align-items:flex-end}
+.gdock::before{content:"";position:absolute;left:-16px;right:-16px;bottom:-110px;height:220px;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(15,30,51,0),rgba(15,30,51,.95) 45%,#0F1E33)}
+.gdock textarea{flex:1;resize:none;border-radius:24px;min-height:52px;background:rgba(245,238,228,.12)!important}
+.gdock .sendb{width:52px;height:52px;border-radius:50%;border:0;background:var(--cream);display:flex;align-items:center;justify-content:center;flex:none}
+.gdock .sendb:disabled{opacity:.5}
+#app:has(.gdock){padding-bottom:calc(200px + env(safe-area-inset-bottom))}
+.t-hd{transition:transform .35s ease}
+#today.hasmsg .t-hd{transform:translateY(46px)}
+.msg{background:rgba(11,23,40,.92)}
+#bgill.shade::before{height:380px;background:linear-gradient(180deg,rgba(11,23,40,.72),rgba(11,23,40,.45) 55%,rgba(11,23,40,0))}
+body.lt .cap{color:#7A6450;font-weight:600}
+.btn:disabled,.btn[disabled]{opacity:1;background:var(--glass-milk);border:1px solid var(--glass-milk-line);color:rgba(245,232,217,.5)}
+.per{grid-template-columns:repeat(4,1fr)}.per button{font-size:13.5px}
+input[type=date].inp{flex:1;min-width:0;color-scheme:dark}

@@ -2,6 +2,7 @@ window.startApp = function () {
   "use strict";
 
   const C = window.CONTENT;
+  (function clean(o) { if (!o || typeof o !== "object") return; for (const k in o) { const v = o[k]; if (typeof v === "string" && /^\[Текст хранится/.test(v)) o[k] = ""; else if (v && typeof v === "object") clean(v); } })(C);
   const tg = window.Telegram && window.Telegram.WebApp;
   const H = 3600 * 1000;
   const COUNT_AFTER_SEC = 120;      // практика засчитывается после 2 минут
@@ -297,7 +298,7 @@ window.startApp = function () {
   }
   function After(id) {
     const p = prac(id);
-    const n = S.notes[id] || { image: "", feelings: [], own: [], stand: "" };
+    const n = S.notes[id] || { image: "", feelings: [], own: [], stand: "" }; n.feelings = n.feelings || [];
     const all = C.feelings.concat(n.own || []);
     const saved = !!n.savedAt;
     app.innerHTML = `<div class="stack" style="gap:16px">${back("#/return/" + id, "Возвращение")}
@@ -359,7 +360,15 @@ window.startApp = function () {
     if (!p || !p.integration) return go("#/");
     const hd = (sub) => `${back("#/journal", "Мои погружения")}<div class="scr-h" style="margin-top:calc(min(100vw,520px) * .52)"><div class="cap">Интеграция · ${esc(p._free ? "вне циклов" : p._cy.title + " · " + (p._i + 1))}</div><h1>${esc(p.title)}</h1><p>${sub}</p></div>`;
     if (p.integration.soon) { app.innerHTML = `<div class="stack">${hd("Интеграция к этой практике скоро появится. А пока побудь с тем ощущением, которое осталось в теле.")}</div>`; return; }
-    if (!integrOpen(id)) { app.innerHTML = `<div class="stack">${hd("Интеграция откроется " + fmtWhen(integrAt(id)) + ".")}</div>`; return; }
+    if (!integrOpen(id)) {
+      const at = integrAt(id), n0 = S.notes[id] || {};
+      const left = at ? Math.max(0, at - now()) : 0, hh = Math.floor(left / 3600e3), mm = Math.ceil((left % 3600e3) / 60000);
+      app.innerHTML = `<div class="stack" style="gap:18px">${hd(at ? "Интеграция откроется " + fmtWhen(at) + "." : "Интеграция откроется через 8 часов после прослушивания.")}
+        ${n0.image ? `<button type="button" class="paper" id="paper"><img src="${V27}Integraciya-1.webp" alt=""><img class="pin" src="${V27}Segodnya5m-4.webp" alt=""><span class="paper-t"><span class="cap" style="color:#7A6650">Запись сразу после</span><span class="paper-x">«${esc(n0.image)}»</span><span class="paper-h">Коснись, чтобы развернуть</span></span></button>` : at ? `<a class="card" href="#/after/${id}" style="gap:6px"><span class="cap">Запись сразу после</span><span class="small">Пока пусто. Можно записать, что пришло, до начала интеграции.</span></a>` : ""}
+        ${at ? `<div class="card row" style="flex-direction:row;gap:14px;align-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg><span class="stack" style="gap:2px"><b style="font-weight:500;font-size:20px">${hh ? hh + " ч " : ""}${mm} мин</b><span class="small">до интеграции. Пусть пока побудет внутри.</span></span></div>` : `<a class="btn" href="#/prep/${id}">К погружению</a>`}</div>`;
+      if ($("#paper")) $("#paper").onclick = () => $("#paper").classList.toggle("open");
+      return;
+    }
     const I = p.integration, a = (S.integr[id] && S.integr[id].answers) || {}, done = S.integr[id] && S.integr[id].done;
     const n = S.notes[id] || {};
     const field = (k, t, d, ph) => `<div class="stack" style="gap:8px"><b class="qb">${esc(t)}</b>${d ? `<span class="small">${esc(d)}</span>` : ""}${vta("f_" + k, a[k], ph || "Можно словами, можно голосом…", 3, `data-k="${k}"`)}</div>`;
@@ -542,12 +551,12 @@ window.startApp = function () {
       `<span class="cap gcap">ИИ-проводник</span><div class="b">${gText(m.t)}</div>${m.mark ? `<span class="small" style="font-size:11px;margin:-4px 0 0 6px">${m.mark.ok ? "отмечено: хорошо" : "отмечено: не так"}</span>` : `<span class="gmk" style="display:flex;gap:14px;margin:-2px 0 0 6px;font-size:12px"><a href="#" data-ok="${i}" style="color:var(--muted)">хорошо</a><a href="#" data-no="${i}" style="color:var(--muted)">не так</a></span>`}`).join("");
     const ent = G.entries;
     app.innerHTML = `<div class="stack">
-      <div class="toppad" style="height:calc(min(100vw,520px) * .5)"></div><div class="scr-h"><div class="cap">Капитанская рубка</div><h1>Проводник</h1><p style="font-size:13px;color:var(--text-muted)">Разговор сохраняется в Моей карте</p>
+      <div class="toppad" style="height:calc(min(100vw,520px) * .64)"></div><div class="scr-h"><div class="cap">Капитанская рубка</div><h1>Проводник</h1><p class="g-sub">Разговор сохраняется в Моей карте</p>
       ${G.msgs.length ? "" : `<p class="lead" style="font-size:14px">Напиши, что сейчас происходит: чувство, сон, образ из погружения. Проводник задает вопросы и не толкует за тебя.</p>`}
       <p class="small" style="font-size:12px">Тестовый режим. Если сейчас опасно — звони 112.</p></div>
       <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b typing" aria-label="Проводник пишет"><i></i><i></i><i></i></div>` : ""}</div>
       ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${G.keys && G.keys.length ? `<span class="small">В «Мою карту» добавлены образы: ${G.keys.map((k) => `<a href="${imgHref(k)}" style="color:var(--blue)">${esc(k)}</a>`).join(", ")}</span>` : ""}${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Моя карта»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
-      <div class="row" style="gap:8px;align-items:flex-end"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Напиши, что сейчас важно…" style="flex:1;resize:none;border-radius:24px"${guideBusy ? " disabled" : ""}>${esc(S.guideDraft || "")}</textarea><button class="sendb" id="gsend"${guideBusy ? " disabled" : ""} aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+      <div class="gdock"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Напиши, что сейчас важно…" style="flex:1;resize:none;border-radius:24px"${guideBusy ? " disabled" : ""}>${esc(S.guideDraft || "")}</textarea><button class="sendb" id="gsend"${guideBusy ? " disabled" : ""} aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
       ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--blue)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
     const ch = $("#gch"); if (ch && ch.lastElementChild) ch.lastElementChild.scrollIntoView({ block: "nearest" });
     const fresh = () => { S.guide = gNew(); save(); Guide(); };
@@ -593,14 +602,12 @@ window.startApp = function () {
   }
   // заглушка проводника для всех, кроме тестировщиков
   function GuideSoon() {
+    setBg("ProvodnikChat-1.jpg", { top: true });
     app.innerHTML = `<div class="stack">
-      <div class="stack" style="gap:8px"><span class="soon-p">Скоро</span><h1>Проводник</h1>
-      <p class="lead">Помогает разобраться в образах, снах и чувствах так, как это делает юнгианский аналитик и символдраматист: задает вопросы, а не выдает толкования.</p></div>
-      <div class="chat"><div class="b me">Снилось, что ищу дверь наверх в старом доме, а внизу вода.</div>
-        <span class="cap gcap">ИИ-проводник</span><div class="b">Какое чувство было, пока шел поиск двери? И какая была вода — спокойная, темная, прибывающая?</div>
-        <div class="b">За последний месяц дом появлялся у тебя дважды: во сне и в символе дня. Есть ли в жизни сейчас что-то, что хочется «перестроить»?</div></div>
-      <div class="card" style="gap:8px"><b>Как он работает</b><ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.6;color:var(--muted2)"><li>видит твои записи и замечает повторяющиеся образы</li><li>не толкует за тебя — спрашивает и помогает услышать свое</li><li>не заменяет психолога и регулярно возвращает к живому контакту</li><li>при остром состоянии — сразу ведет в Аптечку и к живой помощи</li></ul></div>
-      <div class="row" style="gap:8px"><input class="inp" placeholder="Напиши, что хочется разобрать…" disabled><button class="btn" style="width:auto;padding:12px 16px" disabled>→</button></div>
+      <div class="toppad" style="height:calc(min(100vw,520px) * .64)"></div>
+      <div class="scr-h"><span class="soon-p">Скоро</span><h1>Проводник</h1><p class="g-sub">Задает вопросы к твоим снам, образам и чувствам, а не выдает толкования.</p></div>
+      <div class="card" style="gap:10px"><b style="font-weight:500">Как он работает</b><ul class="g-how"><li>видит твои записи и замечает повторяющиеся образы</li><li>не толкует за тебя: спрашивает и помогает услышать свое</li><li>не заменяет психолога и возвращает к живому контакту</li><li>при остром состоянии сразу ведет в Аптечку и к живой помощи</li></ul></div>
+      <p class="center g-soon">Откроется скоро</p>
       <a class="link-row" href="#/export">А пока: собрать наблюдения для своего психолога ${icon.chev}</a></div>`;
   }
   // выгрузка наблюдений: текстом, чтобы отправить своему психологу
@@ -1986,7 +1993,8 @@ window.startApp = function () {
     o = o || {};
     bgEl.style.backgroundImage = img ? "url(" + V27 + img + ")" : "none";
     bgEl.style.backgroundPosition = o.pos || "50% 0";
-    bgEl.classList.toggle("top", !!o.top); bgEl.style.transform = o.flip ? "scaleX(-1)" : "";
+    bgEl.classList.toggle("top", !!o.top); bgEl.classList.toggle("shade", /AptTablica|AptVverh|Anketa|Slovar|Arkany|Pogruzheniya-1/.test(img || ""));
+    bgEl.style.transform = o.flip ? "scaleX(-1)" : "";
     document.body.classList.toggle("lt", !!o.light);
     try { tg && tg.setHeaderColor && tg.setHeaderColor(o.light ? "#E9DCCB" : "#0F1E33"); } catch (e) {}
   }
@@ -2107,6 +2115,7 @@ ${b}</svg>`;
   function paintMsgs() {
     const box = $("#msgs"); if (!box) return;
     const L = todayMsgs(); let i = Math.min(+box.dataset.i || 0, L.length - 1);
+    const stg = $("#today"); if (stg) stg.classList.toggle("hasmsg", L.length > 0);
     if (!L.length) { box.innerHTML = ""; return; }
     const m = L[i];
     box.innerHTML = `<div class="msg" id="msg1"><span class="msg-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MSG_IC[m.ic]}</svg></span><span class="msg-t"><span class="cap">${esc(m.cap)}</span><b>${esc(m.t)}</b><span>${esc(m.sub)}</span></span><a class="msg-go" href="${m.href}">Открыть</a></div>${L.length > 1 ? `<div class="msg-dots">${L.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>` : ""}`;
@@ -2369,15 +2378,16 @@ ${b}</svg>`;
     draw();
   }
   // сводка: что повторялось за неделю, месяц, год
-  let SVP = "month", SVO = 0;
+  let SVP = "month", SVO = 0, SVR = null;
   function Svodka() {
     const t0 = new Date(now()); let from, to, title;
     if (SVP === "week") { const d = new Date(t0); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + SVO * 7); from = d.getTime(); to = from + 7 * 86400000; const e = new Date(to - 1); title = d.getDate() + " " + MONS[d.getMonth()] + " — " + e.getDate() + " " + MONS[e.getMonth()]; }
+    else if (SVP === "range") { if (!SVR) SVR = { a: dkey(now() - 29 * 86400000), b: dkey() }; from = new Date(SVR.a + "T00:00:00").getTime(); to = new Date(SVR.b + "T00:00:00").getTime() + 86400000; title = ""; }
     else if (SVP === "year") { const y = t0.getFullYear() + SVO; from = new Date(y, 0, 1).getTime(); to = new Date(y + 1, 0, 1).getTime(); title = String(y); }
     else { const m = new Date(t0.getFullYear(), t0.getMonth() + SVO, 1); from = m.getTime(); to = new Date(m.getFullYear(), m.getMonth() + 1, 1).getTime(); title = cap1(["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"][m.getMonth()]) + " " + m.getFullYear(); }
     const inR = (ts) => ts >= from && ts < to, items = noteItems().filter((x) => inR(x.ts));
     const cnt = (k) => items.filter((x) => x.kind === k).length;
-    const per = SVP === "week" ? "неделю" : SVP === "year" ? "год" : "месяц";
+    const per = SVP === "week" ? "неделю" : SVP === "year" ? "год" : SVP === "range" ? "период" : "месяц";
     const idx = imgIndex(), imgs = Object.values(idx).map((x) => ({ w: x.w, n: x.refs.filter((r) => inR(r.ts)).length })).filter((x) => x.n).sort((a, b) => b.n - a.n).slice(0, 7);
     const pos = [[34, 30], [62, 18], [20, 62], [70, 52], [46, 72], [84, 80], [12, 26]];
     const feel = {}, body = {};
@@ -2385,17 +2395,19 @@ ${b}</svg>`;
     const bars = (o) => { const L = Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 5), mx = L.length ? L[0][1] : 1; return L.map(([k, v]) => `<div class="sbar"><span>${esc(cap1(k))}</span><i><b style="width:${(v / mx) * 100}%"></b></i><em>${v}</em></div>`).join(""); };
     const sv = items.filter((x) => x.kind === "sovp").map((x) => S.sovp[x.i]);
     const dives = items.filter((x) => x.kind === "dive");
-    app.innerHTML = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="gap:12px"><a class="circ-b" href="#/notes" aria-label="Назад">${icon.back}</a><div class="scr-h"><h1>Сводка</h1><span class="small">Что повторялось за период</span></div></div>
-      <div class="per">${[["week", "Неделя"], ["month", "Месяц"], ["year", "Год"]].map(([k, l]) => `<button type="button" class="${SVP === k ? "on" : ""}" data-p="${k}">${l}</button>`).join("")}</div>
-      <div class="row" style="justify-content:space-between"><button type="button" class="ib2" id="pv" aria-label="Раньше">‹</button><b style="font-weight:500">${title}</b><button type="button" class="ib2" id="nx" aria-label="Позже"${SVO >= 0 ? " disabled" : ""}>›</button></div>
-      <div class="st4"><div><b>${cnt("dream")}</b><span>${plural(cnt("dream"), "сон", "сна", "снов")}</span></div><div><b>${cnt("free") + cnt("sovp")}</b><span>заметок</span></div><div><b>${cnt("word") + cnt("day")}</b><span>чувства, тело</span></div><div><b>${dives.length}</b><span>погружения</span></div></div>
+    const empty = !items.length;
+    app.innerHTML = `<div class="stack" style="gap:14px;padding-top:12px"><div class="row" style="gap:14px;align-items:center"><a class="circ-b" href="#/notes" aria-label="Назад">${icon.back}</a><h1 style="margin:0">Сводка</h1></div><p class="g-sub" style="margin-top:-6px">Что повторялось за период</p>
+      <div class="per">${[["week", "Неделя"], ["month", "Месяц"], ["year", "Год"], ["range", "Период"]].map(([k, l]) => `<button type="button" class="${SVP === k ? "on" : ""}" data-p="${k}">${l}</button>`).join("")}</div>
+      ${SVP === "range" ? `<div class="row" style="gap:8px;align-items:center"><input type="date" class="inp" id="ra" value="${SVR.a}" max="${dkey()}" aria-label="С"><span class="small">—</span><input type="date" class="inp" id="rb" value="${SVR.b}" max="${dkey()}" aria-label="По"></div>` : `<div class="row" style="justify-content:space-between"><button type="button" class="ib2" id="pv" aria-label="Раньше">‹</button><b style="font-weight:500">${title}</b><button type="button" class="ib2" id="nx" aria-label="Позже"${SVO >= 0 ? " disabled" : ""}>›</button></div>`}
+      ${empty ? `<p class="g-sub center" style="padding:6px 8px">Пока мало записей — сводка появится после первых снов и заметок.</p>` : `<div class="st4"><div><b>${cnt("dream")}</b><span>${plural(cnt("dream"), "сон", "сна", "снов")}</span></div><div><b>${cnt("free") + cnt("sovp")}</b><span>заметок</span></div><div><b>${cnt("word") + cnt("day")}</b><span>чувства, тело</span></div><div><b>${dives.length}</b><span>погружения</span></div></div>`}
       <div class="imap"><div class="cap">Образы за ${per}</div>${imgs.length ? imgs.map((x, j) => `<a href="${imgHref(x.w)}" style="left:${pos[j][0]}%;top:${pos[j][1]}%"><i style="width:${8 + Math.min(10, x.n * 2)}px;height:${8 + Math.min(10, x.n * 2)}px"></i>${esc(cap1(x.w))} · ${x.n}</a>`).join("") : `<p class="small" style="position:absolute;left:16px;right:16px;top:44%;color:#3F5266">Образы появятся, когда будут сны и погружения.</p>`}</div>
-      <div class="card" style="gap:10px"><div class="row" style="justify-content:space-between"><span class="cap">Совпадения за ${per}</span><b style="font-weight:500">${sv.length}</b></div>${sv.length ? sv.slice(0, 4).map((c) => `<div class="svi"><span class="svi-i"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></span><span class="stack" style="gap:2px"><b style="font-weight:500">${esc(c.text.length > 50 ? c.text.slice(0, 50) + "…" : c.text)}</b>${c.with ? `<span class="small">${esc(c.withLbl ? c.withLbl + " — " : "")}${esc(c.with.slice(0, 60))}</span>` : ""}</span></div>`).join("") : `<span class="small">Пока не было. Совпадение можно записать через «+» в Моей карте.</span>`}</div>
+      ${empty ? "" : `<div class="card" style="gap:10px"><div class="row" style="justify-content:space-between"><span class="cap">Совпадения за ${per}</span><b style="font-weight:500">${sv.length}</b></div>${sv.length ? sv.slice(0, 4).map((c) => `<div class="svi"><span class="svi-i"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></span><span class="stack" style="gap:2px"><b style="font-weight:500">${esc(c.text.length > 50 ? c.text.slice(0, 50) + "…" : c.text)}</b>${c.with ? `<span class="small">${esc(c.withLbl ? c.withLbl + " — " : "")}${esc(c.with.slice(0, 60))}</span>` : ""}</span></div>`).join("") : `<span class="small">Пока не было. Совпадение можно записать через «+» в Моей карте.</span>`}</div>`}
       ${Object.keys(feel).length ? `<div class="card" style="gap:10px"><div class="row" style="justify-content:space-between"><span class="cap">Чувства</span><span class="small" style="font-size:11px">чаще всего</span></div>${bars(feel)}</div>` : ""}
       ${Object.keys(body).length ? `<div class="card" style="gap:10px"><div class="row" style="justify-content:space-between"><span class="cap">Тело</span><span class="small" style="font-size:11px">где откликалось</span></div>${bars(body)}</div>` : ""}
       ${dives.length ? `<div class="card" style="gap:6px"><span class="cap">Погружения</span><b style="font-weight:500">${dives.length} ${plural(dives.length, "погружение", "погружения", "погружений")}</b><span class="small">${esc(dives.map((x) => x.p.title).slice(0, 4).join(", "))}</span></div>` : ""}</div>`;
     app.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { SVP = b.dataset.p; SVO = 0; Svodka(); });
-    $("#pv").onclick = () => { SVO--; Svodka(); }; $("#nx").onclick = () => { if (SVO < 0) { SVO++; Svodka(); } };
+    if ($("#pv")) { $("#pv").onclick = () => { SVO--; Svodka(); }; $("#nx").onclick = () => { if (SVO < 0) { SVO++; Svodka(); } }; }
+    if ($("#ra")) { const upd = () => { const a = $("#ra").value, b = $("#rb").value; if (a && b) { SVR = a <= b ? { a, b } : { a: b, b: a }; Svodka(); } }; $("#ra").onchange = upd; $("#rb").onchange = upd; }
   }
   const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
   function renameImg(a, b) { S.ren = S.ren || {}; if (S.ren[b] === a) delete S.ren[b]; S.ren[a] = b; S.hide = (S.hide || []).filter((x) => x !== b); save(); }
