@@ -2535,6 +2535,25 @@ ${b}</svg>`;
     }
   }
   window.addEventListener("hashchange", render);
+  // заранее подгружаем иллюстрации экранов, куда можно перейти отсюда: переход без ожидания картинки
+  const PRE = {
+    "": ["Bukhta-1.webp", "ProvodnikChat-1.jpg", "Anketa-1.webp", "Poslanie-1.webp", "PanelSon-1.webp", "PanelZametki-1.webp", "PanelNaBegu-1.webp", "Telo1-1.webp", "Siluety-1.webp"],
+    lib: ["Muzyka-1.webp", "Muzyka-6.webp", "Podkasty-1.webp", "Podkasty-2.webp", "Podkasty-3.webp", "Pogruzheniya-1.webp", "Pogruzheniya-2.webp", "Slovar-1.webp", "Slovar-2.webp", "Slovar-3.webp", "Slovar-4.webp", "Slovar-5.webp", "Slovar-6.webp"],
+    dives: ["Pogruzheniya-2.webp", "Pogruzheniya-3.webp", "Pogruzheniya-4.webp", "PleerIdet-1.webp", "ZapisPosle-1.webp"],
+    pod: ["PodkastVypusk-1.webp"], dict: ["SlovarRazdely-1.webp", "SlovarRazdely-2.webp", "SlovarRazdely-3.webp", "SlovarRazdely-4.webp", "SlovarRazdely-5.webp", "Arkany-1.webp"],
+    aid: ["AptVniz-1.webp", "AptVverh-1.webp", "AptTablica-1.webp", "Nikuda1-1.webp", "Nikuda1-2.webp", "Nikuda1-3.webp", "Nikuda1-4.webp", "Nikuda1-5.webp"],
+    notes: ["Muzyka-6.webp", "Anketa-1.webp"], symbol: ["Poslanie-1.webp"], music: ["Muzyka-2.webp", "Muzyka-3.webp", "Muzyka-4.webp", "Muzyka-5.webp", "Muzyka-6.webp"],
+  };
+  const preDone = {};
+  const preload = () => {
+    const r = (location.hash.replace(/^#\/?/, "") || "").split("/")[0];
+    const L = (PRE[r] || []).concat(r === "" ? PRE.lib : []).filter((f) => !preDone[f]);
+    if (!L.length) return;
+    const go1 = () => { const f = L.shift(); if (!f) return; preDone[f] = 1; const im = new Image(); im.onload = im.onerror = () => setTimeout(go1, 60); im.src = V27 + f; };
+    (window.requestIdleCallback || ((cb) => setTimeout(cb, 1200)))(go1);
+  };
+  window.addEventListener("hashchange", () => setTimeout(preload, 800));
+  setTimeout(preload, 1500);
   // свайп влево/вправо на главных экранах вкладок: Сегодня ↔ Бухта ↔ Проводник ↔ Моя карта
   (function swipeTabs() {
     let sx = 0, sy = 0, st = 0, ok = false;
