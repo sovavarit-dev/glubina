@@ -1287,13 +1287,17 @@ window.startApp = function () {
     let h = `<div class="stack pd-main" style="gap:18px">${back("#/lib", "Бухта")}<h1>Подкасты</h1>`;
     if (cont) { const st = podSt(cont.id); h += `<a class="pd-cont" href="#/ep/${cont.id}"><img src="${POD_TH(cont.series)}" alt=""><span class="t"><span class="cap">Продолжить</span><b>${esc(cont.title)}</b><span class="pd-bar"><i style="width:${Math.min(100, (st.pos / cont.dur) * 100).toFixed(0)}%"></i></span><span class="small" style="font-size:12px">осталось ${Math.max(1, Math.round((cont.dur - st.pos) / 60))} мин</span></span><span class="pd-play">${ICN_PLAY}</span></a>`; }
     if (!PODS.length) h += `<p class="lead">Подкасты появятся после подключения.</p>`;
-    h += `<div class="pd-gap"></div><div class="cap">Серии и выпуски</div><div class="stack" style="gap:8px">`;
+    h += `<div class="pd-gap" id="pdgap"></div><div class="cap pd-cap" id="pdcap">Серии и выпуски</div><div class="stack" style="gap:8px">`;
     PODS.forEach((se) => {
       if (se.single) { h += se.episodes.map((e) => `<a class="pd-row" href="#/ep/${e.id}"><img src="${e.cover || POD_TH(se)}" alt=""><span class="t"><b>${esc(e.title)}</b><span class="small">выпуск${e.dur ? " · " + Math.round(e.dur / 60) + " мин" : ""}</span></span>${icon.chev}</a>`).join(""); return; }
       const n = se.episodes.filter((e) => e.n).length || se.episodes.length, d = se.episodes.filter((e) => podSt(e.id).done).length;
       h += `<a class="pd-row" href="#/series/${se.id}"><img src="${POD_TH(se)}" alt=""><span class="t"><b>${esc(se.title)}</b><span class="row" style="gap:8px"><span class="cy-dots ink">${Array.from({ length: Math.min(n, 8) }, (_, i) => `<i class="${i < d ? "on" : ""}"></i>`).join("")}</span><span class="small" style="font-size:12px">${d} из ${n}</span></span></span>${icon.chev}</a>`;
     });
     app.innerHTML = h + `</div></div>`;
+    // список начинается у берега (около 60% высоты экрана) и листается дальше на светлый песок
+    const gap = $("#pdgap"), capEl = $("#pdcap");
+    if (gap && capEl) { const y = capEl.getBoundingClientRect().top + scrollY - gap.offsetHeight; gap.style.height = Math.max(20, Math.round(innerHeight * 0.6 - y)) + "px"; }
+
   }
   function Series(sid) {
     const se = PODS.find((x) => x.id === sid); if (!se) return go("#/pod");

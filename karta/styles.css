@@ -1154,3 +1154,6 @@ input[type=date].inp{flex:1;min-width:0;color-scheme:dark}
 .pd-main{min-height:calc(100vh - 16px - env(safe-area-inset-top) - 120px - env(safe-area-inset-bottom))}
 .pd-gap{flex:1;min-height:140px}
 body.lt .pd-main>.cap{text-shadow:0 0 8px rgba(250,244,236,.95),0 0 16px rgba(250,244,236,.8)}
+.pd-main{min-height:0}.pd-gap{flex:none;min-height:0}
+body.lt .pd-main>.pd-cap{align-self:flex-start;text-shadow:none;color:#5A4232;font-weight:600;background:rgba(250,244,236,.82);border:1px solid rgba(255,255,255,.7);padding:6px 12px;border-radius:999px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+body.lt #bgill::after{height:34%}
