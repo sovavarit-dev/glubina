@@ -1204,3 +1204,6 @@ body.hasmini .bx2-st{top:calc(44px + env(safe-area-inset-top))}
 .mbar .rdot{position:absolute;left:50%;bottom:4px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#1F3654}
 .mbar .ib:not(.on){opacity:.55}
 .bx2-st{bottom:calc(56px + env(safe-area-inset-bottom))}
+.gmode{align-self:flex-start;margin-top:6px;background:var(--glass-milk);border:1px solid var(--glass-milk-line);color:var(--cream);font:500 13px var(--font);padding:7px 14px;border-radius:999px}
+.opt.gm{width:100%;text-align:left;cursor:pointer;background:var(--glass-dark);border:1px solid var(--glass-dark-line);color:var(--text);display:flex;gap:14px;align-items:center;padding:16px;border-radius:20px}
+.opt.gm .t{flex:1;display:flex;flex-direction:column;gap:2px}.opt.gm .t b{font-weight:500;font-size:16px}.opt.gm .t span{font-size:13px;color:#C3D0DE;line-height:1.35}

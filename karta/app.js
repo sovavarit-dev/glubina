@@ -498,8 +498,11 @@ window.startApp = function () {
   const gApi = (body) => fetch(window.KARTA_API, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS || {}), body: JSON.stringify(body) })
     .then((r) => r.json().then((j) => ({ ok: r.ok, status: r.status, j })), () => ({ ok: false, status: 0, j: {} }));
   // контекст для Проводника: заметки о погружении и словарь по образам из разговора (только суть символа)
+  const GMODE = { dream: "Обсудить сон", dive: "Обсудить погружение", feel: "Разобраться в переживаниях" };
   function guideCtx(G) {
     const out = [];
+    if (G.mode) out.push("Режим разговора, выбранный человеком: " + GMODE[G.mode] + ".");
+    if (G.dream) out.push("Сон, который человек выбрал для разговора: " + G.dream.slice(0, 900));
     const diveLine = (p) => { const n = S.notes[p.id] || {}; return "Погружение «" + p.title + "»" + ((p.images || []).length ? " (образы практики: " + p.images.join(", ") + ")" : "") + (n.image ? ". Заметка человека: " + n.image : "") + ((n.feelings || []).length ? ". Чувства: " + n.feelings.join(", ") : ""); };
     if (G.dive) { const p = prac(G.dive); if (p) out.push(diveLine(p)); }
     else ALLP.filter((p) => S.notes[p.id] && S.notes[p.id].image).sort((a, b) => (S.notes[b.id].savedAt || 0) - (S.notes[a.id].savedAt || 0)).slice(0, 2).forEach((p) => out.push(diveLine(p)));
@@ -547,18 +550,20 @@ window.startApp = function () {
     if (S.guideImg) { S.guideImg = null; save(); }
     const g = (S.profile && S.profile.gender) || "n";
     setBg("ProvodnikChat-1.jpg", { top: true });
+    if (!G.msgs.length && !G.mode && G.dive) return guideStart(G, "dive");
+    if (!G.msgs.length && !G.mode && !G.img && !S.guideDraft) return guidePick(G);
     const bubbles = G.msgs.map((m, i) => m.r === "u" ? `<div class="b me">${esc(m.t)}</div>` :
-      `<span class="cap gcap">ИИ-проводник</span><div class="b">${gText(m.t)}</div>${m.mark ? `<span class="small" style="font-size:11px;margin:-4px 0 0 6px">${m.mark.ok ? "отмечено: хорошо" : "отмечено: не так"}</span>` : `<span class="gmk" style="display:flex;gap:14px;margin:-2px 0 0 6px;font-size:12px"><a href="#" data-ok="${i}" style="color:var(--muted)">хорошо</a><a href="#" data-no="${i}" style="color:var(--muted)">не так</a></span>`}`).join("");
+      `<span class="cap gcap">ИИ-проводник</span><div class="b">${gText(m.t)}</div>${m.local ? "" : m.mark ? `<span class="small" style="font-size:11px;margin:-4px 0 0 6px">${m.mark.ok ? "отмечено: хорошо" : "отмечено: не так"}</span>` : `<span class="gmk" style="display:flex;gap:14px;margin:-2px 0 0 6px;font-size:12px"><a href="#" data-ok="${i}" style="color:var(--muted)">хорошо</a><a href="#" data-no="${i}" style="color:var(--muted)">не так</a></span>`}`).join("");
     const ent = G.entries;
     app.innerHTML = `<div class="stack">
       <div class="toppad" style="height:calc(min(100vw,520px) * .64)"></div><div class="scr-h"><div class="cap">Капитанская рубка</div><h1>Проводник</h1><p class="g-sub">Разговор сохраняется в Моей карте</p>
-      ${G.msgs.length ? "" : `<p class="lead" style="font-size:14px">Напиши, что сейчас происходит: чувство, сон, образ из погружения. Проводник задает вопросы и не толкует за тебя.</p>`}
+      ${G.mode ? `<button type="button" class="gmode" id="gchg">${GMODE[G.mode]}${G.msgs.length > 1 ? "" : " · сменить"}</button>` : ""}
       <p class="small" style="font-size:12px">Тестовый режим. Если сейчас опасно — звони 112.</p></div>
       <div class="chat" id="gch">${bubbles}${guideBusy ? `<div class="b typing" aria-label="Проводник пишет"><i></i><i></i><i></i></div>` : ""}</div>
       ${ent ? `<div class="card" style="gap:10px"><b>Записи из разговора</b>${G.keys && G.keys.length ? `<span class="small">В «Мою карту» добавлены образы: ${G.keys.map((k) => `<a href="${imgHref(k)}" style="color:var(--blue)">${esc(k)}</a>`).join(", ")}</span>` : ""}${ent.length ? ent.map((e, i) => `<label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" data-e="${i}" checked style="margin-top:3px"><span style="font-size:14px;line-height:1.45"><span class="small" style="font-size:11px;letter-spacing:.06em">${esc(e.type.toUpperCase())}</span><br>${esc(e.text)}</span></label>`).join("") + `<button class="btn" id="gsave">Сохранить в «Моя карта»</button>` : `<span class="small">Записывать нечего.</span>`}<button class="btn ghost" id="gnew2">Новый разговор</button></div>` : `
       <div class="gdock"><textarea id="gin" class="inp" rows="2" maxlength="1500" placeholder="Напиши, что сейчас важно…" style="flex:1;resize:none;border-radius:24px"${guideBusy ? " disabled" : ""}>${esc(S.guideDraft || "")}</textarea><button class="sendb" id="gsend"${guideBusy ? " disabled" : ""} aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F1E33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
       ${G.msgs.length ? `<div class="row" style="gap:16px;justify-content:center"><a href="#" id="gend" class="small" style="color:var(--blue)">Закончить и сохранить</a><a href="#" id="gnew" class="small">Новый разговор</a></div>` : ""}`}</div>`;
-    const ch = $("#gch"); if (ch && ch.lastElementChild) ch.lastElementChild.scrollIntoView({ block: "nearest" });
+    const ch = $("#gch"); if (ch && ch.lastElementChild && G.msgs.length > 1) requestAnimationFrame(() => window.scrollTo(0, document.documentElement.scrollHeight));
     const fresh = () => { S.guide = gNew(); save(); Guide(); };
     const send = () => {
       const inp = $("#gin"), t = inp ? inp.value.trim() : "";
@@ -569,7 +574,7 @@ window.startApp = function () {
       const lk = rn ? null : linkReq(t, G);
       if (lk) { S.links = S.links || []; if (!S.links.some((l) => (l.a === lk[0] && l.b === lk[1]) || (l.a === lk[1] && l.b === lk[0]))) S.links.push({ a: lk[0], b: lk[1], at: now() }); toast("В «Моей карте»: " + lk[0] + " — " + lk[1]); }
       G.msgs.push({ r: "u", t }); G.last = Date.now(); guideBusy = true; S.guideDraft = ""; save(); Guide();
-      gApi({ action: "say", conv: G.conv, text: t, gender: g, ctx: guideCtx(G) }).then((r) => {
+      gApi({ action: "say", conv: G.conv, text: t, gender: g, mode: G.mode || "", open: G.open || "", ctx: guideCtx(G) }).then((r) => {
         guideBusy = false;
         if (r.ok && r.j.text) G.msgs.push({ r: "a", t: r.j.text, i: r.j.i });
         else { G.msgs.pop(); toast(r.status === 429 ? "Разговор получился длинным — начни новый" : "Проводник не ответил. Попробуй еще раз"); setTimeout(() => { const x = $("#gin"); if (x) x.value = t; }, 0); }
@@ -577,6 +582,7 @@ window.startApp = function () {
       });
     };
     if ($("#gsend")) { $("#gsend").onclick = send; $("#gin").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }; }
+    if ($("#gchg")) $("#gchg").onclick = () => { if (G.msgs.length > 1) return; S.guide = gNew(); save(); Guide(); };
     if ($("#gnew")) $("#gnew").onclick = (e) => { e.preventDefault(); fresh(); };
     if ($("#gnew2")) $("#gnew2").onclick = fresh;
     if ($("#gend")) $("#gend").onclick = (e) => {
@@ -598,6 +604,46 @@ window.startApp = function () {
       e.preventDefault(); const i = +a.dataset.no, box = a.parentElement;
       box.outerHTML = `<div class="stack" style="gap:6px;margin-left:6px" id="gm"><textarea class="inp" rows="2" placeholder="Как ответить лучше?" id="gmt"></textarea><button class="btn ghost" id="gms" style="padding:10px">Отправить</button></div>`;
       $("#gmt").focus(); $("#gms").onclick = () => mark(i, false, $("#gmt").value.trim());
+    });
+  }
+  // три режима разговора: сон, погружение, переживания
+  const GOPEN = {
+    dream: (d) => d ? "Давай побудем с этим сном. Что в нем сейчас ярче всего: какой-то образ, место или чувство?" : "Расскажи сон так, как он запомнился, можно обрывками. Что в нем было ярче всего?",
+    dive: (p) => p ? "Вернемся в погружение «" + p.title + "». Какой образ из него помнится сейчас ярче всего?" : "Какое погружение хочется обсудить? Расскажи, что в нем было: образ, место, чувство.",
+    feel: () => "Что сейчас происходит внутри? Можно одним словом или так, как получается.",
+  };
+  function guideStart(G, mode, extra) {
+    G.mode = mode; Object.assign(G, extra || {});
+    const p = G.dive ? prac(G.dive) : null;
+    G.open = GOPEN[mode](mode === "dive" ? p : G.dream);
+    G.msgs.push({ r: "a", t: G.open, local: true }); G.last = Date.now(); save(); Guide();
+  }
+  function guidePick(G) {
+    const ic = (d) => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    app.innerHTML = `<div class="stack">
+      <div class="toppad" style="height:calc(min(100vw,520px) * .64)"></div>
+      <div class="scr-h"><div class="cap">Капитанская рубка</div><h1>Проводник</h1><p class="g-sub">О чем поговорим?</p></div>
+      <button type="button" class="opt gm" data-m="dream"><span class="oi">${ic('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>')}</span><span class="t"><b>Сон</b><span>Разобрать сон: образы, чувства, на что похоже в жизни</span></span>${icon.chev}</button>
+      <button type="button" class="opt gm" data-m="dive"><span class="oi">${ic('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>')}</span><span class="t"><b>Погружение</b><span>Вернуться к образу из пройденной практики</span></span>${icon.chev}</button>
+      <button type="button" class="opt gm" data-m="feel"><span class="oi">${ic('<path d="M3 12h4l2-5 4 10 2-5h6"/>')}</span><span class="t"><b>Переживания</b><span>Разобраться, что сейчас происходит внутри</span></span>${icon.chev}</button>
+      <p class="small center" style="font-size:12px">Разговор сохраняется в Моей карте. Если сейчас опасно — звони 112.</p></div>`;
+    const sheet = (title, list, onPick, emptyT, newT) => {
+      const bg = document.createElement("div"); bg.className = "sheet-bg";
+      bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grip"></div><span class="cap">${title}</span>
+        <button type="button" class="pk" data-j="-1"><b style="font-weight:500">${newT}</b></button>
+        ${list.length ? list.slice(0, 15).map((x, j) => `<button type="button" class="pk" data-j="${j}"><span class="cap" style="font-size:10px">${esc(x.lbl)}</span><span>${esc(x.t.length > 110 ? x.t.slice(0, 110) + "…" : x.t)}</span></button>`).join("") : `<p class="small">${emptyT}</p>`}</div>`;
+      bg.onclick = (ev) => { if (ev.target === bg) { bg.remove(); return; } const b = ev.target.closest("[data-j]"); if (b) { bg.remove(); onPick(+b.dataset.j < 0 ? null : list[+b.dataset.j]); } };
+      document.body.appendChild(bg);
+    };
+    app.querySelectorAll("[data-m]").forEach((b) => b.onclick = () => {
+      const m = b.dataset.m;
+      if (m === "feel") return guideStart(G, "feel");
+      if (m === "dream") {
+        const L = Object.keys(S.dreams || {}).filter((k) => S.dreams[k] && S.dreams[k].text).sort().reverse().map((k) => { const d = new Date(dayTs(k)); return { lbl: d.getDate() + " " + MONS[d.getMonth()], t: S.dreams[k].text }; });
+        return sheet("Какой сон обсудим?", L, (x) => guideStart(G, "dream", x ? { dream: x.t } : {}), "Записанных снов пока нет.", "Новый сон: расскажу сейчас");
+      }
+      const L = ALLP.filter((p) => counted(p.id) || S.notes[p.id]).sort((a, b) => (counted(b.id) || 0) - (counted(a.id) || 0)).map((p) => ({ id: p.id, lbl: p._free ? "вне циклов" : p._cy.title, t: p.title + (S.notes[p.id] && S.notes[p.id].image ? ": " + S.notes[p.id].image : "") }));
+      sheet("Какое погружение обсудим?", L, (x) => guideStart(G, "dive", x ? { dive: x.id } : {}), "Пройденных погружений пока нет.", "Другое: расскажу сам" + (S.profile && S.profile.gender === "f" ? "а" : ""));
     });
   }
   // заглушка проводника для всех, кроме тестировщиков
