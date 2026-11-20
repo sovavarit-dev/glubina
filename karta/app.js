@@ -751,7 +751,7 @@ window.startApp = function () {
     const linkCode = promoFromLink();
     const st = { gender: "", why: [] };
     app.innerHTML = `<div class="stack v-pad" style="gap:22px">
-      <div class="scr-h"><div class="cap">Знакомство</div><h1>Давай познакомимся</h1><p>Так Проводник и тексты приложения будут обращаться к тебе по-твоему.</p></div>
+      <div class="scr-h"><div class="cap">Знакомство</div><h1>Давай познакомимся</h1><p>Так Проводник и приложение будут обращаться к тебе</p></div>
       ${linkCode ? `<div class="pr-ok"><span class="pr-ok-i">✓</span><span><b>Промокод принят</b><span>Полный доступ до 30 декабря</span></span></div>` : ""}
       <div class="v-panel stack" style="gap:16px">
         <label class="q"><b>Как тебя зовут?</b><input class="inp" id="nm" type="text" maxlength="40" autocomplete="given-name" value="${esc(u.first_name || "")}" placeholder="Имя"></label>
