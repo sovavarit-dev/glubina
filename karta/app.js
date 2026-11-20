@@ -737,11 +737,18 @@ window.startApp = function () {
     app.innerHTML = `<div class="v-wel"><div class="v-wel-t"><h1>Добро пожаловать<br>на Глубину</h1><p>Место, где можно встретиться с собой.</p><a class="btn" href="#/hello/2">Нырнуть</a></div></div>`;
   }
   const WHY = ["Хочу понять себя", "Повторяется один сценарий", "Тесно в прежней жизни", "Сны не отпускают", "Тревожно", "Пока просто смотрю"];
+  function promoFromLink() {
+    const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || new URLSearchParams(location.search).get("promo") || "";
+    const m = /^(?:promo_)?([A-Za-z0-9]{4,16})$/.exec(sp); return m ? m[1].toUpperCase() : "";
+  }
+  const PROMO_UNTIL = "2026-12-30";
   function Know() {
     const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || {};
+    const linkCode = promoFromLink();
     const st = { gender: "", why: [] };
     app.innerHTML = `<div class="stack v-pad" style="gap:22px">
       <div class="scr-h"><div class="cap">Знакомство</div><h1>Давай познакомимся</h1><p>Так Проводник и тексты приложения будут обращаться к тебе по-твоему.</p></div>
+      ${linkCode ? `<div class="pr-ok"><span class="pr-ok-i">✓</span><span><b>Промокод принят</b><span>Полный доступ до 30 декабря</span></span></div>` : ""}
       <div class="v-panel stack" style="gap:16px">
         <label class="q"><b>Как тебя зовут?</b><input class="inp" id="nm" type="text" maxlength="40" autocomplete="given-name" value="${esc(u.first_name || "")}" placeholder="Имя"></label>
         <div class="stack" style="gap:8px"><b class="qb">Как к тебе обращаться?</b><div class="seg2b" id="gd"><button type="button" data-g="f">Ты пришла</button><button type="button" data-g="m">Ты пришел</button></div></div>
@@ -749,6 +756,7 @@ window.startApp = function () {
         <label class="q"><b>Дата рождения</b><input class="inp" id="dob" type="text" inputmode="numeric" autocomplete="bday" placeholder="дд.мм.гггг" maxlength="10" style="letter-spacing:.06em;font-variant-numeric:tabular-nums"><span class="small">Чтобы убедиться, что тебе есть 18.</span></label>
         <label class="consent"><input type="checkbox" id="ok"><span>Принимаю <a href="#/policy/privacy" style="text-decoration:underline">политику конфиденциальности</a> и даю <a href="#/policy/consent" style="text-decoration:underline">согласие на обработку персональных данных</a></span></label>
       </div>
+      ${linkCode ? "" : `<div class="pr-box" id="prb"><button type="button" class="pr-link" id="prl">Есть промокод?</button></div>`}
       <button class="btn" id="go" disabled>Дальше</button>
       <p class="small center v-lock">${LOCK_I}Видишь только ты</p>
     </div>`;
@@ -762,13 +770,40 @@ window.startApp = function () {
     app.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { st.gender = b.dataset.g; app.querySelectorAll("[data-g]").forEach((x) => x.classList.toggle("on", x === b)); check(); });
     app.querySelectorAll("[data-w]").forEach((b) => b.onclick = () => { const w = b.dataset.w; st.why = st.why.includes(w) ? st.why.filter((x) => x !== w) : st.why.concat([w]); b.classList.toggle("on", st.why.includes(w)); });
     [nm, dob, ok].forEach((e) => { e.oninput = check; e.onchange = check; });
+    if ($("#prl")) $("#prl").onclick = () => { $("#prb").innerHTML = `<label class="q" style="width:100%"><b>Промокод</b><input class="inp" id="prc" maxlength="16" autocapitalize="characters" placeholder="Например, GLUBINA12" style="letter-spacing:.08em;text-transform:uppercase"></label><span class="small" style="font-size:12px">Проверим после «Дальше»</span>`; $("#prc").focus(); };
     btn.onclick = () => {
       const iso = parseDob(dob.value); const a = iso ? ageOf(iso) : null;
       if (a === null || a < 0 || a > 110) { toast("Проверь дату рождения"); return; }
       if (a < 18) { S.profile = { minor: true, at: now() }; save(); return go("#/adult"); }
       S.profile = { name: nm.value.trim(), gender: st.gender, why: st.why, dob: iso, consent: new Date().toISOString(), at: now() };
-      save(); haptic(); go("#/");
+      // доступ: пока решается в приложении (для показа); в рабочей версии срок выдает сервер по Telegram ID
+      const code = linkCode || ($("#prc") ? $("#prc").value.trim().toUpperCase() : "");
+      S.access = code ? { plan: "promo", code, until: PROMO_UNTIL } : { plan: "trial", since: now(), until: now() + 3 * 86400000 };
+      save(); haptic(); go("#/access");
     };
+  }
+  // экран доступа после анкеты: пробный период или промокод
+  function Access() {
+    const A = S.access || { plan: "trial" }, promo = A.plan === "promo";
+    const ic = (d) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    const I = { dive: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>', pod: '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/>', guide: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>', music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>', book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>', map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/>', msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', aid: '<path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/>' };
+    const row = (i, t, s2) => `<li><span class="ac-i">${ic(I[i])}</span><span><b>${t}</b>${s2 ? `<span>${s2}</span>` : ""}</span></li>`;
+    const list = promo
+      ? [row("dive", "Все погружения", "циклы и практики вне циклов"), row("pod", "Все подкасты"), row("guide", "Проводник без ограничений"), row("msg", "Вопросы Насте", "4 ответа в месяц"), row("map", "Музыка, словарь, дневник и Моя карта")]
+      : [row("dive", "Первое погружение", "«Точка обзора» и одно вне циклов"), row("pod", "3 выпуска подкаста", "«5 этапов на пути к себе»"), row("guide", "Проводник", "5 ответов"), row("music", "Музыка и словарь символов"), row("map", "Дневник и Моя карта"), row("aid", "Аптечка", "«Плохо, а что — не понять»")];
+    app.innerHTML = `<div class="stack v-pad" style="gap:20px">
+      <div class="scr-h"><div class="cap">${promo ? "Промокод · " + esc(A.code) : "Пробный период"}</div><h1>${promo ? "Полный доступ до 30 декабря" : "3 дня, чтобы познакомиться"}</h1>
+        <p>${promo ? "Все разделы приложения и вопросы Насте. 30 декабря бот напомнит, как продлить доступ." : "Открыто главное, чтобы почувствовать, как это работает. Остальное видно и откроется с подпиской."}</p></div>
+      <ul class="ac-list v-panel">${list.join("")}</ul>
+      <p class="small center" style="font-size:12px;margin-top:-4px">Telegram спросит, можно ли боту писать тебе: так придут ответы Насти и напоминание о конце ${promo ? "доступа" : "пробного периода"}.</p>
+      <button class="btn" id="acgo">Начать</button>
+      ${promo ? "" : `<button type="button" class="pr-link" id="acpay" style="align-self:center">Оформить подписку сразу</button>`}
+    </div>`;
+    $("#acgo").onclick = () => {
+      const fin = () => go("#/");
+      try { if (tg && tg.requestWriteAccess) tg.requestWriteAccess((ok) => { S.botWrite = !!ok; save(); fin(); }); else fin(); } catch (e) { fin(); }
+    };
+    if ($("#acpay")) $("#acpay").onclick = () => toast("Оплата подключится вместе с Продамусом");
   }
   function Minor() {
     app.innerHTML = `<div class="stack" style="padding-top:48px;text-align:center;align-items:center">
@@ -2513,7 +2548,7 @@ ${b}</svg>`;
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
     const LIBR = ["lib", "dives", "journal", "integr", "after", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "svodka", "sovp", "free", "export", "img", "deepv", "talk"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
-    const tabI = ["player", "hello", "adult"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) && !(r === "free" && !id) ? 3 : 0;
+    const tabI = ["player", "hello", "adult", "access"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) && !(r === "free" && !id) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
     if (r !== "policy" && (!S.profile || S.profile.minor)) { paintTabs(-1); setWater(""); setBg(r === "hello" && id === "2" ? "Anketa-1.webp" : "Main-1.jpg"); }
     if (r !== "policy") {
@@ -2539,6 +2574,7 @@ ${b}</svg>`;
       case "talk": return Talk(id);
       case "free": return FreeNote(id);
       case "policy": return Policy(id);
+      case "access": return Access();
       case "dict": return Dict(id);
       case "dsec": return DSec(id);
       case "sym": return Sym(id, sub);

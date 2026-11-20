@@ -1236,3 +1236,13 @@ body:not(.lt) #app>.stack>:is(h1,.scr-h,.back,p,.cap,.kicker),body:not(.lt) #app
 .msg.gone{transition:transform .25s,opacity .25s;transform:translateY(-30px);opacity:0}
 /* светлая тема (подкасты): пунктирная кнопка на песке */
 body.lt .dash-btn{border:1.5px dashed #A88B6E;color:#5A4232;background:rgba(250,244,236,.55);font-weight:500}
+/* вход: промокод и экран доступа */
+.pr-box{display:flex;flex-direction:column;align-items:center;gap:6px}
+.pr-link{background:none;border:0;padding:6px;color:#C3D0DE;font:500 14px var(--font);text-decoration:underline;text-underline-offset:4px;cursor:pointer}
+.pr-ok{display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:18px;background:rgba(245,238,228,.14);border:1px solid rgba(255,250,240,.3)}
+.pr-ok>span:last-child{display:flex;flex-direction:column;gap:2px}.pr-ok b{font-weight:600;color:var(--cream)}.pr-ok span span{font-size:13px;color:#C3D0DE}
+.pr-ok-i{width:32px;height:32px;flex:none;border-radius:50%;background:var(--cream);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700}
+.ac-list{list-style:none;margin:0;padding:18px;display:flex;flex-direction:column;gap:14px}
+.ac-list li{display:flex;gap:12px;align-items:flex-start}
+.ac-list li>span:last-child{display:flex;flex-direction:column;gap:2px}.ac-list b{font-weight:500;font-size:15px;color:var(--cream)}.ac-list li span span{font-size:13px;color:#A9BACC}
+.ac-i{width:34px;height:34px;flex:none;border-radius:50%;background:rgba(245,238,228,.1);border:1px solid var(--glass-milk-line);display:flex;align-items:center;justify-content:center}
