@@ -1246,3 +1246,5 @@ body.lt .dash-btn{border:1.5px dashed #A88B6E;color:#5A4232;background:rgba(250,
 .ac-list li{display:flex;gap:12px;align-items:flex-start}
 .ac-list li>span:last-child{display:flex;flex-direction:column;gap:2px}.ac-list b{font-weight:500;font-size:15px;color:var(--cream)}.ac-list li span span{font-size:13px;color:#A9BACC}
 .ac-i{width:34px;height:34px;flex:none;border-radius:50%;background:rgba(245,238,228,.1);border:1px solid var(--glass-milk-line);display:flex;align-items:center;justify-content:center}
+.chips.why{gap:6px}
+.chips.why .chip{min-height:0;padding:7px 12px;font-size:13px;border-radius:999px}

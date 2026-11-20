@@ -85,10 +85,12 @@ window.startApp = function () {
     const prevTs = counted(cy.practices[j].id);
     return prevTs ? prevTs + NEXT_AFTER : null; // null — предыдущая еще не пройдена
   }
-  const isOpen = (id) => !!counted(id) || (unlockAt(id) !== null && now() >= unlockAt(id));
+  // промокод (декабрь 2026): люди уже проходили эти погружения вживую — все открыто сразу, интеграции без ожидания
+  const promoOpen = () => !!(S.access && S.access.plan === "promo" && now() < new Date((S.access.until || "2026-12-30") + "T23:59:59").getTime());
+  const isOpen = (id) => { const p = prac(id); if (promoOpen() && p && !p.soon) return true; return !!counted(id) || (unlockAt(id) !== null && now() >= unlockAt(id)); };
   const integrAt = (id) => (counted(id) ? counted(id) + INTEGRATION_AFTER : null);
   const hasInt = (p) => !!(p && p.integration && !p.integration.soon);
-  const integrOpen = (id) => hasInt(prac(id)) && !!counted(id) && now() >= integrAt(id);
+  const integrOpen = (id) => hasInt(prac(id)) && (promoOpen() || (!!counted(id) && now() >= integrAt(id)));
   const integrDone = (id) => !!(S.integr[id] && S.integr[id].done);
   function nextStep() {
     for (const cy of CYC) for (const p of cy.practices) if (!p.soon && !counted(p.id)) return p;
@@ -372,7 +374,7 @@ window.startApp = function () {
     const I = p.integration, a = (S.integr[id] && S.integr[id].answers) || {}, done = S.integr[id] && S.integr[id].done;
     const n = S.notes[id] || {};
     const field = (k, t, d, ph) => `<div class="stack" style="gap:8px"><b class="qb">${esc(t)}</b>${d ? `<span class="small">${esc(d)}</span>` : ""}${vta("f_" + k, a[k], ph || "Можно словами, можно голосом…", 3, `data-k="${k}"`)}</div>`;
-    let h = `<div class="stack" style="gap:18px">${hd("Прошло 8 часов. Вернемся к тому, что пришло.")}
+    let h = `<div class="stack" style="gap:18px">${hd(counted(id) && !promoOpen() ? "Прошло 8 часов. Вернемся к тому, что пришло." : "Вернемся к тому, что пришло в погружении.")}
       ${n.image ? `<button type="button" class="paper" id="paper"><img src="${V27}Integraciya-1.webp" alt=""><img class="pin" src="${V27}Segodnya5m-4.webp" alt=""><span class="paper-t"><span class="cap" style="color:#7A6650">Запись сразу после</span><span class="paper-x">«${esc(n.image)}»</span><span class="paper-h">Коснись, чтобы развернуть</span></span></button>` : ""}
       ${I.lead ? `<p class="lead">${esc(I.lead)}</p>` : ""}
       ${I.questions.map((q, i) => field("q" + i, q.t, q.d)).join("")}`;
@@ -736,12 +738,14 @@ window.startApp = function () {
   function Welcome() {
     app.innerHTML = `<div class="v-wel"><div class="v-wel-t"><h1>Добро пожаловать<br>на Глубину</h1><p>Место, где можно встретиться с собой.</p><a class="btn" href="#/hello/2">Нырнуть</a></div></div>`;
   }
-  const WHY = ["Хочу понять себя", "Повторяется один сценарий", "Тесно в прежней жизни", "Сны не отпускают", "Тревожно", "Пока просто смотрю"];
+  const WHY = ["Понять себя", "Повторяется сценарий", "Тесно в прежней жизни", "Сны", "Тревога", "Просто смотрю"];
   function promoFromLink() {
     const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || new URLSearchParams(location.search).get("promo") || "";
     const m = /^(?:promo_)?([A-Za-z0-9]{4,16})$/.exec(sp); return m ? m[1].toUpperCase() : "";
   }
   const PROMO_UNTIL = "2026-12-30";
+  // «glubina 12» и «ГЛУБИНА12» — одно и то же; есть ли такой код и не использован ли он — решает сервер (список кодов в открытом коде не хранится)
+  const normCode = (v) => { const t = String(v || "").toUpperCase().replace(/\s+/g, "").replace(/^ГЛУБИНА/, "GLUBINA"); if (!t) return ""; return /^[A-Z0-9]{4,16}$/.test(t) ? t : null; };
   function Know() {
     const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || {};
     const linkCode = promoFromLink();
@@ -752,7 +756,7 @@ window.startApp = function () {
       <div class="v-panel stack" style="gap:16px">
         <label class="q"><b>Как тебя зовут?</b><input class="inp" id="nm" type="text" maxlength="40" autocomplete="given-name" value="${esc(u.first_name || "")}" placeholder="Имя"></label>
         <div class="stack" style="gap:8px"><b class="qb">Как к тебе обращаться?</b><div class="seg2b" id="gd"><button type="button" data-g="f">Ты пришла</button><button type="button" data-g="m">Ты пришел</button></div></div>
-        <div class="stack" style="gap:8px"><div class="row" style="justify-content:space-between"><b class="qb">Что привело на Глубину?</b><span class="small" style="font-size:12px">можно несколько</span></div><div class="chips">${WHY.map((w) => `<button type="button" class="chip" data-w="${esc(w)}">${esc(w)}</button>`).join("")}</div></div>
+        <div class="stack" style="gap:8px"><div class="stack" style="gap:2px"><b class="qb">Что привело тебя на Глубину?</b><span class="small" style="font-size:12px">можно выбрать несколько</span></div><div class="chips why">${WHY.map((w) => `<button type="button" class="chip" data-w="${esc(w)}">${esc(w)}</button>`).join("")}</div></div>
         <label class="q"><b>Дата рождения</b><input class="inp" id="dob" type="text" inputmode="numeric" autocomplete="bday" placeholder="дд.мм.гггг" maxlength="10" style="letter-spacing:.06em;font-variant-numeric:tabular-nums"><span class="small">Чтобы убедиться, что тебе есть 18.</span></label>
         <label class="consent"><input type="checkbox" id="ok"><span>Принимаю <a href="#/policy/privacy" style="text-decoration:underline">политику конфиденциальности</a> и даю <a href="#/policy/consent" style="text-decoration:underline">согласие на обработку персональных данных</a></span></label>
       </div>
@@ -770,14 +774,15 @@ window.startApp = function () {
     app.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { st.gender = b.dataset.g; app.querySelectorAll("[data-g]").forEach((x) => x.classList.toggle("on", x === b)); check(); });
     app.querySelectorAll("[data-w]").forEach((b) => b.onclick = () => { const w = b.dataset.w; st.why = st.why.includes(w) ? st.why.filter((x) => x !== w) : st.why.concat([w]); b.classList.toggle("on", st.why.includes(w)); });
     [nm, dob, ok].forEach((e) => { e.oninput = check; e.onchange = check; });
-    if ($("#prl")) $("#prl").onclick = () => { $("#prb").innerHTML = `<label class="q" style="width:100%"><b>Промокод</b><input class="inp" id="prc" maxlength="16" autocapitalize="characters" placeholder="Например, GLUBINA12" style="letter-spacing:.08em;text-transform:uppercase"></label><span class="small" style="font-size:12px">Проверим после «Дальше»</span>`; $("#prc").focus(); };
+    if ($("#prl")) $("#prl").onclick = () => { $("#prb").innerHTML = `<label class="q" style="width:100%"><b>Промокод</b><input class="inp" id="prc" maxlength="16" autocapitalize="characters" placeholder="Код из сообщения" style="letter-spacing:.08em;text-transform:uppercase"></label><span class="small" style="font-size:12px">Проверим после «Дальше»</span>`; $("#prc").focus(); };
     btn.onclick = () => {
       const iso = parseDob(dob.value); const a = iso ? ageOf(iso) : null;
       if (a === null || a < 0 || a > 110) { toast("Проверь дату рождения"); return; }
       if (a < 18) { S.profile = { minor: true, at: now() }; save(); return go("#/adult"); }
       S.profile = { name: nm.value.trim(), gender: st.gender, why: st.why, dob: iso, consent: new Date().toISOString(), at: now() };
       // доступ: пока решается в приложении (для показа); в рабочей версии срок выдает сервер по Telegram ID
-      const code = linkCode || ($("#prc") ? $("#prc").value.trim().toUpperCase() : "");
+      const code = normCode(linkCode || ($("#prc") ? $("#prc").value : ""));
+      if (code === null) { toast("Такого промокода нет. Проверь или оставь поле пустым"); return; }
       S.access = code ? { plan: "promo", code, until: PROMO_UNTIL } : { plan: "trial", since: now(), until: now() + 3 * 86400000 };
       save(); haptic(); go("#/access");
     };
@@ -2184,7 +2189,7 @@ ${b}</svg>`;
   function todayMsgs() {
     const out = [], hid = (S.msgHide && S.msgHide[dkey()]) || [];
     (S.questions || []).forEach((q, i) => { if (q.answer && !q.seen) out.push({ id: "q" + i, cap: "Сейчас · Настя", t: "Настя ответила", sub: "На твой вопрос: " + q.text, href: "#/ask", ic: "msg" }); });
-    const pend = ALLP.filter((p) => integrOpen(p.id) && !integrDone(p.id));
+    const pend = ALLP.filter((p) => counted(p.id) && integrOpen(p.id) && !integrDone(p.id));
     pend.forEach((p) => out.push({ id: "i" + p.id, cap: "Интеграция", t: "Можно вернуться к «" + p.title + "»", sub: "Прошло 8 часов. Вернемся к тому, что пришло.", href: "#/integr/" + p.id, ic: "dive" }));
     const nx = nextStep();
     if (!isNight() && nx && isOpen(nx.id) && !pend.length) out.push({ id: "n" + nx.id, cap: "Дальше по пути", t: nx.title, sub: where(nx) + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : ""), href: "#/prep/" + nx.id, ic: "dive" });
