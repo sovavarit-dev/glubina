@@ -151,8 +151,11 @@ window.startApp = function () {
         <div class="row"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M3 3l18 18"/></svg>Уведомления выключены, экран можно погасить</div>
       </div>
       ${hasInt(p) ? `<p class="small center">Интеграция откроется через 8 часов после прослушивания</p>` : ""}
-      <a class="btn" id="start" href="${S.safety ? "#/player/" + id : "#/safety/" + id}">${ICN_PLAY}<span style="margin-left:10px">Начать погружение</span></a>
-      <p class="small center" style="font-size:12px">Остановиться можно в любой момент.</p>
+      <a class="btn" id="start" href="#/player/${id}">${ICN_PLAY}<span style="margin-left:10px">Начать погружение</span></a>
+      <details class="safe-d"><summary>Правила безопасности</summary>
+        <p><b>Открыть глаза можно в любой момент.</b> Если стало страшно или неприятно — открой глаза, почувствуй опору, назови три предмета вокруг. Образ подождет.</p>
+        <p><b>Когда лучше не погружаться:</b> острое состояние (паника, сильное горе прямо сейчас); опыт психоза или галлюцинаций, эпилепсия; алкоголь или вещества; за рулем и в местах, где нужно внимание. В таких случаях начни с <a href="#/aid">Аптечки</a> или поговори со специалистом.</p>
+      </details>
       ${counted(id) ? `<a class="link-row" href="#/after/${id}">Заметка «сразу после» ${icon.chev}</a>` : ""}
     </div>`;
     app.innerHTML = h;
@@ -161,6 +164,8 @@ window.startApp = function () {
   }
   // перед первым погружением — коротко о безопасности
   function Safety(id) {
+    // правила безопасности теперь на экране подготовки — старые ссылки ведут туда
+    return go("#/prep/" + id);
     app.innerHTML = `<div class="stack">${back("#/prep/" + id, "Назад")}
       <div class="stack" style="gap:6px"><div class="kicker" style="color:var(--sage);font-weight:700;letter-spacing:.08em">ПЕРЕД ПЕРВЫМ ПОГРУЖЕНИЕМ</div><h1>Ты в безопасности</h1></div>
       <p class="lead">Погружение — это расслабление и образы, которые приходят сами. Ты все время слышишь голос, чувствуешь тело и решаешь, куда смотреть и где остановиться.</p>
@@ -225,7 +230,7 @@ window.startApp = function () {
     if (fresh) PL = { id, pos: 0, playing: true };
     if (NOW.kind) closeAudio();
     const D = () => (p.src && diveEl.duration && isFinite(diveEl.duration) ? diveEl.duration : p.duration);
-    setBg("Pogruzheniya-1.webp", { pos: "0% 0" }); document.body.classList.add("nofade");
+    setBg("Pogruzheniya-1n.webp", { pos: "0% 0" }); document.body.classList.add("nofade");
     app.innerHTML = `${diveScene()}<div class="pl2 dive-ui">
       <div class="row" style="justify-content:space-between"><button class="pl2-x" id="exit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Выйти</button><span class="cap" style="opacity:.6">${esc(p._free ? "Вне циклов" : p._cy.title + " · " + (p._i + 1))}</span></div>
       <div class="pl2-b"><div class="center"><div class="pl2-t">${esc(p.title)}</div><div class="small" id="dvst">спуск · дыши свободно</div></div>
@@ -265,7 +270,7 @@ window.startApp = function () {
   }
 
   function Return(id) {
-    setBg("Pogruzheniya-1.webp");
+    setBg("Pogruzheniya-1n.webp");
     const p = prac(id), ln = (d, html) => `<div class="ln" style="animation-delay:${d}s">${html}</div>`;
     app.innerHTML = `<img class="ret-pearl" src="${V27}PleerIdet-1.webp" alt=""><div class="stack" style="gap:14px;padding-top:calc(min(100vw,520px) * .9)">
       ${ln(0.3, "<h1>С возвращением</h1>")}
@@ -273,7 +278,7 @@ window.startApp = function () {
       <div class="ln stack" style="animation-delay:2.4s;gap:10px;margin-top:10px">
         <a class="btn" href="#/after/${id}">Записать, что пришло</a>
         ${p && hasInt(p) && counted(id) ? `<div class="card row" style="flex-direction:row;gap:12px;padding:14px 16px;font-size:14px;color:var(--text-body)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>Интеграция откроется через 8 часов</div>` : ""}
-        <a class="center" href="#/observer" style="padding:14px 0;font-weight:500;color:var(--cream)">Сложно вернуться в реальность?<br>практика «Наблюдатель»</a>
+        <a class="center" href="#/observer/${id}" style="padding:14px 0;font-weight:500;color:var(--cream)">Сложно вернуться в реальность?<br>практика «Наблюдатель»</a>
         ${counted(id) ? "" : `<p class="small center">Практика не засчитана — прошло меньше двух минут. К ней можно вернуться в любой момент.</p>`}
       </div></div>`;
   }
@@ -304,32 +309,27 @@ window.startApp = function () {
     app.innerHTML = `<div class="stack" style="gap:16px">${back("#/return/" + id, "Возвращение")}
       <div class="scr-h" style="margin-top:calc(min(100vw,520px) * .52)"><div class="cap">Сразу после · ${esc(p._free ? "вне циклов" : p._cy.title + " · " + (p._i + 1))}</div><h1>Что пришло</h1><p>Образы, ощущения, слова — как есть, без разбора.</p></div>
       ${p.ask && S.ask && S.ask[id] && S.ask[id].text ? `<div class="card"><div class="cap">Твой запрос</div><div style="font-size:15px">${esc(S.ask[id].text)}</div><div class="small">Перечитай его и заметь, как он звучит теперь.</div></div>` : ""}
-      <div class="stack" style="gap:10px"><b class="qb">Какие образы были?</b>${vta("img", n.image)}</div>
+      <div class="stack" style="gap:10px"><b class="qb">Что было в образе?</b>${vta("img", n.image, "Все, что пришло: картинки, звуки, ощущения — одним текстом", 5)}</div>
       <div class="stack" style="gap:10px"><b class="qb">С каким чувством ты возвращаешься?</b><div class="chips" id="feel">${all.map((f) => `<button type="button" class="chip${n.feelings.includes(f) ? " on" : ""}" data-f="${esc(f)}">${esc(f)}</button>`).join("")}<button type="button" class="chip add" id="addf">+ свое</button></div></div>
       <a class="link-row" href="#/body/n/${id}/front"><span class="row" style="gap:12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7M8 10h8M9.5 21l2.5-7 2.5 7"/></svg><span>${n.body && Object.keys(n.body).length ? "В теле отмечено: " + Object.keys(n.body).length : n.bodyQuiet ? "Тело молчало" : "Отметить, где откликнулось в теле"}</span></span>${icon.chev}</a>
-      <details class="card" ${n.photo || n.stand ? "open" : ""}><summary class="qb" style="cursor:pointer">Еще: деталь и рисунок</summary><div class="stack" style="gap:12px;margin-top:12px">
-        <label class="q"><b>Что выделяется из увиденного?</b><textarea id="stand" rows="2" placeholder="Деталь, цвет, звук, что-то одно…">${esc(n.stand)}</textarea></label>
-        <span class="small">Можно нарисовать образ — как получится, без оценки — и сфотографировать.</span>
-        <label class="photo">${n.photo ? `<img src="${n.photo}" alt="Рисунок образа">` : `<span>+ фото рисунка</span>`}<input type="file" accept="image/*" id="ph" hidden></label></div></details>
       ${p.integration ? `<p class="small row" style="gap:10px;align-items:flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>Интеграция откроется через 8 часов — вернемся к этой записи.</p>` : ""}
       <button class="btn" id="save">${saved ? "Сохранено. Обсудить с Проводником?" : "Сохранить"}</button>
       ${p.closing && p.closing.text ? `<div class="card">${p.closing.title ? `<div style="font-weight:500;color:var(--cream)">${esc(p.closing.title)}</div>` : ""}<div style="font-size:14px;color:var(--text-body)">${esc(p.closing.text)}</div></div>` : ""}
     </div>`;
     bindMics();
     const sel = new Set(n.feelings);
-    const draft = () => { S.notes[id] = Object.assign(S.notes[id] || {}, { image: $("#img").value, feelings: Array.from(sel), own: n.own || [], stand: $("#stand").value }); save(); $("#save").textContent = "Сохранить"; };
-    ["#img", "#stand"].forEach((q) => $(q).addEventListener("input", draft));
-    $("#ph").onchange = (e) => photoOf(e.target.files[0], (url) => { draft(); S.notes[id].photo = url; save(); After(id); });
+    const draft = () => { S.notes[id] = Object.assign(S.notes[id] || {}, { image: $("#img").value, feelings: Array.from(sel), own: n.own || [] }); save(); $("#save").textContent = "Сохранить"; };
+    $("#img").addEventListener("input", draft);
     app.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => { const f = b.dataset.f; sel.has(f) ? sel.delete(f) : sel.add(f); b.classList.toggle("on"); draft(); });
     $("#addf").onclick = () => {
       const w = (window.prompt && window.prompt("Свое слово для чувства")) || "";
       const t = w.trim().toLowerCase(); if (!t) return;
-      n.own = Array.from(new Set((n.own || []).concat(t))); sel.add(t); S.notes[id] = Object.assign(n, { image: $("#img").value, stand: $("#stand").value, feelings: Array.from(sel) }); save(); After(id);
+      n.own = Array.from(new Set((n.own || []).concat(t))); sel.add(t); S.notes[id] = Object.assign(n, { image: $("#img").value, feelings: Array.from(sel) }); save(); After(id);
     };
     $("#save").onclick = () => {
       const b = $("#save");
       if (b.textContent.indexOf("Проводник") >= 0) { S.guide = Object.assign(gNew(), { dive: id }); S.guideDraft = "После погружения «" + p.title + "» пришло: " + (S.notes[id].image || "") + " "; save(); return go("#/guide"); }
-      S.notes[id] = Object.assign(S.notes[id] || {}, { image: $("#img").value.trim(), feelings: Array.from(sel), own: n.own || [], stand: $("#stand").value.trim(), savedAt: now() });
+      S.notes[id] = Object.assign(S.notes[id] || {}, { image: $("#img").value.trim(), feelings: Array.from(sel), own: n.own || [], savedAt: now() });
       save(); haptic(); toast("Сохранено в Мою карту"); b.textContent = "Сохранено. Обсудить с Проводником?";
     };
   }
@@ -401,18 +401,10 @@ window.startApp = function () {
         <div class="sym-row" style="background:none;border:1px dashed var(--line)"><span class="t"><b style="color:var(--muted)">Тревога, гнев, грусть и другие гнетущие чувства</b><span>скоро</span></span></div>
       </div>
       <div class="kicker" style="letter-spacing:.08em;margin-top:6px">ЖИВОЙ КОНТАКТ</div>
-      <button type="button" class="nastya" id="toN"><span class="av">Н</span><span class="t"><b>Обратиться к Насте</b><span>задать вопрос или записаться на консультацию</span></span>${icon.chev}</button>
+      ${nastyaBox()}
+      <a class="link-row" href="#/export"><span class="t" style="display:flex;flex-direction:column;gap:2px"><b style="font-weight:500">Собрать наблюдения для психолога</b><span class="small" style="font-size:12px">записи за период одним текстом</span></span>${icon.chev}</a>
       <p class="small center">Если есть угроза жизни — звони 112.</p>
     </div>`;
-    $("#toN").onclick = () => {
-      const bg = document.createElement("div"); bg.className = "sheet-bg";
-      bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="nsh"><div class="grip"></div><h2 id="nsh" style="font-size:19px">Обратиться к Насте</h2>
-        <a class="opt" href="#/ask"><span class="oi">${ICO.msg}</span><span class="t"><b>Задать вопрос</b><span>напиши, что происходит · ответ в течение 48 часов</span></span>${icon.chev}</a>
-        <a class="opt" href="#/consult"><span class="oi">${ICO.cal}</span><span class="t"><b>Записаться на консультацию</b><span>разобрать глубже, лично</span></span>${icon.chev}</a>
-        <p class="small center">Если сейчас опасно — звони 112</p></div>`;
-      bg.onclick = (e) => { if (e.target === bg || e.target.closest("a")) bg.remove(); };
-      document.body.appendChild(bg);
-    };
   }
   const ICO = {
     cyc: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8CC4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>',
@@ -449,11 +441,13 @@ window.startApp = function () {
       <p class="small center">откроется страница записи и оплаты</p></div>`;
     $("#book").onclick = () => toast("Ссылку на запись добавим перед запуском");
   }
-  function Observer() {
-    app.innerHTML = `<div class="stack">${back("#/aid", "Аптечка")}
+  function Observer(from) {
+    // пришли с экрана возвращения после погружения — туда и назад, и в конце туда же: записать, что пришло
+    const pr = from && prac(from);
+    app.innerHTML = `<div class="stack">${pr ? back("#/return/" + from, "К погружению") : back("#/aid", "Аптечка")}
       <div class="stack" style="gap:6px"><div class="kicker terra">Сложно вернуться в реальность · 2–3 мин</div><h1>Наблюдатель</h1><p class="lead" style="font-size:14px">Прочитай и сделай — ничего записывать не нужно.</p></div>
       <div class="card terra" style="padding:18px;gap:12px"><div class="small" style="font-size:13px">Бывает, после погружения сложно вернуться в реальность. При панике тоже помогает.</div><ol class="obs"><li><b>Остановись.</b> Открой глаза. Поставь стопы на пол, почувствуй опору.</li><li><b>Дыхание.</b> Два коротких вдоха носом подряд, второй «добирает» воздух. Длинный медленный выдох ртом, будто дуешь на горячий чай. Повтори 3–5 раз.</li><li><b>Стань наблюдателем.</b> Про себя назови, что происходит: «Я замечаю, что сердце бьется быстро». «Я замечаю страх». <i>Не борись с ощущением. Просто смотри на него со стороны.</i></li><li><b>Вернись в комнату.</b> Найди глазами 3 предмета вокруг. Услышь 2 звука. Почувствуй 1 точку тела, которая касается опоры.</li><li><b>Скажи себе:</b> «Это был образ. Сейчас я здесь». <i>Образ не обязательно досматривать. К нему можно вернуться потом или не возвращаться вовсе.</i></li></ol><b style="font-size:15px">Если не отпустило — повтори с шага 2.</b></div>
-      <a class="btn ghost" href="#/">На главную</a></div>`;
+      ${pr ? `<a class="btn" href="#/after/${from}">Записать, что пришло</a>` : `<a class="btn ghost" href="#/">На главную</a>`}</div>`;
   }
 
 
@@ -679,7 +673,9 @@ window.startApp = function () {
       <button class="btn ghost" id="dl">Сохранить файлом</button></div>`;
     app.querySelectorAll("[data-d]").forEach((b) => b.onclick = () => Export(b.dataset.d));
     $("#cp").onclick = () => { const t = $("#ex"); t.select(); try { navigator.clipboard.writeText(t.value).then(() => toast("Скопировано"), () => { document.execCommand("copy"); toast("Скопировано"); }); } catch (e) { document.execCommand("copy"); toast("Скопировано"); } };
-    $("#dl").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/plain;charset=utf-8" })); a.download = "karta-glubiny.txt"; document.body.appendChild(a); a.click(); a.remove(); };
+    $("#dl").onclick = async () => {
+      try { const f = new File([txt], "karta-glubiny.txt", { type: "text/plain" }); if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: "Карта Глубины" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/plain;charset=utf-8" })); a.download = "karta-glubiny.txt"; document.body.appendChild(a); a.click(); a.remove(); };
   }
   // повторяющиеся образы: сны, символ дня, образы погружений (чувства считаются отдельно)
   function recurring() {
@@ -886,10 +882,10 @@ window.startApp = function () {
   function dtabs(list, cur, base) { return `<div class="dtabs" role="tablist">${list.map(([k, l]) => `<a role="tab" href="${base}/${k}" class="${k === cur ? "on" : ""}" aria-selected="${k === cur}">${l}</a>`).join("")}</div>`; }
   function mineBlock(id, title, questions, rel) {
     const m = S.myimg[id] || { text: "", links: [] };
-    return `${rel || ""}<div class="dcard" style="gap:10px"><label for="moe"><h2 style="font-size:17px">Что ${esc(title.toLowerCase())} значит для тебя?</h2></label>
+    return `<div class="dcard" style="gap:10px"><label for="moe"><h2 style="font-size:17px">Что ${esc(title.toLowerCase())} значит для тебя?</h2></label>
       ${(questions || []).length ? `<div class="stack" style="gap:6px;font-size:13px;line-height:1.45;color:#B9BFE0"><span style="font-size:12px;color:#9AA3CF">Если нужна подсказка:</span>${questions.map((q) => `<span>— ${esc(q)}</span>`).join("")}</div>` : ""}
       <textarea id="moe" rows="4" placeholder="Твоя ассоциация — она здесь главная">${esc(m.text)}</textarea>
-      <span class="small" id="st" style="font-size:12px;color:#9AA3CF">${m.text ? "Сохранено в «Мои образы»" : "Запись сохранится в «Мои образы»"}</span></div>`;
+      <span class="small" id="st" style="font-size:12px;color:#9AA3CF">${m.text ? "Сохранено в «Мои образы»" : "Запись сохранится в «Мои образы»"}</span></div>${rel ? `<div class="rel-low">${rel}</div>` : ""}`;
   }
   function bindMine(id) {
     const ta = $("#moe"), stl = $("#st"); if (!ta) return; let deb;
@@ -908,7 +904,7 @@ window.startApp = function () {
     const cur = TB.some((t) => t[0] === tab) ? tab : "sut";
     const card = deckFor(x);
     let body = "";
-    if (cur === "sut") body = `${para(x.gift)}${x.shadow ? `<div class="dcard"><h2 style="font-size:16px">Другая сторона</h2><p class="dp">${esc(x.shadow)}</p></div>` : ""}
+    if (cur === "sut") body = `${para(x.gift)}${x.shadow ? `<div class="dcard"><h2 style="font-size:16px">Теневая сторона</h2><p class="dp">${esc(x.shadow)}</p></div>` : ""}
       ${x.sd || x.deep ? `<div class="dcard">${x.sd ? `<h2 style="font-size:16px">В символдраме</h2><p class="dp">${esc(x.sd)}</p>` : ""}${x.deep ? `<span class="small" style="color:#B9BFE0">В Глубине: ${esc(x.deep)}</span>` : ""}</div>` : ""}`;
     else if (cur === "myths") body = mythsHTML(x.myths);
     else if (cur === "son") body = `<p class="small" style="color:#B9BFE0">Сон говорит на языке самого человека. Это возможные прочтения, а не толкование.</p>${mythsHTML(x.dream)}`;
@@ -935,7 +931,7 @@ window.startApp = function () {
     const cur = TB.some((t) => t[0] === tab) ? tab : "sut";
     const soon = `<p class="small" style="color:#B9BFE0">Текст к этой карте скоро появится.</p>`;
     let body = "";
-    if (cur === "sut") body = x.gift || x.shadow ? `${para(x.gift)}${x.shadow ? `<div class="dcard"><h2 style="font-size:16px">Другая сторона</h2><p class="dp">${esc(x.shadow)}</p></div>` : ""}${(x.myths || []).length ? `<div class="dkick" style="color:#C3CBEB;margin-top:4px">в мифах и сказках</div>${mythsHTML(x.myths)}` : ""}` : soon;
+    if (cur === "sut") body = x.gift || x.shadow ? `${para(x.gift)}${x.shadow ? `<div class="dcard"><h2 style="font-size:16px">Теневая сторона</h2><p class="dp">${esc(x.shadow)}</p></div>` : ""}${(x.myths || []).length ? `<div class="dkick" style="color:#C3CBEB;margin-top:4px">в мифах и сказках</div>${mythsHTML(x.myths)}` : ""}` : soon;
     else if (cur === "karta") body = `<button type="button" class="abig" id="abig" aria-label="Открыть карту"><img src="${arcImg(n)}" alt="${esc(a[0])}"></button>${x.card ? `<div class="dcard"><h2 style="font-size:16px">Что на карте</h2><p class="dp">${esc(x.card)}</p></div>` : ""}`;
     else if (cur === "put") body = `<details class="dwhat"><summary>Что такое путь</summary><p class="dp">${esc((C.dict && C.dict.pathInfo) || "Путь — место карты в истории от Шута к Миру: что было до нее, какой урок она приносит и куда ведет дальше.")}</p></details>${x.path ? `<div class="dstory">${para(x.path)}</div>` : soon}`;
     else if (cur === "son") body = (x.dream || []).length ? `<p class="small" style="color:#B9BFE0">Возможные прочтения, а не толкование.</p>${mythsHTML(x.dream)}` : soon;
@@ -2006,33 +2002,30 @@ window.startApp = function () {
     im.onerror = () => toast("Не получилось собрать картинку");
     im.src = c.img;
   }
-  function SymDay() {
+  // символ дня: сразу картинка на затемненном экране; нажатие на картинку — словарь, вкладка «Мое»
+  function drawSym() {
     let st = S.sym[dkey()];
-    if (!DECK.length) { app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}<h1>Послание дня</h1><p class="lead">Колода появится после подключения.</p></div>`; return; }
-    if (!st) {
+    if (!st && DECK.length) {
       const prev = S.sym[dkey(now() - 86400000)], pool = DECK.filter((c) => !prev || c.id !== prev.id);
       const c0 = pool[Math.floor(Math.random() * pool.length)];
       st = S.sym[dkey()] = { id: c0.id, at: now(), note: "" }; save(); haptic();
     }
-    setBg("Segodnya5m-1.webp", { pos: "100% 0" }); document.body.classList.add("dim");
-    const c = cardById(st.id) || DECK[0], y = symByTitle(c.title), d0 = new Date(st.at || now());
-    const txt = y ? [y.essence, (y.questions || [])[0]].filter(Boolean).join(" ") : "";
-    app.innerHTML = `<div class="stack" style="gap:16px">${back("#/", "Сегодня")}
-      <div class="scroll-p"><img class="scroll-bg" src="${V27}Poslanie-1.webp" alt=""><div class="scroll-in">
-        <div class="scroll-cap">Послание дня · ${d0.getDate()} ${MONS[d0.getMonth()].toUpperCase()}</div>
-        <button type="button" class="scroll-card" id="dcard" aria-label="Открыть карту «${esc(c.title)}»"><img src="${c.img}" alt="Карта: ${esc(c.title)}"></button>
-        <div class="scroll-t">${esc(c.title)}</div>
-        ${txt ? `<p class="scroll-p1">${esc(txt)}</p>` : ""}
-        ${y ? `<a class="scroll-dict" href="#/sym/${y.id}">${esc(c.title)} в словаре символов</a>` : ""}</div></div>
-      <div class="stack" id="srec" style="gap:10px;${st.note ? "" : "display:none"}"><label class="q"><b>Что откликается в этом образе сегодня?</b><textarea id="snote" rows="3" placeholder="Первое, что приходит…">${esc(st.note || "")}</textarea></label></div>
-      <div class="two"><button type="button" class="btn" id="srecb">${st.note ? "Сохранено" : "Записать отклик"}</button><a class="btn ghost" href="#/guide" id="sg">К Проводнику</a></div>
-      <button type="button" class="link-row" id="shr" style="justify-content:center;border:none;background:none;-webkit-backdrop-filter:none;backdrop-filter:none;color:var(--text-muted);font-size:14px">Поделиться картой в сторис</button></div>`;
-    $("#dcard").onclick = () => cardView(c.img, c.title);
-    $("#snote").oninput = (e) => { st.note = e.target.value; save(); $("#srecb").textContent = "Сохранено"; };
-    $("#srecb").onclick = () => { const b = $("#srec"); if (b.style.display === "none") { b.style.display = ""; $("#snote").focus(); } else { save(); toast("Сохранено в Мою карту"); } };
-    $("#sg").onclick = () => { S.guideDraft = "Сегодня выпал символ «" + c.title + "». " + (st.note ? "Откликнулось: " + st.note + ". " : ""); save(); };
-    $("#shr").onclick = () => shareCard(c);
+    return st;
   }
+  function symOpen() {
+    const st = drawSym(); if (!st) { toast("Колода появится после подключения"); return; }
+    const c = cardById(st.id) || DECK[0], y = symByTitle(c.title);
+    const bg = document.createElement("div"); bg.className = "cview symv";
+    bg.innerHTML = `<button type="button" class="cv-x" aria-label="Закрыть">×</button><button type="button" class="symv-c" aria-label="${y ? "Открыть «" + esc(c.title) + "» в словаре" : esc(c.title)}"><img src="${c.img}" alt="Карта: ${esc(c.title)}"></button>`;
+    const close = () => { bg.classList.add("out"); setTimeout(() => bg.remove(), 200); };
+    bg.querySelector(".cv-x").onclick = close;
+    bg.onclick = (e) => { if (e.target === bg) close(); };
+    bg.querySelector(".symv-c").onclick = () => { bg.remove(); if (y) go("#/sym/" + y.id + "/moe"); };
+    document.body.appendChild(bg);
+    if (location.hash.replace(/^#\/?/, "") !== "") { history.replaceState(null, "", "#/"); render(); document.body.appendChild(bg); }
+  }
+  function SymDay() { history.replaceState(null, "", "#/"); render(); symOpen(); }
+
 
   // ---------- «Сегодня» и вкладки ----------
   const TABS = [["", "Сегодня", '<path d="M3 18h18M6 21h12M7 15a5 5 0 0 1 10 0M12 5v3M5 9l1.8 1.4M19 9l-1.8 1.4"/>'], ["lib", "Бухта", '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M8 10h8M4 13a8 8 0 0 0 16 0"/>'], ["guide", "Проводник", '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'], ["notes", "Моя карта", '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/>']];
@@ -2160,7 +2153,8 @@ ${b}</svg>`;
     pend.forEach((p) => out.push({ id: "i" + p.id, cap: "Интеграция", t: "Можно вернуться к «" + p.title + "»", sub: "Прошло 8 часов. Вернемся к тому, что пришло.", href: "#/integr/" + p.id, ic: "dive" }));
     const nx = nextStep();
     if (!isNight() && nx && isOpen(nx.id) && !pend.length) out.push({ id: "n" + nx.id, cap: "Дальше по пути", t: nx.title, sub: where(nx) + (nx.duration ? " · " + Math.round(nx.duration / 60) + " мин" : ""), href: "#/prep/" + nx.id, ic: "dive" });
-    if (isNight()) out.push({ id: "night", cap: "Если не спится", t: "Музыкальное сопровождение", sub: "Для сна и чтобы просто побыть с собой", href: "#/music", ic: "moon" });
+    if (isNight()) out.push({ id: "night", cap: "Если не спится", t: "Музыкальное сопровождение", sub: "Для сна и чтобы просто побыть с собой. Всегда есть в Бухте → Музыка", href: "#/music", ic: "moon" });
+    if (S.msgOff === dkey()) return [];
     return out.filter((m) => !hid.includes(m.id));
   }
   const MSG_IC = { msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', dive: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>', moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>' };
@@ -2170,14 +2164,16 @@ ${b}</svg>`;
     const stg = $("#today"); if (stg) stg.classList.toggle("hasmsg", L.length > 0);
     if (!L.length) { box.innerHTML = ""; return; }
     const m = L[i];
-    box.innerHTML = `<div class="msg" id="msg1"><span class="msg-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MSG_IC[m.ic]}</svg></span><span class="msg-t"><span class="cap">${esc(m.cap)}</span><b>${esc(m.t)}</b><span>${esc(m.sub)}</span></span><a class="msg-go" href="${m.href}">Открыть</a></div>${L.length > 1 ? `<div class="msg-dots">${L.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>` : ""}`;
+    box.innerHTML = `<div class="msg" id="msg1"><span class="msg-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MSG_IC[m.ic]}</svg></span><span class="msg-t"><span class="cap">${esc(m.cap)}</span><b>${esc(m.t)}</b><span>${esc(m.sub)}</span></span><a class="msg-go" href="${m.href}">Открыть</a><button type="button" class="msg-x" aria-label="Скрыть напоминания на сегодня">×</button></div>${L.length > 1 ? `<div class="msg-dots">${L.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>` : ""}`;
     const el = $("#msg1"); let x0 = 0, y0 = 0;
     el.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
     el.addEventListener("touchend", (e) => {
       const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
-      if (dy < -30 && Math.abs(dy) > Math.abs(dx)) { S.msgHide = S.msgHide || {}; (S.msgHide[dkey()] = S.msgHide[dkey()] || []).push(m.id); save(); box.dataset.i = 0; paintMsgs(); }
+      if (dy < -30 && Math.abs(dy) > Math.abs(dx)) offToday();
       else if (Math.abs(dx) > 40) { box.dataset.i = (i + (dx < 0 ? 1 : -1) + L.length) % L.length; paintMsgs(); }
     });
+    function offToday() { S.msgOff = dkey(); save(); el.classList.add("gone"); setTimeout(paintMsgs, 250); }
+    el.querySelector(".msg-x").onclick = (e) => { e.preventDefault(); e.stopPropagation(); offToday(); };
     el.querySelector(".msg-go").onclick = () => { if (m.id[0] === "q") { const q = S.questions[+m.id.slice(1)]; if (q) { q.seen = true; save(); } } };
   }
   function Main() {
@@ -2200,6 +2196,11 @@ ${b}</svg>`;
       ${btn("#/today", "Segodnya5m-7.webp", "Тело и чувства", 40, 0, 32)}${am ? btn("#/dream", "Segodnya5m-8.webp", "Сновидение", 37, 0, 142) : btn("#/free", "Segodnya5-1.webp", "Заметки", 37, 0, 142)}${btn("#/quick", "Segodnya5m-9.webp", "На бегу", 32, 0, 253)}
       <div class="t-msgs" id="msgs" data-i="0"></div></div>`;
     app.innerHTML = h;
+    app.querySelectorAll('a[href="#/symbol"]').forEach((a) => a.onclick = (e) => {
+      e.preventDefault();
+      if (e.target.closest(".t-wr")) { const st = drawSym(), c = st && cardById(st.id), y = c && symByTitle(c.title); if (y) go("#/sym/" + y.id + "/moe"); return; }
+      symOpen(); if (porthole) Main();
+    });
     paintMsgs();
   }
   function Dives() {
@@ -2231,19 +2232,14 @@ ${b}</svg>`;
   const BX = [["#/pod", "ПОДКАСТЫ", 470, 150, 220, 180, "b"], ["#/music", "МУЗЫКА", 130, 360, 200, 160, "b"], ["#/dict", "СИМВОЛЫ", 455, 530, 185, 150, "b"], ["#/dives", "ПОГРУЖЕНИЯ", 100, 810, 240, 200, "b"]];
   function Lib() {
     setBg(null); document.body.classList.add("nofade");
-    app.innerHTML = `<div class="bx2-st"><img class="bx2-img" src="${V27}Bukhta-1.webp" alt=""><h1 class="bx2-h">Бухта</h1>${BX.map(([href, l], i) => `<a class="bx3" href="${href}" data-i="${i}" aria-label="${cap1(l.toLowerCase())}"><span>${l}</span></a>`).join("")}</div>`;
+    // карта и подписи — один слой с пропорциями картинки: подписи всегда на тех же местах изображения
+    app.innerHTML = `<div class="bx2-st"><div class="bx-map"><img class="bx2-img" src="${V27}Bukhta-1.webp" alt="">${BX.map(([href, l, x, y, w, h, side], i) => `<a class="bx3${side === "r" ? " r" : ""}" href="${href}" aria-label="${cap1(l.toLowerCase())}" style="left:${(x / 7.8).toFixed(2)}%;top:${(y / 11.7).toFixed(2)}%;width:${(w / 7.8).toFixed(2)}%;height:${(h / 11.7).toFixed(2)}%"><span>${l}</span></a>`).join("")}</div><h1 class="bx2-h">Бухта</h1></div>`;
+    const st = app.querySelector(".bx2-st"), map = app.querySelector(".bx-map");
     const place = () => {
-      if (!document.body.contains(app.querySelector(".bx2-st"))) { removeEventListener("resize", place); return; }
-      const R = app.querySelector(".bx2-st").getBoundingClientRect();
-      const sc = Math.max(R.width / 780, R.height / 1170), ox = (R.width - 780 * sc) * 0.52, oy = (R.height - 1170 * sc) * 0.5;
-      app.querySelectorAll(".bx3").forEach((el) => {
-        const [, , x, y, w, h, side] = BX[+el.dataset.i];
-        Object.assign(el.style, { left: ox + x * sc + "px", top: oy + y * sc + "px", width: w * sc + "px", height: h * sc + "px" });
-        el.classList.toggle("r", side === "r");
-        const sp = el.firstElementChild; sp.style.marginLeft = "0px";
-        const b = sp.getBoundingClientRect(), over = b.right - (innerWidth - 10), under = 10 - b.left;
-        if (over > 0) sp.style.marginLeft = -over + "px"; else if (under > 0) sp.style.marginLeft = under + "px";
-      });
+      if (!document.body.contains(st)) { removeEventListener("resize", place); return; }
+      const W = st.clientWidth, H = st.clientHeight, sc = Math.max(W / 780, H / 1170);
+      Object.assign(map.style, { width: 780 * sc + "px", height: 1170 * sc + "px", left: (W - 780 * sc) * 0.52 + "px", top: (H - 1170 * sc) * 0.5 + "px" });
+      map.style.setProperty("--fs", Math.max(10, Math.min(13, 11 * sc / 0.62)) + "px");
     };
     place(); addEventListener("resize", place);
   }
@@ -2506,6 +2502,8 @@ ${b}</svg>`;
 
   // ---------- роутер ----------
   function render() {
+    // Telegram открывает приложение с адресом вида #tgWebAppData=…: это не экран, а служебные данные — считаем главным экраном
+    if (location.hash && !/^#\//.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + "#/");
     const parts = (location.hash.replace(/^#\/?/, "") || "").split("/");
     const [r, id, sub] = parts;
     if (PL && r !== "player") { history.replaceState(null, "", "#/player/" + PL.id); exitSheet(); return; }
@@ -2563,7 +2561,7 @@ ${b}</svg>`;
       case "journal": return Journal();
       case "integr": return Integr(id);
       case "aid": return Aid();
-      case "observer": return Observer();
+      case "observer": return Observer(id);
       case "pod": return Pods();
       case "series": return Series(id);
       case "ep": return Episode(id);
@@ -2612,7 +2610,7 @@ ${b}</svg>`;
       if (!ok) return; ok = false;
       const t = e.changedTouches[0]; if (!t) return;
       const dx = t.clientX - sx, dy = t.clientY - sy;
-      if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - st > 700) return;
+      if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.7 || Date.now() - st > 900) return;
       const r = (location.hash.replace(/^#\/?/, "") || "").split("/");
       if (r.length > 1 && r[1]) return;
       const i = TABS.findIndex((x) => x[0] === r[0]); if (i < 0 || !S.profile) return;
