@@ -744,6 +744,15 @@ window.startApp = function () {
     const m = /^(?:promo_)?([A-Za-z0-9]{4,16})$/.exec(sp); return m ? m[1].toUpperCase() : "";
   }
   const PROMO_UNTIL = "2026-12-30";
+  function syncAccess(code) {
+    const local = () => { if (!S.access) S.access = code ? { plan: "promo", code, until: PROMO_UNTIL } : { plan: "trial", since: now(), until: now() + 3 * 86400000 }; return null; };
+    if (!window.KARTA_BOT || !window.KARTA_HEADERS || !window.KARTA_HEADERS["X-Telegram-Init-Data"]) return Promise.resolve(local());
+    return fetch(window.KARTA_BOT, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify({ action: "access", code: code || "" }) })
+      .then((r) => r.ok ? r.json() : null).then((j) => {
+        if (!j || !j.plan) return local();
+        S.access = { plan: j.plan, until: j.until ? new Date(j.until + 3 * 3600000).toISOString().slice(0, 10) : null, untilTs: j.until, code: j.code || "" }; save(); return j;
+      }).catch(local);
+  }
   // «glubina 12» и «ГЛУБИНА12» — одно и то же; есть ли такой код и не использован ли он — решает сервер (список кодов в открытом коде не хранится)
   const normCode = (v) => { const t = String(v || "").toUpperCase().replace(/\s+/g, "").replace(/^ГЛУБИНА/, "GLUBINA"); if (!t) return ""; return /^[A-Z0-9]{4,16}$/.test(t) ? t : null; };
   function Know() {
@@ -783,8 +792,13 @@ window.startApp = function () {
       // доступ: пока решается в приложении (для показа); в рабочей версии срок выдает сервер по Telegram ID
       const code = normCode(linkCode || ($("#prc") ? $("#prc").value : ""));
       if (code === null) { toast("Такого промокода нет. Проверь или оставь поле пустым"); return; }
-      S.access = code ? { plan: "promo", code, until: PROMO_UNTIL } : { plan: "trial", since: now(), until: now() + 3 * 86400000 };
-      save(); haptic(); go("#/access");
+      btn.disabled = true;
+      syncAccess(code).then((r) => {
+        if (r && r.promo === "used") toast("Этот промокод уже использован. Открыт пробный период");
+        else if (r && r.promo === "unknown") toast("Такого промокода нет. Открыт пробный период");
+        else if (r && r.promo === "expired") toast("Срок промокода закончился");
+        save(); haptic(); go("#/access");
+      });
     };
   }
   // экран доступа после анкеты: пробный период или промокод
