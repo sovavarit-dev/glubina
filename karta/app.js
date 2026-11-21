@@ -472,12 +472,13 @@ window.startApp = function () {
         <div class="small">Демо-режим: перемотка времени, чтобы проверить таймеры (8 и 48 часов)</div>
         <div class="chips"><button class="chip" data-shift="8">+8 часов</button><button class="chip" data-shift="48">+48 часов</button><button class="chip" data-shift="200">пройти все циклы</button><button class="chip" data-reset="1">Начать заново</button></div>
       </div></div>`;
-    $("#ron").onclick = () => { R.on = !R.on; save(); Me(); };
+    const push = () => { clearTimeout(Me.t); Me.t = setTimeout(() => syncAccess(""), 800); }; // время напоминаний — боту
+    $("#ron").onclick = () => { R.on = !R.on; save(); push(); Me(); };
     const hhmm = (el, key) => {
       el.oninput = () => { const d = el.value.replace(/\D/g, "").slice(0, 4); el.value = d.length > 2 ? d.slice(0, 2) + ":" + d.slice(2) : d; };
       el.onchange = el.onblur = () => {
         const m = el.value.match(/^(\d{1,2}):?(\d{2})$/);
-        if (m && +m[1] < 24 && +m[2] < 60) { R[key] = String(+m[1]).padStart(2, "0") + ":" + m[2]; save(); }
+        if (m && +m[1] < 24 && +m[2] < 60) { const v = String(+m[1]).padStart(2, "0") + ":" + m[2]; if (v !== R[key]) { R[key] = v; save(); push(); } }
         el.value = R[key];
       };
     };
@@ -747,7 +748,7 @@ window.startApp = function () {
   function syncAccess(code) {
     const local = () => { if (!S.access) S.access = code ? { plan: "promo", code, until: PROMO_UNTIL } : { plan: "trial", since: now(), until: now() + 3 * 86400000 }; return null; };
     if (!window.KARTA_BOT || !window.KARTA_HEADERS || !(window.KARTA_HEADERS["X-Telegram-Init-Data"] || window.KARTA_HEADERS["X-Session"])) return Promise.resolve(local());
-    return fetch(window.KARTA_BOT, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify({ action: "access", code: code || "" }) })
+    return fetch(window.KARTA_BOT, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify({ action: "access", code: code || "", tz: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; } })(), remind: S.remind || { on: true, morning: "09:00", evening: "21:30" } }) })
       .then((r) => r.ok ? r.json() : null).then((j) => {
         if (!j || !j.plan) return local();
         S.access = { plan: j.plan, until: j.until ? new Date(j.until + 3 * 3600000).toISOString().slice(0, 10) : null, untilTs: j.until, code: j.code || "" }; save(); return j;

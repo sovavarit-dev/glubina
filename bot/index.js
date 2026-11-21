@@ -19,6 +19,16 @@ const crypto = require("crypto");
 
 const DAY = 86400000, TRIAL_DAYS = 3;
 const MSK = 3 * 3600000;
+// ---------- время человека (часовой пояс из приложения) ----------
+const okTz = (tz) => { if (typeof tz !== "string" || !/^[A-Za-z0-9_+\-\/]{1,64}$/.test(tz)) return false; try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; } catch (e) { return false; } };
+function local(tz, t) {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: okTz(tz) ? tz : "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(t || Date.now()));
+  const g = (k) => (p.find((x) => x.type === k) || {}).value;
+  return { date: g("year") + "-" + g("month") + "-" + g("day"), min: Number(g("hour")) * 60 + Number(g("minute")) };
+}
+const hm = (v) => { const m = /^(\d{2}):(\d{2})$/.exec(String(v || "")); return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null; };
+const DAY_FROM = 10 * 60, DAY_TO = 21 * 60; // дневное окно для прочих сообщений: 10:00–20:59 по времени человека
+const isDay = (u, t) => { const L = local(u && u.tz, t); return L.min >= DAY_FROM && L.min < DAY_TO; };
 
 // ---------- хранилище (как в karta-api) ----------
 const S3 = "https://storage.yandexcloud.net/";
@@ -111,7 +121,7 @@ function status(u, t) {
   return { plan: "expired", until: null };
 }
 // регистрация при первом входе + промокод (один код — один человек)
-async function access(token, bucket, user, rawCode) {
+async function access(token, bucket, user, rawCode, extra) {
   const t = Date.now();
   if (!isAllowed(user.id)) return { plan: "closed", until: null };
   let u = (await getObj(token, bucket, ukey(user.id))) || { id: user.id, firstSeen: t, sent: {} };
@@ -127,6 +137,11 @@ async function access(token, bucket, user, rawCode) {
     }
   }
   u.name = user.first_name || u.name || ""; u.lastSeen = t;
+  if (extra && okTz(extra.tz)) u.tz = extra.tz;
+  if (extra && extra.remind && typeof extra.remind === "object") {
+    const r = extra.remind;
+    u.remind = { on: r.on !== false, morning: hm(r.morning) !== null ? r.morning : "09:00", evening: hm(r.evening) !== null ? r.evening : "21:30" };
+  }
   await putObj(token, bucket, ukey(user.id), u);
   return Object.assign(status(u, t), { promo });
 }
@@ -143,12 +158,22 @@ const T = {
   trialSoon: `Завтра заканчивается пробный период «Карты Глубины». Все записи останутся с тобой, а чтобы погружения и Проводник оставались открыты — оформи подписку.`,
   trialEnd: `Пробный период закончился. Записи в «Моей карте» остаются с тобой. Продлить доступ можно в приложении.`,
   promoEnd: `Бесплатный период закончился. Спасибо, что декабрь прошел вместе с «Картой Глубины». Продлить доступ можно в приложении.`,
+  morning: `Доброе утро. Если снился сон — запиши, пока он не растаял. Символ дня уже ждет.`,
+  evening: `Как ты? Пара слов о дне — и его можно отпускать.`,
   sub: (s) => s.plan === "trial" ? `Пробный период до ${dm(s.until)}.` : s.plan === "promo" ? `Полный доступ по промокоду до ${dm(s.until)}.` : s.plan === "expired" ? `Доступ закончился. Записи сохранены, продлить можно в приложении.` : `Подписка до ${dm(s.until)}.`,
 };
 
 // ---------- вебхук ----------
 async function onUpdate(token, bucket, up) {
   const cq = up.callback_query;
+  if (cq && cq.from && /^news:/.test(cq.data || "") && process.env.NASTYA_ID && String(cq.from.id) === String(process.env.NASTYA_ID)) {
+    const msg = cq.message || {}, d = await getObj(token, bucket, "news/draft.json");
+    let out = "Отменено.";
+    if (cq.data === "news:send" && d && d.text) { const id = "n-" + Date.now(); await putObj(token, bucket, "news/" + id + ".json", { id, text: d.text, at: Date.now() }); out = "Новость поставлена в рассылку:\n\n" + esc(d.text); }
+    else if (cq.data === "news:send") out = "Черновик не найден, отправь /news еще раз.";
+    await putObj(token, bucket, "news/draft.json", {});
+    return tg("editMessageText", { chat_id: msg.chat && msg.chat.id, message_id: msg.message_id, text: out, parse_mode: "HTML", reply_markup: { inline_keyboard: [] } });
+  }
   if (cq && cq.from && /^login:/.test(cq.data || "")) {
     const nonce = cq.data.slice(6), msg = cq.message || {};
     if (!okNonce(nonce) || !isAllowed(cq.from.id)) return tg("answerCallbackQuery", { callback_query_id: cq.id, text: "Вход пока закрыт" });
@@ -163,7 +188,20 @@ async function onUpdate(token, bucket, up) {
   // Настя отвечает на пересланное сообщение — ответ уходит человеку
   if (process.env.NASTYA_ID && String(from.id) === String(process.env.NASTYA_ID) && m.reply_to_message) {
     const link = await getObj(token, bucket, "support/" + m.reply_to_message.message_id + ".json");
-    if (link && link.user) { await send(link.user, "Ответ Насти:\n\n" + esc(text || "(без текста)")); return send(m.chat.id, "Отправлено."); }
+    if (link && link.user) {
+      const msg = "Ответ Насти:\n\n" + esc(text || "(без текста)");
+      const uk = ukey(link.user), uu = (await getObj(token, bucket, uk)) || { id: link.user, firstSeen: Date.now(), sent: {} };
+      if (isDay(uu)) { const r = await tg("sendMessage", { chat_id: link.user, text: msg, parse_mode: "HTML" }); return send(m.chat.id, r && r.ok ? "Отправлено." : "Не получилось отправить: " + esc((r && r.description) || "ошибка")); }
+      uu.queue = (uu.queue || []).concat([{ text: msg, at: Date.now() }]); await putObj(token, bucket, uk, uu);
+      return send(m.chat.id, "У человека сейчас ночь или раннее утро — ответ придет в 10:00 по его времени.");
+    }
+  }
+  // новости: Настя пишет /news текст → предпросмотр → «Отправить всем»
+  if (process.env.NASTYA_ID && String(from.id) === String(process.env.NASTYA_ID) && /^\/news\b/.test(text)) {
+    const body = text.replace(/^\/news(@\w+)?\s*/, "").trim();
+    if (!body) return send(m.chat.id, "Напиши так: /news и текст новости в одном сообщении.");
+    await putObj(token, bucket, "news/draft.json", { text: body, at: Date.now() });
+    return send(m.chat.id, "Предпросмотр новости:\n\n" + esc(body) + "\n\nКаждый получит ее днем, с 10 до 21 по своему времени.", { inline_keyboard: [[{ text: "Отправить всем", callback_data: "news:send" }, { text: "Отмена", callback_data: "news:cancel" }]] });
   }
   if (!isAllowed(from.id)) {
     if (/^\/start\b/.test(text)) return send(m.chat.id, `${from.first_name ? esc(from.first_name) + ", п" : "П"}риложение «Карта Глубины» скоро откроется. Напишем сюда, когда можно будет зайти.`, { remove_keyboard: true });
@@ -220,24 +258,45 @@ async function setup() {
 
 // ---------- напоминания (таймер) ----------
 async function remind(token, bucket) {
-  const t = Date.now(), hourMsk = new Date(t + MSK).getUTCHours();
-  if (hourMsk < 10 || hourMsk > 20) return { skipped: "night" }; // не пишем ночью
+  const t = Date.now();
   const keys = (await listKeys(token, bucket, "users/")).filter((k) => /^users\/\d+\.json$/.test(k));
+  const newsKeys = (await listKeys(token, bucket, "news/n-")).filter((k) => /\.json$/.test(k)).slice(-20);
+  const news = [];
+  for (const k of newsKeys) { const n = await getObj(token, bucket, k); if (n && n.id && t - n.at < 7 * DAY) news.push(n); }
   let sent = 0;
   for (const k of keys) {
-    const u = await getObj(token, bucket, k); if (!u || !isAllowed(u.id)) continue;
+    const u = await getObj(token, bucket, k); if (!u || !u.id || !isAllowed(u.id)) continue;
     u.sent = u.sent || {};
-    const trialEnd = u.firstSeen + TRIAL_DAYS * DAY, paid = u.paidUntil && t < u.paidUntil;
-    let msg = null, flag = null;
-    if (!paid && !u.promo && t > trialEnd - DAY && t < trialEnd && !u.sent.trialSoon) { msg = T.trialSoon; flag = "trialSoon"; }
-    else if (!paid && !u.promo && t >= trialEnd && t < trialEnd + 3 * DAY && !u.sent.trialEnd) { msg = T.trialEnd; flag = "trialEnd"; }
-    else if (!paid && u.promo && t >= promoEnd() - 12 * 3600000 && !u.sent.promoEnd) { msg = T.promoEnd; flag = "promoEnd"; } // 30 декабря после полудня
-    if (!msg) continue;
-    const r = await send(u.id, msg, openBtn("Открыть приложение"));
-    u.sent[flag] = t; if (r && r.ok) sent++; else u.sent[flag + "Fail"] = (r && r.description) || "fail";
+    const st = status(u, t), L = local(u.tz, t), day = L.min >= DAY_FROM && L.min < DAY_TO;
+    const out = []; // [текст, кнопка, флаг]
+    // утро и вечер — в то время, что человек выбрал в приложении (по его часовому поясу)
+    const R = u.remind || { on: true, morning: "09:00", evening: "21:30" };
+    if (R.on && st.plan !== "expired") {
+      for (const part of ["morning", "evening"]) {
+        const at = hm(R[part]);
+        if (at !== null && L.min >= at && L.min < at + 60 && u.sent[part] !== L.date) out.push([T[part], "Открыть приложение", () => { u.sent[part] = L.date; }]);
+      }
+    }
+    if (day) {
+      // ответы Насти, пришедшие ночью
+      if (u.queue && u.queue.length) { for (const q of u.queue) out.push([q.text, null, null]); u.queue = []; }
+      // новости — только вышедшие после первого входа человека
+      for (const n of news) { if (n.at > (u.firstSeen || 0) && !(u.sent.news || []).includes(n.id)) { out.push([esc(n.text), "Открыть приложение", () => { u.sent.news = (u.sent.news || []).concat([n.id]).slice(-30); }]); break; } }
+      // конец пробного периода и промокода
+      const trialEnd = u.firstSeen + TRIAL_DAYS * DAY, paid = u.paidUntil && t < u.paidUntil;
+      if (!paid && !u.promo && t > trialEnd - DAY && t < trialEnd && !u.sent.trialSoon) out.push([T.trialSoon, "Открыть приложение", () => { u.sent.trialSoon = t; }]);
+      else if (!paid && !u.promo && t >= trialEnd && t < trialEnd + 3 * DAY && !u.sent.trialEnd) out.push([T.trialEnd, "Открыть приложение", () => { u.sent.trialEnd = t; }]);
+      else if (!paid && u.promo && t >= promoEnd() - 12 * 3600000 && !u.sent.promoEnd) out.push([T.promoEnd, "Открыть приложение", () => { u.sent.promoEnd = t; }]);
+    }
+    if (!out.length) continue;
+    for (const [text, btn, mark] of out) {
+      const r = await send(u.id, text, btn ? openBtn(btn) : null);
+      if (r && r.ok) sent++; else u.sent.lastFail = ((r && r.description) || "fail").slice(0, 80);
+      if (mark) mark();
+    }
     await putObj(token, bucket, k, u);
   }
-  return { users: keys.length, sent };
+  return { users: keys.length, news: news.length, sent };
 }
 
 function cors(origin, reqOrigin) {
@@ -297,9 +356,9 @@ module.exports.handler = async function (event, context) {
     } catch (e) { return reply(502, { error: "content_unavailable" }, origin); }
   }
   if (b.action === "access") {
-    try { return reply(200, await access(token, bucket, user, b.code || user.start_param), origin); }
+    try { return reply(200, await access(token, bucket, user, b.code || user.start_param, { tz: b.tz, remind: b.remind }), origin); }
     catch (e) { console.log("access", String(e).slice(0, 200)); return reply(502, { error: "storage" }, origin); }
   }
   return reply(400, { error: "bad_action" }, origin);
 };
-module.exports._t = { status, normCode, T, remind, access, onUpdate, makeSession, checkSession };
+module.exports._t = { local, isDay, status, normCode, T, remind, access, onUpdate, makeSession, checkSession };
