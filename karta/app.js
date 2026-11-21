@@ -2634,6 +2634,15 @@ ${b}</svg>`;
     }
   }
   window.addEventListener("hashchange", render);
+  // нажатие на пустое место экрана прячет клавиатуру (кнопки, ссылки и сами поля работают как обычно)
+  document.addEventListener("touchstart", (e) => {
+    const a = document.activeElement;
+    if (!a || (!/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.isContentEditable)) return;
+    if (e.target.closest && e.target.closest("input,textarea,select,button,a,label,[contenteditable],[role=button],.chip,.vta")) return;
+    a.blur();
+  }, { passive: true });
+  // доступ (пробный / промокод / подписка) сверяется с сервером при каждом запуске
+  setTimeout(() => { if (S.profile && !S.profile.minor) syncAccess(""); }, 2500);
   // заранее подгружаем иллюстрации экранов, куда можно перейти отсюда: переход без ожидания картинки
   const PRE = {
     "": ["Bukhta-1.webp", "ProvodnikChat-1.jpg", "Anketa-1.webp", "Poslanie-1.webp", "PanelSon-1.webp", "PanelZametki-1.webp", "PanelNaBegu-1.webp", "Telo1-1.webp", "Siluety-1.webp"],
