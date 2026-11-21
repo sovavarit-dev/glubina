@@ -746,7 +746,7 @@ window.startApp = function () {
   const PROMO_UNTIL = "2026-12-30";
   function syncAccess(code) {
     const local = () => { if (!S.access) S.access = code ? { plan: "promo", code, until: PROMO_UNTIL } : { plan: "trial", since: now(), until: now() + 3 * 86400000 }; return null; };
-    if (!window.KARTA_BOT || !window.KARTA_HEADERS || !window.KARTA_HEADERS["X-Telegram-Init-Data"]) return Promise.resolve(local());
+    if (!window.KARTA_BOT || !window.KARTA_HEADERS || !(window.KARTA_HEADERS["X-Telegram-Init-Data"] || window.KARTA_HEADERS["X-Session"])) return Promise.resolve(local());
     return fetch(window.KARTA_BOT, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify({ action: "access", code: code || "" }) })
       .then((r) => r.ok ? r.json() : null).then((j) => {
         if (!j || !j.plan) return local();
@@ -756,7 +756,7 @@ window.startApp = function () {
   // «glubina 12» и «ГЛУБИНА12» — одно и то же; есть ли такой код и не использован ли он — решает сервер (список кодов в открытом коде не хранится)
   const normCode = (v) => { const t = String(v || "").toUpperCase().replace(/\s+/g, "").replace(/^ГЛУБИНА/, "GLUBINA"); if (!t) return ""; return /^[A-Z0-9]{4,16}$/.test(t) ? t : null; };
   function Know() {
-    const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || {};
+    const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || window.KARTA_WEB_USER || {};
     const linkCode = promoFromLink();
     const st = { gender: "", why: [] };
     app.innerHTML = `<div class="stack v-pad" style="gap:22px">

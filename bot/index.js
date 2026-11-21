@@ -51,7 +51,7 @@ async function listKeys(token, bucket, prefix) {
 //  — исходящие (напоминания, пересылка Насте) идут через TG_API — адрес посредника вне РФ; пока его нет, они не отправляются.
 let hookReply = null; // первый ответ в текущем вебхуке
 async function tg(method, body) {
-  if (hookReply === false && (method === "sendMessage")) { hookReply = Object.assign({ method }, body); return { ok: true, result: { message_id: 0 }, viaHook: true }; }
+  if (hookReply === false && /^(sendMessage|editMessageText|answerCallbackQuery)$/.test(method)) { hookReply = Object.assign({ method }, body); return { ok: true, result: { message_id: 0 }, viaHook: true }; }
   const base = process.env.TG_API || "https://api.telegram.org";
   try {
     const r = await fetch(`${base}/bot${process.env.BOT_TOKEN}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(4000) });
@@ -76,6 +76,25 @@ function checkInitData(initData, botToken) {
   if (Date.now() / 1000 - Number(p.get("auth_date") || 0) > 24 * 3600) return null;
   try { const u = JSON.parse(p.get("user") || "{}"); return u && u.id ? Object.assign(u, { start_param: p.get("start_param") || "" }) : null; } catch (e) { return null; }
 }
+
+// ---------- вход на сайте через бота (ярлык на телефоне, без Telegram) ----------
+// сайт создает nonce → человек открывает t.me/<бот>?start=login_<nonce> → жмет «Войти» →
+// бот кладет login/<nonce>.json → сайт забирает сессию (подпись HMAC, 90 дней).
+const SESS_DAYS = 90;
+const b64u = (buf) => Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const sessKey = () => crypto.createHmac("sha256", String(process.env.BOT_SECRET || "")).update("karta-session").digest();
+function makeSession(id, name) {
+  const body = b64u(JSON.stringify({ id: Number(id), n: String(name || "").slice(0, 40), exp: Date.now() + SESS_DAYS * DAY }));
+  return body + "." + b64u(crypto.createHmac("sha256", sessKey()).update(body).digest());
+}
+function checkSession(s) {
+  if (!s || !process.env.BOT_SECRET) return null;
+  const [body, sig] = String(s).split("."); if (!body || !sig) return null;
+  const calc = b64u(crypto.createHmac("sha256", sessKey()).update(body).digest());
+  if (calc.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(calc), Buffer.from(sig))) return null;
+  try { const j = JSON.parse(Buffer.from(body.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")); return j.id && j.exp > Date.now() ? { id: j.id, first_name: j.n || "", start_param: "", web: true } : null; } catch (e) { return null; }
+}
+const okNonce = (n) => /^[A-Za-z0-9_-]{16,48}$/.test(String(n || ""));
 
 // ---------- доступ ----------
 const allowedList = () => String(process.env.ALLOWED_IDS || "").split(/[,;]/).map((x) => x.trim()).filter(Boolean);
@@ -129,6 +148,13 @@ const T = {
 
 // ---------- вебхук ----------
 async function onUpdate(token, bucket, up) {
+  const cq = up.callback_query;
+  if (cq && cq.from && /^login:/.test(cq.data || "")) {
+    const nonce = cq.data.slice(6), msg = cq.message || {};
+    if (!okNonce(nonce) || !isAllowed(cq.from.id)) return tg("answerCallbackQuery", { callback_query_id: cq.id, text: "Вход пока закрыт" });
+    await putObj(token, bucket, "login/" + nonce + ".json", { id: cq.from.id, name: cq.from.first_name || "", at: Date.now() });
+    return tg("editMessageText", { chat_id: msg.chat && msg.chat.id, message_id: msg.message_id, text: "Готово. Вернись на сайт — вход выполнится сам (если нет — нажми там «Проверить вход»).", reply_markup: { inline_keyboard: [] } });
+  }
   const m = up.message; if (!m || !m.chat || m.chat.type !== "private" || !m.from) return;
   const text = String(m.text || "").trim(), from = m.from;
   const key = ukey(from.id);
@@ -143,6 +169,11 @@ async function onUpdate(token, bucket, up) {
     if (/^\/start\b/.test(text)) return send(m.chat.id, `${from.first_name ? esc(from.first_name) + ", п" : "П"}риложение «Карта Глубины» скоро откроется. Напишем сюда, когда можно будет зайти.`, { remove_keyboard: true });
     if (process.env.NASTYA_ID && text && !/^\//.test(text)) { const r = await tg("forwardMessage", { chat_id: process.env.NASTYA_ID, from_chat_id: m.chat.id, message_id: m.message_id }); if (r && r.ok) { await putObj(token, bucket, "support/" + r.result.message_id + ".json", { user: from.id, at: Date.now() }); return send(m.chat.id, T.got); } }
     return;
+  }
+  if (/^\/start\s+login_/.test(text)) {
+    const nonce = text.split(/\s+/)[1].slice(6);
+    if (!okNonce(nonce)) return send(m.chat.id, "Ссылка для входа устарела. Открой сайт и нажми «Войти через Telegram» еще раз.", KB);
+    return send(m.chat.id, "Вход в «Карту Глубины» на сайте.\n\nНажми кнопку ниже, если это ты сейчас открыл(а) сайт. Если нет — ничего не нажимай.", { inline_keyboard: [[{ text: "Войти на сайте", callback_data: "login:" + nonce }]] });
   }
   if (/^\/start\b/.test(text)) {
     const arg = text.split(/\s+/)[1] || "";
@@ -214,7 +245,7 @@ function cors(origin, reqOrigin) {
   return list.includes("*") ? "*" : list.includes(reqOrigin) ? reqOrigin : list[0];
 }
 function reply(code, body, origin) {
-  return { statusCode: code, headers: { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "X-Telegram-Init-Data, Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Cache-Control": "no-store" }, body: typeof body === "string" ? body : JSON.stringify(body) };
+  return { statusCode: code, headers: { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "X-Telegram-Init-Data, X-Session, Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Cache-Control": "no-store" }, body: typeof body === "string" ? body : JSON.stringify(body) };
 }
 
 module.exports.handler = async function (event, context) {
@@ -241,13 +272,34 @@ module.exports.handler = async function (event, context) {
   }
   // проверка настройки без секретов: подключает вебхук и меню, если токен уже введен
   if (b.action === "setup") return reply(200, (await ensureSetup().catch((e) => ({ error: String(e).slice(0, 100) }))) || { setup: setupDone ? "done" : "waiting_for_token" }, origin);
-  // запрос приложения
-  const user = checkInitData(h["X-Telegram-Init-Data"] || h["x-telegram-init-data"] || "", process.env.BOT_TOKEN);
+  // сайт: забрать сессию после нажатия «Войти» в боте (одноразово, 10 минут)
+  if (b.action === "login_check") {
+    if (!okNonce(b.nonce)) return reply(400, { error: "bad_nonce" }, origin);
+    try {
+      const k = "login/" + b.nonce + ".json", L = await getObj(token, bucket, k);
+      if (!L) return reply(200, { wait: true }, origin);
+      if (L.used || Date.now() - L.at > 10 * 60000) return reply(200, { error: "expired" }, origin);
+      await putObj(token, bucket, k, { used: true, at: L.at });
+      if (!isAllowed(L.id)) return reply(200, { error: "closed" }, origin);
+      return reply(200, { session: makeSession(L.id, L.name), name: L.name }, origin);
+    } catch (e) { console.log("login", String(e).slice(0, 200)); return reply(502, { error: "storage" }, origin); }
+  }
+  // запрос приложения: из Telegram (initData) или с сайта (сессия)
+  const user = checkInitData(h["X-Telegram-Init-Data"] || h["x-telegram-init-data"] || "", process.env.BOT_TOKEN) || checkSession(h["X-Session"] || h["x-session"] || "");
   if (!user) return reply(401, { error: "open_in_telegram" }, origin);
+  if (!isAllowed(user.id)) return reply(403, { error: "closed", plan: "closed" }, origin);
+  // контент для сайта (в Telegram его отдает karta-api)
+  if (b.action === "content") {
+    try {
+      const r = await fetch(S3 + bucket + "/" + (process.env.CONTENT_KEY || "content.json"), { headers: { "X-YaCloud-SubjectToken": token } });
+      if (!r.ok) return reply(502, { error: "content_unavailable" }, origin);
+      return reply(200, await r.text(), origin);
+    } catch (e) { return reply(502, { error: "content_unavailable" }, origin); }
+  }
   if (b.action === "access") {
     try { return reply(200, await access(token, bucket, user, b.code || user.start_param), origin); }
     catch (e) { console.log("access", String(e).slice(0, 200)); return reply(502, { error: "storage" }, origin); }
   }
   return reply(400, { error: "bad_action" }, origin);
 };
-module.exports._t = { status, normCode, T, remind, access, onUpdate };
+module.exports._t = { status, normCode, T, remind, access, onUpdate, makeSession, checkSession };

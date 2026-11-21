@@ -7,17 +7,24 @@
 <title>Карта Глубины</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=28">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="styles.css?v=29">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Глубина">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- скрипт Telegram грузим только внутри Telegram: с ярлыка и без VPN сайт не ждет telegram.org -->
+<script>(function(){var h=location.hash+location.search,ss="";try{ss=sessionStorage.getItem("__telegram__initParams")||""}catch(e){}if(/tgWebApp/.test(h)||ss||window.TelegramWebviewProxy||(window.external&&"notify" in window.external)||window.parent!==window)document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');})();</script>
 </head>
 <body>
 <main id="app" aria-live="polite"></main>
-<script src="config.js?v=28"></script>
-<script src="content.js?v=28"></script>
-<script src="welcome.js?v=28"></script>
-<script src="cycle-art.js?v=28"></script>
-<script src="dict-art.js?v=28"></script>
-<script src="app.js?v=28"></script>
-<script src="loader.js?v=28"></script>
+<script src="config.js?v=29"></script>
+<script src="content.js?v=29"></script>
+<script src="welcome.js?v=29"></script>
+<script src="cycle-art.js?v=29"></script>
+<script src="dict-art.js?v=29"></script>
+<script src="app.js?v=29"></script>
+<script src="loader.js?v=29"></script>
 </body>
 </html>

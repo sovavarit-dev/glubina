@@ -1248,3 +1248,17 @@ body.lt .dash-btn{border:1.5px dashed #A88B6E;color:#5A4232;background:rgba(250,
 .ac-i{width:34px;height:34px;flex:none;border-radius:50%;background:rgba(245,238,228,.1);border:1px solid var(--glass-milk-line);display:flex;align-items:center;justify-content:center}
 .chips.why{gap:6px}
 .chips.why .chip{min-height:0;padding:7px 12px;font-size:13px;border-radius:999px}
+
+/* v29 вход на сайте через бота */
+body.login-on{background:linear-gradient(180deg,rgba(11,23,40,.15) 0%,rgba(11,23,40,.78) 38%,#0B1728 75%),#0B1728 url(img/v27/Main-1.jpg) center top/cover no-repeat fixed}
+.login-w[hidden]{display:none}
+.login{min-height:100vh;box-sizing:border-box;max-width:420px;margin:0 auto;padding:calc(48px + env(safe-area-inset-top)) 24px 40px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
+.login-i{width:96px;height:96px;border-radius:24px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+.login h1{margin:6px 0 0;font-size:26px;font-weight:800;color:#F5E8D9}
+.login-t{margin:0;color:#C3D0DE;font-size:15px}
+.login-n{margin:0;color:#F0C7B5;font-size:14px}
+.login-b{width:100%;margin-top:10px;background:#F5E8D9;color:#1F3654;border:none;border-radius:14px;padding:16px 0;font:700 16px Manrope,system-ui,sans-serif}
+.login-w{display:flex;flex-direction:column;gap:8px;align-items:center;color:#C3D0DE;font-size:14px}
+.login-w p{margin:0}
+.login-l{background:none;border:none;color:#F5E8D9;font:600 14px Manrope,system-ui,sans-serif;text-decoration:underline;padding:4px}
+.login-h{margin-top:auto;color:#9FB2C8;font-size:13px}
