@@ -205,7 +205,7 @@ async function ensureSetup() {
   if (setupDone || !process.env.BOT_TOKEN || !process.env.SELF_URL || !process.env.BOT_SECRET) return null;
   const info = await tg("getWebhookInfo", {});
   let wh = true;
-  if (!info.ok || !info.result || info.result.url !== process.env.SELF_URL) wh = (await tg("setWebhook", { url: process.env.SELF_URL, secret_token: process.env.BOT_SECRET, allowed_updates: ["message"], drop_pending_updates: true })).ok;
+  if (!info.ok || !info.result || info.result.url !== process.env.SELF_URL) wh = (await tg("setWebhook", { url: process.env.SELF_URL, secret_token: process.env.BOT_SECRET, allowed_updates: ["message", "callback_query"], drop_pending_updates: true })).ok;
   const st = await setup(); setupDone = wh && st.menu; return Object.assign({ webhook: wh }, st);
 }
 async function setup() {
