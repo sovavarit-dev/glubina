@@ -14,6 +14,7 @@
 //   ALLOW_ORIGIN   — адрес приложения для CORS (можно несколько через запятую)
 //   ALLOWED_IDS    — закрытый доступ: Telegram ID через запятую (пока только Настя). Пусто — открыто всем
 //   SELF_URL       — адрес этой функции: бот сам подключает к нему вебхук, когда появляется токен
+//   TG_API         — адрес посредника к api.telegram.org (из Yandex Cloud Telegram недоступен); пусто — напрямую
 const crypto = require("crypto");
 
 const DAY = 86400000, TRIAL_DAYS = 3;
@@ -45,15 +46,24 @@ async function listKeys(token, bucket, prefix) {
 }
 
 // ---------- Telegram ----------
+// Из Yandex Cloud api.telegram.org недоступен. Поэтому:
+//  — ответ на сообщение человека уходит прямо в ответе вебхука (Telegram сам его отправит), без исходящих запросов;
+//  — исходящие (напоминания, пересылка Насте) идут через TG_API — адрес посредника вне РФ; пока его нет, они не отправляются.
+let hookReply = null; // первый ответ в текущем вебхуке
 async function tg(method, body) {
-  const r = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const j = await r.json().catch(() => ({}));
-  if (!j.ok) console.log("tg", method, r.status, JSON.stringify(j).slice(0, 200));
-  return j;
+  if (hookReply === false && (method === "sendMessage")) { hookReply = Object.assign({ method }, body); return { ok: true, result: { message_id: 0 }, viaHook: true }; }
+  const base = process.env.TG_API || "https://api.telegram.org";
+  try {
+    const r = await fetch(`${base}/bot${process.env.BOT_TOKEN}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(4000) });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) console.log("tg", method, r.status, JSON.stringify(j).slice(0, 200));
+    return j;
+  } catch (e) { console.log("tg", method, "unreachable"); return { ok: false, description: "unreachable" }; }
 }
 const appUrl = (q) => (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + (q || "");
 const openBtn = (text, q) => ({ inline_keyboard: [[{ text: text || "Открыть Карту Глубины", web_app: { url: appUrl(q) } }]] });
-const KB = { keyboard: [[{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true };
+const KB = { keyboard: [[{ text: "Открыть Карту Глубины", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true };
+const kbFor = (code) => code ? { keyboard: [[{ text: "Открыть Карту Глубины", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + "?promo=" + code } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true } : KB;
 const send = (chat, text, kb) => tg("sendMessage", Object.assign({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }, kb ? { reply_markup: kb } : {}));
 
 function checkInitData(initData, botToken) {
@@ -140,8 +150,7 @@ async function onUpdate(token, bucket, up) {
     // в /start ничего не регистрируем: срок пробного периода считается с первого открытия приложения
     if (u0) { u0.chat = true; await putObj(token, bucket, key, u0); }
     else await putObj(token, bucket, key + ".chat", { chat: true, at: Date.now() });
-    await send(m.chat.id, code ? T.startPromo(from.first_name) : T.start(from.first_name), openBtn("Открыть Карту Глубины", code ? "?promo=" + code : ""));
-    return send(m.chat.id, "Кнопки «Моя подписка» и «Помощь» — под полем ввода. Приложение открывается кнопкой слева от него.", KB);
+    return send(m.chat.id, (code ? T.startPromo(from.first_name) : T.start(from.first_name)) + "\n\nКнопки — под полем ввода.", kbFor(code));
   }
   if (/^\/help\b/.test(text) || text === "Помощь") return send(m.chat.id, T.help(), KB);
   if (/^\/podpiska\b/.test(text) || text === "Моя подписка") return send(m.chat.id, u0 ? T.sub(status(u0)) : "Открой приложение — там начнется пробный период.", openBtn());
@@ -153,6 +162,8 @@ async function onUpdate(token, bucket, up) {
       await send(process.env.NASTYA_ID, `↑ ${esc(from.first_name || "")} (id ${from.id}). Ответь на пересланное сообщение — ответ уйдет человеку.`);
       return send(m.chat.id, T.got, KB);
     }
+    await putObj(token, bucket, "support-inbox/" + Date.now() + "-" + from.id + ".json", { user: from.id, name: from.first_name || "", text, at: Date.now() });
+    return send(m.chat.id, "Сообщение сохранено, Настя прочитает и ответит.", KB);
   }
   return send(m.chat.id, "Все самое важное — в приложении.", openBtn());
 }
@@ -223,8 +234,10 @@ module.exports.handler = async function (event, context) {
   const sec = h["X-Telegram-Bot-Api-Secret-Token"] || h["x-telegram-bot-api-secret-token"];
   if (sec !== undefined) {
     if (!process.env.BOT_SECRET || sec !== process.env.BOT_SECRET) return reply(403, { error: "bad_secret" }, origin);
+    hookReply = false;
     try { await onUpdate(token, bucket, b); } catch (e) { console.log("update", String(e).slice(0, 200)); }
-    return reply(200, { ok: true }, origin); // Telegram ждет 200, иначе повторяет
+    const out = hookReply || { ok: true }; hookReply = null;
+    return reply(200, out, origin); // Telegram ждет 200; метод в ответе он выполнит сам
   }
   // проверка настройки без секретов: подключает вебхук и меню, если токен уже введен
   if (b.action === "setup") return reply(200, (await ensureSetup().catch((e) => ({ error: String(e).slice(0, 100) }))) || { setup: setupDone ? "done" : "waiting_for_token" }, origin);
