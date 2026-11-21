@@ -68,9 +68,9 @@ function checkInitData(initData, botToken) {
 }
 
 // ---------- доступ ----------
-const allowedList = () => String(process.env.ALLOWED_IDS || "").split(",").map((x) => x.trim()).filter(Boolean);
+const allowedList = () => String(process.env.ALLOWED_IDS || "").split(/[,;]/).map((x) => x.trim()).filter(Boolean);
 const isAllowed = (id) => { const L = allowedList(); return !L.length || L.includes(String(id)); };
-const codes = () => String(process.env.PROMO_CODES || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+const codes = () => String(process.env.PROMO_CODES || "").split(/[,;]/).map((s) => s.trim().toUpperCase()).filter(Boolean);
 const normCode = (v) => String(v || "").toUpperCase().replace(/\s+/g, "").replace(/^PROMO_/, "").replace(/^ГЛУБИНА/, "GLUBINA");
 const promoEnd = () => new Date((process.env.PROMO_UNTIL || "2026-12-30") + "T23:59:59+03:00").getTime();
 const ukey = (id) => "users/" + String(id).replace(/\D/g, "") + ".json";
