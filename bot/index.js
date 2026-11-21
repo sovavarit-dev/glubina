@@ -61,9 +61,9 @@ async function tg(method, body) {
   } catch (e) { console.log("tg", method, "unreachable"); return { ok: false, description: "unreachable" }; }
 }
 const appUrl = (q) => (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + (q || "");
-const openBtn = (text, q) => ({ inline_keyboard: [[{ text: text || "Открыть Карту Глубины", web_app: { url: appUrl(q) } }]] });
-const KB = { keyboard: [[{ text: "Открыть Карту Глубины", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true };
-const kbFor = (code) => code ? { keyboard: [[{ text: "Открыть Карту Глубины", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + "?promo=" + code } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true } : KB;
+const openBtn = (text, q) => ({ inline_keyboard: [[{ text: text || "Приложение", web_app: { url: appUrl(q) } }]] });
+const KB = { keyboard: [[{ text: "Приложение", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true };
+const kbFor = (code) => code ? { keyboard: [[{ text: "Приложение", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + "?promo=" + code } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true } : KB;
 const send = (chat, text, kb) => tg("sendMessage", Object.assign({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }, kb ? { reply_markup: kb } : {}));
 
 function checkInitData(initData, botToken) {
@@ -182,7 +182,7 @@ async function setup() {
   // при закрытом доступе кнопка «Открыть» — только у разрешенных, у остальных — обычное меню команд
   const a = L.length ? await tg("setChatMenuButton", { menu_button: { type: "commands" } }) : await tg("setChatMenuButton", { menu_button: { type: "web_app", text: "Открыть", web_app: { url: appUrl() } } });
   for (const id of L) await tg("setChatMenuButton", { chat_id: Number(id), menu_button: { type: "web_app", text: "Открыть", web_app: { url: appUrl() } } });
-  const b = await tg("setMyCommands", { commands: [{ command: "start", description: "Открыть Карту Глубины" }, { command: "podpiska", description: "Моя подписка" }, { command: "help", description: "Помощь" }] });
+  const b = await tg("setMyCommands", { commands: [{ command: "start", description: "Приложение" }, { command: "podpiska", description: "Моя подписка" }, { command: "help", description: "Помощь" }] });
   const c = await tg("setMyDescription", { description: "Погружения в образы, дневник снов и чувств, словарь символов и ИИ-проводник. Автор — юнгианский аналитик и символдраматист Настя Черемных. Первые 3 дня бесплатно." });
   return { menu: a.ok, commands: b.ok, description: c.ok };
 }
