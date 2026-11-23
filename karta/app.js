@@ -1441,20 +1441,22 @@ window.startApp = function () {
     drawPractice(e);
   }
   // письменная практика к выпуску: ответы сохраняются сами
+  // {женская|мужская} форма в текстах практик — по обращению из анкеты
+  const gw = (t) => String(t || "").replace(/\{([^{}|]*)\|([^{}|]*)\}/g, (_, f, m) => { const g = S.profile && S.profile.gender; return g === "f" ? f : g === "m" ? m : f + " или " + m; });
   function drawPractice(e) {
     const box = $("#prac"); if (!box) return;
     const P = e.practice, st = podSt(e.id), A = st.ans || (st.ans = {});
     if (!P) { box.innerHTML = e.noPractice ? `<div class="small center">${esc(e.noPractice)}</div>` : ""; return; }
     const part = Math.min(A._part || 0, P.parts.length - 1), pt = P.parts[part];
     const ta = (k, ph, rows) => `<textarea data-a="${k}" rows="${rows || 3}" placeholder="${esc(ph || "Первое, что приходит…")}">${esc(A[k] || "")}</textarea>`;
-    const stepHead = (n, s) => `<div class="sn"><i>${n}</i><b>${esc(s.q)}</b></div>${s.hint ? `<div class="hint">${esc(s.hint)}</div>` : ""}`;
+    const stepHead = (n, s) => `<div class="sn"><i>${n}</i><b>${esc(gw(s.q))}</b></div>${s.hint ? `<div class="hint">${esc(gw(s.hint))}</div>` : ""}${s.fromEp && epById(s.fromEp) ? `<a class="small" href="#/ep/${esc(s.fromEp)}" style="color:var(--blue);text-decoration:underline">Мои ответы к выпуску «${esc(epById(s.fromEp).title)}»</a>` : ""}`;
     const bansOf = (ans) => ((ans && ans.roles) || []).map((x) => (x.b || "").trim()).filter(Boolean);
     const opened = box.dataset.open === "1";
     let h = `<div class="card pd-pr"><button type="button" class="pd-prh" id="prtog" aria-expanded="${opened}"><span class="pd-pri"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></span><span class="t"><b>Письменная практика</b><span>${esc(P.title || "к этому выпуску")}${P.mins ? " · " + esc(P.mins) : ""}</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" style="transform:rotate(${opened ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></button>`;
     if (!opened) { box.innerHTML = h + `</div>`; $("#prtog").onclick = () => { box.dataset.open = "1"; drawPractice(e); }; return; }
     h += `<div class="stack" style="gap:22px;margin-top:8px">`;
     if (P.parts.length > 1) h += `<div class="seg2 ptabs">${P.parts.map((x, i) => `<a href="#" data-part="${i}" class="${i === part ? "on" : ""}">${i + 1}. ${esc(x.tab || x.title)}</a>`).join("")}</div>`;
-    if (pt.intro) h += `<p class="lead" style="font-size:14px">${esc(pt.intro)}</p>`;
+    if (pt.intro) h += `<p class="lead" style="font-size:14px">${esc(gw(pt.intro))}</p>`;
     pt.steps.forEach((s, i) => {
       const k = "p" + part + "s" + i;
       h += `<div class="stack" style="gap:10px">${stepHead(i + 1, s)}`;
@@ -1484,11 +1486,12 @@ window.startApp = function () {
         h += `<div class="card terra" style="gap:10px"><span class="small hint-terra" style="letter-spacing:.04em">ИЗ ПРАКТИКИ «${esc((src && src.title || "").toUpperCase())}»</span>
           ${b.length ? `<div class="chips">${b.map((x) => `<span class="chip terra sm">${esc(x)}</span>`).join("")}</div>` : `<span class="small">Запретов пока нет. <a href="#/ep/${esc(s.ep)}" style="color:var(--blue);text-decoration:underline">Открыть практику</a></span>`}</div>` + ta(k, s.ph);
       } else {
-        h += s.line ? `<input class="inp" data-a="${k}" value="${esc(A[k] || "")}" placeholder="${esc(s.ph || "")}">` : ta(k, s.ph, s.rows);
+        h += s.line ? `<input class="inp" data-a="${k}"${s.dated ? " data-dated=\"1\"" : ""} value="${esc(A[k] || "")}" placeholder="${esc(gw(s.ph || ""))}">` : ta(k, gw(s.ph), s.rows);
+        if (s.dated && A[k]) h += `<span class="small">Пункт договора от ${esc(A[k + "_d"] || new Date().toLocaleDateString("ru-RU"))}</span>`;
       }
       h += `</div>`;
     });
-    if (pt.outro) h += `<p class="quote">${esc(pt.outro)}</p>`;
+    if (pt.outro) h += `<p class="quote">${esc(gw(pt.outro))}</p>`;
     if (P.parts.length > 1 && part < P.parts.length - 1) h += `<a href="#" class="link-row" data-part="${part + 1}"><span class="stack" style="gap:3px"><b>Часть ${part + 2}. ${esc(P.parts[part + 1].title)}</b>${P.parts[part + 1].lead ? `<span class="small" style="font-weight:400">${esc(P.parts[part + 1].lead)}</span>` : ""}</span>${icon.chev}</a>`;
     if (P.quote) h += `<p class="quote">${esc(P.quote)}</p>`;
     if (P.link) h += `<button type="button" class="card blue linkcard" id="plink"><span class="t"><b>${esc(P.link.title)}</b><span class="small">${esc(P.link.sub)}</span></span>${icon.chev}</button>`;
@@ -1498,7 +1501,7 @@ window.startApp = function () {
     // события
     let deb;
     const store = () => { clearTimeout(deb); deb = setTimeout(save, 400); };
-    box.querySelectorAll("[data-a]").forEach((t) => t.oninput = () => { A[t.dataset.a] = t.value; store(); });
+    box.querySelectorAll("[data-a]").forEach((t) => t.oninput = () => { A[t.dataset.a] = t.value; if (t.dataset.dated && !A[t.dataset.a + "_d"]) A[t.dataset.a + "_d"] = new Date().toLocaleDateString("ru-RU"); store(); });
     box.querySelectorAll("[data-part]").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); A._part = Number(b.dataset.part); save(); drawPractice(e); box.scrollIntoView({ behavior: "smooth" }); });
     box.querySelectorAll("[data-ri]").forEach((t) => t.oninput = () => {
       A.roles = A.roles && A.roles.length ? A.roles : [{ r: "", b: "" }];

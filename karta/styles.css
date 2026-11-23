@@ -1262,3 +1262,4 @@ body.login-on{background:linear-gradient(180deg,rgba(11,23,40,.15) 0%,rgba(11,23
 .login-w p{margin:0}
 .login-l{background:none;border:none;color:#F5E8D9;font:600 14px Manrope,system-ui,sans-serif;text-decoration:underline;padding:4px}
 .login-h{margin-top:auto;color:#9FB2C8;font-size:13px}
+.scr-h p{white-space:pre-line}
