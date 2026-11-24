@@ -1293,9 +1293,13 @@ body.lt .sn i{border-color:rgba(31,54,84,.55);color:#1F3654}
 .card.tar.on{border-color:var(--cream)}
 body.lt .card.tar.on{border-color:#1F3654}
 .btn:disabled{opacity:.45}
-/* «Личный кабинет» — строка над заголовком «Моей карты», как дата над приветствием на «Сегодня» */
-.lk{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;color:var(--cream);text-decoration:none;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
-.lk-av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(245,232,217,.16);border:1px solid rgba(245,232,217,.35);color:var(--cream);font-size:12px;font-weight:700;letter-spacing:0}
-.lk svg{opacity:.7}
-body.lt .lk{color:#1F3654}
-body.lt .lk-av{background:rgba(31,54,84,.08);border-color:rgba(31,54,84,.3);color:#1F3654}
+/* «Личный кабинет» — карточка-кнопка под заголовком «Моей карты» */
+.lk{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:18px;background:rgba(245,232,217,.10);border:1px solid rgba(245,232,217,.22);color:var(--cream);text-decoration:none;-webkit-tap-highlight-color:transparent;transition:transform .15s ease,background .15s ease}
+.lk:active{transform:scale(.98);background:rgba(245,232,217,.16)}
+.lk-av{flex:0 0 40px;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#F5E8D9;color:#1F3654;font-size:17px;font-weight:700}
+.lk-tx{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.lk-tx b{font-size:16px}
+.lk-tx span{font-size:13px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lk svg{opacity:.8;flex:0 0 auto}
+body.lt .lk{background:rgba(31,54,84,.06);border-color:rgba(31,54,84,.2);color:#1F3654}
+body.lt .lk-av{background:#1F3654;color:#F5E8D9}
