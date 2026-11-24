@@ -70,6 +70,28 @@ async function tg(method, body) {
     return j;
   } catch (e) { console.log("tg", method, "unreachable"); return { ok: false, description: "unreachable" }; }
 }
+// отправка файла (скриншота) в Telegram: multipart через посредника
+async function tgPhoto(chat, buf, caption) {
+  const base = process.env.TG_API || "https://api.telegram.org";
+  try {
+    const fd = new FormData(); fd.append("chat_id", String(chat)); if (caption) fd.append("caption", caption.slice(0, 1000));
+    fd.append("photo", new Blob([buf], { type: "image/jpeg" }), "screen.jpg");
+    const r = await fetch(`${base}/bot${process.env.BOT_TOKEN}/sendPhoto`, { method: "POST", body: fd, signal: AbortSignal.timeout(15000) });
+    const j = await r.json().catch(() => ({})); if (!j.ok) console.log("tgPhoto", r.status, JSON.stringify(j).slice(0, 200)); return j;
+  } catch (e) { console.log("tgPhoto unreachable"); return { ok: false }; }
+}
+// сообщение об ошибке из приложения: текст + до 3 скриншотов → Насте, копия в бакет
+async function bugReport(token, bucket, user, b) {
+  const text = String(b.text || "").slice(0, 3000).trim(), imgs = (Array.isArray(b.images) ? b.images : []).slice(0, 3);
+  if (!text && !imgs.length) return { error: "empty" };
+  const id = Date.now() + "-" + user.id, meta = { id, uid: user.id, name: user.first_name || "", text, where: String(b.where || "").slice(0, 120), ua: String(b.ua || "").slice(0, 200), ver: String(b.ver || "").slice(0, 20), web: !!user.web, at: Date.now(), images: imgs.length };
+  await putObj(token, bucket, "bugs/" + id + ".json", meta);
+  const bufs = imgs.map((x) => { const m = /^data:image\/(jpeg|png|webp);base64,(.+)$/.exec(String(x)); return m ? Buffer.from(m[2], "base64") : null; }).filter((x) => x && x.length < 2500000);
+  for (let i = 0; i < bufs.length; i++) await fetch(S3 + bucket + "/bugs/" + id + "-" + i + ".jpg", { method: "PUT", headers: { "X-YaCloud-SubjectToken": token, "Content-Type": "image/jpeg" }, body: bufs[i] }).catch(() => {});
+  const head = `🐞 Ошибка в приложении\nОт: ${esc(meta.name)} (id ${user.id})${meta.web ? " · сайт" : " · Telegram"}\nГде: ${esc(meta.where || "—")}\n${esc(meta.ua)}\n\n${esc(text || "(без текста)")}`;
+  if (process.env.NASTYA_ID) { await send(process.env.NASTYA_ID, head); for (const bf of bufs) await tgPhoto(process.env.NASTYA_ID, bf, "Скриншот к ошибке " + id); }
+  return { ok: true };
+}
 const appUrl = (q) => (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + (q || "");
 const openBtn = (text, q) => ({ inline_keyboard: [[{ text: text || "Приложение", web_app: { url: appUrl(q) } }]] });
 const KB = { keyboard: [[{ text: "Приложение", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true };
@@ -463,6 +485,7 @@ module.exports.handler = async function (event, context) {
   const user = checkInitData(h["X-Telegram-Init-Data"] || h["x-telegram-init-data"] || "", process.env.BOT_TOKEN) || checkSession(h["X-Session"] || h["x-session"] || "");
   if (!user) return reply(401, { error: "open_in_telegram" }, origin);
   if (!isAllowed(user.id)) return reply(403, { error: "closed", plan: "closed" }, origin);
+  if (b.action === "bug") return reply(200, await bugReport(token, bucket, user, b), origin);
   if (b.action === "pay_link") return reply(200, await payLink(token, bucket, user, b.tariff), origin);
   if (b.action === "cancel_sub") return reply(200, await proCancel(token, bucket, user), origin);
   // контент для сайта (в Telegram его отдает karta-api)

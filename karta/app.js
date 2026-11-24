@@ -455,12 +455,52 @@ window.startApp = function () {
 
 
   // ---------- профиль и настройки ----------
+
+  // ---------- аватар: свое фото, хранится на устройстве ----------
+  const avInner = () => { const p = S.profile || {}; return p.avatar ? `<img src="${p.avatar}" alt="">` : esc((p.name || "?").slice(0, 1).toUpperCase()); };
+  // картинка → квадрат/уменьшенная копия в jpeg (data URL)
+  function shrinkImg(file, max, square) {
+    return new Promise((res, rej) => {
+      const fr = new FileReader(); fr.onerror = rej;
+      fr.onload = () => { const im = new Image(); im.onerror = rej; im.onload = () => {
+        let sx = 0, sy = 0, sw = im.width, sh = im.height;
+        if (square) { const m = Math.min(sw, sh); sx = (sw - m) / 2; sy = (sh - m) / 2; sw = sh = m; }
+        const k = Math.min(1, max / Math.max(sw, sh)), c = document.createElement("canvas"); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+        c.getContext("2d").drawImage(im, sx, sy, sw, sh, 0, 0, c.width, c.height); res(c.toDataURL("image/jpeg", square ? 0.85 : 0.8)); };
+        im.src = fr.result; };
+      fr.readAsDataURL(file);
+    });
+  }
+  // ---------- сообщить об ошибке ----------
+  function Bug() {
+    const st = { text: "", imgs: [], busy: false };
+    const draw = () => {
+      app.innerHTML = `<div class="stack" style="gap:16px">${back("#/me", "Личный кабинет")}
+        <div class="scr-h"><div class="cap">Личный кабинет</div><h1>Сообщить об ошибке</h1><p>Что случилось и на каком экране? Скриншот очень помогает.</p></div>
+        <textarea class="inp" id="bgt" rows="6" maxlength="3000" placeholder="Например: на экране «Подкасты» не запускается выпуск…">${esc(st.text)}</textarea>
+        <div class="row" style="gap:10px;flex-wrap:wrap">${st.imgs.map((x, i) => `<span class="bg-th"><img src="${x}" alt="Скриншот ${i + 1}"><button type="button" data-rm="${i}" aria-label="Убрать скриншот">×</button></span>`).join("")}
+          ${st.imgs.length < 3 ? `<label class="bg-add"><input type="file" accept="image/*" id="bgf" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Скриншот</span></label>` : ""}</div>
+        <button class="btn" id="bgs"${st.busy ? " disabled" : ""}>${st.busy ? "Отправляю…" : "Отправить"}</button>
+        <p class="small center">Сообщение придет Насте вместе с названием экрана и моделью телефона.</p></div>`;
+      $("#bgt").oninput = (e) => { st.text = e.target.value; };
+      app.querySelectorAll("[data-rm]").forEach((b) => b.onclick = () => { st.imgs.splice(+b.dataset.rm, 1); draw(); });
+      const f = $("#bgf"); if (f) f.onchange = () => { const x = f.files && f.files[0]; if (!x) return; shrinkImg(x, 1280, false).then((d) => { st.imgs.push(d); draw(); }).catch(() => toast("Не получилось открыть картинку")); };
+      $("#bgs").onclick = () => {
+        if (!st.text.trim() && !st.imgs.length) { toast("Опиши, что случилось"); return; }
+        st.busy = true; draw();
+        botCall({ action: "bug", text: st.text, images: st.imgs, where: (window.KARTA_TRAIL || []).slice(-6, -1).join(" → "), ua: navigator.userAgent, ver: "v30" }).then((j) => {
+          if (j && j.ok) { toast("Отправлено. Спасибо!"); go("#/me"); } else { st.busy = false; draw(); toast("Не получилось отправить. Попробуй еще раз"); }
+        });
+      };
+    };
+    draw();
+  }
   function Me() {
     if (!S.remind) S.remind = { morning: "09:00", evening: "21:30", on: true };
     const R = S.remind, p = S.profile || {};
     app.innerHTML = `<div class="stack">${back("#/notes", "Моя карта")}
       <div class="cap" style="margin-bottom:-6px">Личный кабинет</div>
-      <div class="row" style="gap:14px"><span class="av big">${esc((p.name || "?").slice(0, 1).toUpperCase())}</span><span class="stack" style="gap:2px"><h1 style="font-size:24px">${esc(p.name || "Профиль")}</h1><span class="small">вход через Telegram</span></span></div>
+      <div class="row" style="gap:14px"><label class="av big av-ed" aria-label="Поменять фото"><input type="file" accept="image/*" id="avf" hidden>${avInner()}<span class="av-cam" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span></label><span class="stack" style="gap:2px"><h1 style="font-size:24px">${esc(p.name || "Профиль")}</h1><span class="small">${p.avatar ? `<button type="button" class="pr-link" id="avrm" style="padding:0;font-size:13px">Убрать фото</button>` : "Нажми на кружок, чтобы поставить фото"}</span></span></div>
       <a class="link-row" href="#/sub"><span class="stack" style="gap:2px"><b>Подписка</b><span class="small" style="font-weight:400">${esc(planLine())}</span></span>${icon.chev}</a>
       <div class="card" style="gap:6px"><b>Вход на сайте</b><span class="small">kartaglubiny.ru → «Войти через Telegram». Подписка общая, записи пока хранятся на каждом устройстве отдельно.</span></div>
       <div class="card" style="gap:12px"><div class="row" style="justify-content:space-between"><b>Напоминания от бота</b><button type="button" class="tgl${R.on ? " on" : ""}" id="ron" role="switch" aria-checked="${R.on}" aria-label="Напоминания"><i></i></button></div>
@@ -468,6 +508,7 @@ window.startApp = function () {
         <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Вечер: «Как ты?»</span><input class="tm" id="re" inputmode="numeric" maxlength="5" placeholder="21:30" aria-label="Время вечернего напоминания" value="${R.evening}"></label>
         <span class="small">Не больше двух сообщений в день. Пропуск — это просто пропуск.</span></div>
       <a class="link-row" href="#/ask">Мои вопросы Насте ${icon.chev}</a>
+      <a class="link-row" href="#/bug">Сообщить об ошибке ${icon.chev}</a>
       <a class="link-row" href="#/export">Собрать наблюдения для своего психолога ${icon.chev}</a>
       <a class="link-row" href="#/policy/privacy">Политика конфиденциальности ${icon.chev}</a>
       <div class="demo stack" style="gap:10px">
@@ -476,6 +517,8 @@ window.startApp = function () {
       </div></div>`;
     const push = () => { clearTimeout(Me.t); Me.t = setTimeout(() => syncAccess(""), 800); }; // время напоминаний — боту
     $("#ron").onclick = () => { R.on = !R.on; save(); push(); Me(); };
+    $("#avf").onchange = (e) => { const x = e.target.files && e.target.files[0]; if (!x) return; shrinkImg(x, 256, true).then((d) => { S.profile.avatar = d; save(); Me(); }).catch(() => toast("Не получилось открыть фото")); };
+    if ($("#avrm")) $("#avrm").onclick = () => { delete S.profile.avatar; save(); Me(); };
     const hhmm = (el, key) => {
       el.oninput = () => { const d = el.value.replace(/\D/g, "").slice(0, 4); el.value = d.length > 2 ? d.slice(0, 2) + ":" + d.slice(2) : d; };
       el.onchange = el.onblur = () => {
@@ -2485,7 +2528,7 @@ ${b}</svg>`;
   const nfOk = (x, f) => f === "all" || (f === "feel" && (x.kind === "word" || x.kind === "day")) || (f === "body" && x.kind === "day") || (f === "dream" && x.kind === "dream") || (f === "free" && (x.kind === "free" || x.kind === "deep" || x.kind === "sym")) || (f === "sovp" && x.kind === "sovp") || (f === "dive" && x.kind === "dive") || (f === "talk" && x.kind === "talk");
   function Notes() {
     const items = noteItems();
-    let h = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><div class="scr-h"><h1>Моя карта</h1></div><div class="row" style="gap:8px"><a class="pill-g" href="#/svodka"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="margin-right:6px"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Сводка</a><button type="button" class="addbtn2" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F3654" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div><a class="lk" href="#/me"><span class="lk-av">${esc(((S.profile && S.profile.name) || "?").slice(0, 1).toUpperCase())}</span><span class="lk-tx"><b>Личный кабинет</b><span>${esc(planLine())}</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>`;
+    let h = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><div class="scr-h"><h1>Моя карта</h1></div><div class="row" style="gap:8px"><a class="pill-g" href="#/svodka"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="margin-right:6px"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Сводка</a><button type="button" class="addbtn2" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F3654" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div><a class="lk" href="#/me"><span class="lk-av">${avInner()}</span><span class="lk-tx"><b>Личный кабинет</b><span>${esc(planLine())}${!inTG() && (!S.access || ["trial", "expired"].includes(S.access.plan)) ? " · оформить подписку" : ""}</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>`;
     const days = []; for (let i = 6; i >= 0; i--) days.push(dkey(now() - i * 86400000));
     const has = (k) => items.some((x) => x.ts && dkey(x.ts) === k);
     if (!ND || !days.includes(ND)) ND = has(days[6]) ? days[6] : days.slice().reverse().find(has) || days[6];
@@ -2627,7 +2670,7 @@ ${b}</svg>`;
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
-    const LIBR = ["lib", "dives", "journal", "integr", "after", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "me", "sub", "svodka", "sovp", "free", "export", "img", "deepv", "talk"];
+    const LIBR = ["lib", "dives", "journal", "integr", "after", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "me", "sub", "bug", "svodka", "sovp", "free", "export", "img", "deepv", "talk"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
     const tabI = ["player", "hello", "adult", "access"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) && !(r === "free" && !id) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
@@ -2667,6 +2710,7 @@ ${b}</svg>`;
       case "safety": return Safety(id);
       case "ask": return Ask();
       case "consult": return Consult();
+      case "bug": return Bug();
       case "me": return Me();
       case "sub": return Sub(parts[1] === "ok");
       case "guide": return Guide();
@@ -2700,7 +2744,8 @@ ${b}</svg>`;
   // «Назад» возвращает туда, откуда пришли, а не в раздел-родитель
   const NAV = [];
   const navNote = () => {
-    const h = location.hash || "#/", root = (h.replace(/^#\/?/, "") || "").split("/");
+    const h = location.hash || "#/"; const T0 = (window.KARTA_TRAIL = window.KARTA_TRAIL || []); if (T0[T0.length - 1] !== h) { T0.push(h); if (T0.length > 12) T0.shift(); }
+    const root = (h.replace(/^#\/?/, "") || "").split("/");
     if (root.length === 1 && TABS.some((x) => x[0] === root[0])) { NAV.length = 0; NAV.push(h); return; }
     if (NAV.length >= 2 && NAV[NAV.length - 2] === h) NAV.pop(); else if (NAV[NAV.length - 1] !== h) NAV.push(h);
   };
