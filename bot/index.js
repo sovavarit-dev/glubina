@@ -143,11 +143,104 @@ async function access(token, bucket, user, rawCode, extra) {
     u.remind = { on: r.on !== false, morning: hm(r.morning) !== null ? r.morning : "09:00", evening: hm(r.evening) !== null ? r.evening : "21:30" };
   }
   await putObj(token, bucket, ukey(user.id), u);
-  return Object.assign(status(u, t), { promo });
+  return Object.assign(status(u, t), { promo, sub: subView(u) });
 }
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 function notifyNastya(text) { if (process.env.NASTYA_ID) send(process.env.NASTYA_ID, text).catch(() => {}); }
 const dm = (ts) => { const d = new Date(ts + MSK); return d.getUTCDate() + " " + ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"][d.getUTCMonth()]; };
+
+
+// ---------- оплата: Продамус (подписки 2990 / 4990, списывает сам Продамус) ----------
+// Переменные: PRODAMUS_URL (https://<магазин>.payform.ru/), PRODAMUS_KEY (секретный ключ — вписывает Настя),
+// PRODAMUS_SUB_BASIC / PRODAMUS_SUB_FULL (ID подписок), SITE_URL (адрес сайта для возврата после оплаты).
+const TARIFFS = { basic: { name: "Карта Глубины", price: 2990, env: "PRODAMUS_SUB_BASIC" }, full: { name: "Карта Глубины + ответы Насти", price: 4990, env: "PRODAMUS_SUB_FULL" } };
+const proUrl = () => { const u = String(process.env.PRODAMUS_URL || ""); return u && !u.endsWith("/") ? u + "/" : u; };
+const proReady = () => !!(proUrl() && process.env.PRODAMUS_KEY && process.env.PRODAMUS_SUB_BASIC && process.env.PRODAMUS_SUB_FULL);
+const strDeep = (v) => Array.isArray(v) ? v.map(strDeep) : v && typeof v === "object" ? Object.keys(v).sort().reduce((o, k) => (o[k] = strDeep(v[k]), o), {}) : v === null || v === undefined ? "" : typeof v === "boolean" ? (v ? "1" : "0") : String(v);
+const proSign = (data, slash) => { let j = JSON.stringify(strDeep(data)); if (slash !== false) j = j.replace(/\//g, "\\/"); return crypto.createHmac("sha256", String(process.env.PRODAMUS_KEY || "")).update(j).digest("hex"); };
+function unflat(form) { // products[0][name] → { products: [ { name } ] }
+  const root = {};
+  for (const [key, val] of Object.entries(form)) {
+    const parts = key.match(/[^[\]]+/g) || [key]; let node = root;
+    parts.forEach((p, i) => { const last = i === parts.length - 1, k = /^\d+$/.test(p) ? +p : p;
+      if (last) node[k] = val; else { if (typeof node[k] !== "object" || node[k] === null) node[k] = /^\d+$/.test(parts[i + 1]) ? [] : {}; node = node[k]; } });
+  }
+  return root;
+}
+function proVerify(form, sign) {
+  if (!sign || !process.env.PRODAMUS_KEY) return false;
+  const s = String(sign).trim().toLowerCase(), clean = Object.assign({}, form); delete clean.signature; delete clean.sign;
+  const nested = unflat(clean);
+  for (const d of [nested, clean]) for (const sl of [true, false]) { const x = proSign(d, sl); if (x.length === s.length && crypto.timingSafeEqual(Buffer.from(x), Buffer.from(s))) return true; }
+  return false;
+}
+const qs = (o, pre) => Object.entries(o).flatMap(([k, v]) => { const key = pre ? `${pre}[${k}]` : k; return v && typeof v === "object" ? qs(v, key) : [[key, String(v)]]; });
+const addMonth = (ts) => { const d = new Date(ts); d.setUTCMonth(d.getUTCMonth() + 1); return d.getTime(); };
+// ссылка на оплату выбранной подписки; номер заказа связывает оплату с человеком
+async function payLink(token, bucket, user, tariff) {
+  const T0 = TARIFFS[tariff]; if (!T0 || !proReady()) return { error: !T0 ? "bad_tariff" : "not_ready" };
+  const order = "kg" + user.id + "-" + Date.now().toString(36);
+  await putObj(token, bucket, "orders/" + order + ".json", { uid: user.id, tariff, at: Date.now() });
+  const site = String(process.env.SITE_URL || "https://kartaglubiny.ru/").replace(/\/?$/, "/");
+  const data = { do: "pay", order_id: order, customer_extra: "uid:" + user.id, subscription: String(process.env[T0.env]),
+    products: [{ name: T0.name, price: String(T0.price), quantity: "1", type: "service" }],
+    urlSuccess: site + "#/sub/ok", urlReturn: site + "#/sub" };
+  return { url: proUrl() + "?" + qs(data).map(([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v)).join("&") };
+}
+// уведомление Продамуса: оплата, продление, неудачное списание, отключение подписки
+async function proHook(token, bucket, form) {
+  const d = unflat(form), low = (x) => String(x || "").trim().toLowerCase();
+  const pay = low(d.payment_status), act = low(d.action_code), sub = d.subscription && typeof d.subscription === "object" ? d.subscription : {};
+  let uid = null, tariff = null;
+  const ord = d.order_num ? await getObj(token, bucket, "orders/" + String(d.order_num).replace(/[^\w-]/g, "") + ".json") : null;
+  if (ord) { uid = ord.uid; tariff = ord.tariff; }
+  if (!uid) { const m = /uid:(\d+)/.exec(String(d.customer_extra || "")); if (m) uid = +m[1]; }
+  const subId = String(sub.id || d.subscription_id || (typeof d.subscription === "string" ? d.subscription : "") || "");
+  if (!tariff && subId) tariff = subId === String(process.env.PRODAMUS_SUB_FULL) ? "full" : subId === String(process.env.PRODAMUS_SUB_BASIC) ? "basic" : null;
+  if (!uid && subId) { // продление без номера заказа: ищем по подписке и почте/телефону
+    const idx = (await getObj(token, bucket, "orders/by-customer.json")) || {};
+    uid = idx[low(d.customer_email)] || idx[String(d.customer_phone || "").replace(/\D/g, "")] || null;
+  }
+  if (!uid) { await putObj(token, bucket, "orders/unmatched-" + Date.now() + ".json", d); notifyNastya("Продамус: оплата без привязки к человеку, проверь в кабинете"); return "unmatched"; }
+  const k = ukey(uid), t = Date.now(), u = (await getObj(token, bucket, k)) || { id: uid, firstSeen: t, sent: {} };
+  u.sub = Object.assign(u.sub || {}, { id: subId || (u.sub && u.sub.id) || "", email: d.customer_email || (u.sub && u.sub.email) || "", phone: d.customer_phone || (u.sub && u.sub.phone) || "" });
+  if (tariff) u.tariff = tariff;
+  const next = Date.parse(sub.date_next_payment || d.date_next_payment || "") || 0;
+  const paid = ["success", "paid", "ok", "completed"].includes(pay) || (act === "auto_payment" && !d.error_code && pay !== "fail");
+  const failed = ["fail", "failed", "error", "declined", "rejected"].includes(pay) || (act === "auto_payment" && !!d.error_code);
+  const stopped = ["deactivation", "finish"].includes(act) || low(sub.active_user) === "0" || low(sub.active_manager) === "0";
+  let res = "info";
+  if (paid) {
+    const base = Math.max(t, u.paidUntil || 0);
+    u.paidUntil = Math.max(next ? next + DAY : 0, addMonth(base) + DAY); // день запаса на списание
+    u.sub.active = true; u.sub.next = next || addMonth(base); u.sub.lastPay = t; delete u.sub.failAt; res = "paid";
+    const idx = (await getObj(token, bucket, "orders/by-customer.json")) || {};
+    if (d.customer_email) idx[low(d.customer_email)] = uid; if (d.customer_phone) idx[String(d.customer_phone).replace(/\D/g, "")] = uid;
+    await putObj(token, bucket, "orders/by-customer.json", idx);
+    u.queue = (u.queue || []).concat([{ text: `Подписка «${TARIFFS[u.tariff] ? TARIFFS[u.tariff].name : "Карта Глубины"}» активна до ${dm(u.paidUntil - DAY)}. Спасибо!`, at: t }]);
+  } else if (failed) { u.sub.failAt = t; res = "failed";
+    u.queue = (u.queue || []).concat([{ text: "Не получилось продлить подписку: списание не прошло. Доступ к «Моей карте» сохранится. Проверить карту можно в личном кабинете на сайте kartaglubiny.ru.", at: t }]);
+  } else if (stopped) { u.sub.active = false; u.sub.stopAt = t; res = "stopped"; }
+  await putObj(token, bucket, k, u);
+  return res;
+}
+// отмена подписки по кнопке в приложении: отключаем автосписание в Продамусе от лица пользователя
+async function proCancel(token, bucket, user) {
+  const k = ukey(user.id), u = await getObj(token, bucket, k);
+  if (!u || !u.sub || !u.sub.id) return { error: "no_subscription" };
+  if (!proReady()) return { error: "not_ready" };
+  const ids = [u.sub.phone ? { customer_phone: u.sub.phone } : null, u.sub.email ? { customer_email: u.sub.email } : null].filter(Boolean);
+  let ok = false;
+  for (const idf of ids) {
+    const data = Object.assign({ subscription: String(u.sub.id), active_user: "0" }, idf); data.signature = proSign(data);
+    try { const r = await fetch(proUrl() + "rest/setActivity/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(data).toString(), signal: AbortSignal.timeout(8000) });
+      if (/success/i.test(await r.text())) { ok = true; break; } } catch (e) { console.log("setActivity", String(e).slice(0, 120)); }
+  }
+  if (!ok) { notifyNastya(`Не получилось отключить подписку в Продамусе (id ${user.id}). Отключи вручную: Подписчики → ${esc(u.sub.email || u.sub.phone || "")}`); return { error: "prodamus_failed" }; }
+  u.sub.active = false; u.sub.stopAt = Date.now(); await putObj(token, bucket, k, u);
+  return Object.assign(status(u), { sub: subView(u) });
+}
+const subView = (u) => u && u.sub ? { active: !!u.sub.active, next: u.sub.next || null, tariff: u.tariff || null, fail: !!u.sub.failAt } : null;
 
 // ---------- тексты бота ----------
 const T = {
@@ -282,6 +375,11 @@ async function remind(token, bucket) {
       if (u.queue && u.queue.length) { for (const q of u.queue) out.push([q.text, null, null]); u.queue = []; }
       // новости — только вышедшие после первого входа человека
       for (const n of news) { if (n.at > (u.firstSeen || 0) && !(u.sent.news || []).includes(n.id)) { out.push([esc(n.text), "Открыть приложение", () => { u.sent.news = (u.sent.news || []).concat([n.id]).slice(-30); }]); break; } }
+      // предупреждение о списании за 3 дня
+      if (u.sub && u.sub.active && u.sub.next && u.sub.next - t < 3 * DAY && u.sub.next > t && u.sent.preCharge !== u.sub.next) {
+        const tf = TARIFFS[u.tariff] || TARIFFS.basic, nx = u.sub.next;
+        out.push([`${dm(nx)} продлится подписка «${tf.name}» — ${tf.price} ₽. Отменить продление можно в личном кабинете на сайте kartaglubiny.ru.`, null, () => { u.sent.preCharge = nx; }]);
+      }
       // конец пробного периода и промокода
       const trialEnd = u.firstSeen + TRIAL_DAYS * DAY, paid = u.paidUntil && t < u.paidUntil;
       if (!paid && !u.promo && t > trialEnd - DAY && t < trialEnd && !u.sent.trialSoon) out.push([T.trialSoon, "Открыть приложение", () => { u.sent.trialSoon = t; }]);
@@ -318,6 +416,15 @@ module.exports.handler = async function (event, context) {
   const h = event.headers || {}, origin = cors(process.env.ALLOW_ORIGIN, h.Origin || h.origin || "");
   if (event.httpMethod === "OPTIONS") return reply(204, "", origin);
   if (!bucket || !token) return reply(500, { error: "not_configured" }, origin);
+  // уведомление Продамуса (адрес функции + ?pay=prodamus)
+  const q = event.queryStringParameters || {};
+  if (q.pay === "prodamus") {
+    const raw = event.isBase64Encoded ? Buffer.from(event.body || "", "base64").toString("utf8") : event.body || "";
+    const form = {}; for (const [k2, v2] of new URLSearchParams(raw)) form[k2] = v2;
+    if (!proVerify(form, h.Sign || h.sign || h.SIGN)) { console.log("prodamus bad sign"); return { statusCode: 400, body: "bad sign" }; }
+    try { const r = await proHook(token, bucket, form); console.log("prodamus", r); } catch (e) { console.log("prodamus err", String(e).slice(0, 200)); return { statusCode: 500, body: "error" }; }
+    return { statusCode: 200, headers: { "Content-Type": "text/plain" }, body: "success" };
+  }
   let b = {};
   try { b = JSON.parse(event.isBase64Encoded ? Buffer.from(event.body || "", "base64").toString("utf8") : event.body || "{}"); } catch (e) { return reply(400, { error: "bad_json" }, origin); }
   // вебхук Telegram: проверяем секрет
@@ -347,6 +454,8 @@ module.exports.handler = async function (event, context) {
   const user = checkInitData(h["X-Telegram-Init-Data"] || h["x-telegram-init-data"] || "", process.env.BOT_TOKEN) || checkSession(h["X-Session"] || h["x-session"] || "");
   if (!user) return reply(401, { error: "open_in_telegram" }, origin);
   if (!isAllowed(user.id)) return reply(403, { error: "closed", plan: "closed" }, origin);
+  if (b.action === "pay_link") return reply(200, await payLink(token, bucket, user, b.tariff), origin);
+  if (b.action === "cancel_sub") return reply(200, await proCancel(token, bucket, user), origin);
   // контент для сайта (в Telegram его отдает karta-api)
   if (b.action === "content") {
     try {
@@ -361,4 +470,4 @@ module.exports.handler = async function (event, context) {
   }
   return reply(400, { error: "bad_action" }, origin);
 };
-module.exports._t = { local, isDay, status, normCode, T, remind, access, onUpdate, makeSession, checkSession };
+module.exports._t = { proSign, proVerify, proHook, payLink, unflat, local, isDay, status, normCode, T, remind, access, onUpdate, makeSession, checkSession };

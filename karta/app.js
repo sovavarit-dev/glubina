@@ -460,8 +460,8 @@ window.startApp = function () {
     const R = S.remind, p = S.profile || {};
     app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
       <div class="row" style="gap:14px"><span class="av big">${esc((p.name || "?").slice(0, 1).toUpperCase())}</span><span class="stack" style="gap:2px"><h1 style="font-size:24px">${esc(p.name || "Профиль")}</h1><span class="small">вход через Telegram</span></span></div>
-      <div class="card" style="gap:6px"><div class="row" style="justify-content:space-between"><b>Подписка</b><span class="tag">скоро</span></div><span class="small">Оплата и продление — в боте Telegram или MAX. Сейчас все открыто для тестирования.</span></div>
-      <div class="card" style="gap:6px"><div class="row" style="justify-content:space-between"><b>Вход с компьютера</b><span class="tag">скоро</span></div><span class="small">Открой сайт, введи ник — бот пришлет код. Записи будут общими на всех устройствах.</span></div>
+      <a class="link-row" href="#/sub"><span class="stack" style="gap:2px"><b>Подписка</b><span class="small" style="font-weight:400">${esc(planLine())}</span></span>${icon.chev}</a>
+      <div class="card" style="gap:6px"><b>Вход на сайте</b><span class="small">kartaglubiny.ru → «Войти через Telegram». Подписка общая, записи пока хранятся на каждом устройстве отдельно.</span></div>
       <div class="card" style="gap:12px"><div class="row" style="justify-content:space-between"><b>Напоминания от бота</b><button type="button" class="tgl${R.on ? " on" : ""}" id="ron" role="switch" aria-checked="${R.on}" aria-label="Напоминания"><i></i></button></div>
         <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Утро: сон и символ дня</span><input class="tm" id="rm" inputmode="numeric" maxlength="5" placeholder="09:00" aria-label="Время утреннего напоминания" value="${R.morning}"></label>
         <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Вечер: «Как ты?»</span><input class="tm" id="re" inputmode="numeric" maxlength="5" placeholder="21:30" aria-label="Время вечернего напоминания" value="${R.evening}"></label>
@@ -752,7 +752,7 @@ window.startApp = function () {
     return fetch(window.KARTA_BOT, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify({ action: "access", code: code || "", tz: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; } })(), remind: S.remind || { on: true, morning: "09:00", evening: "21:30" } }) })
       .then((r) => r.ok ? r.json() : null).then((j) => {
         if (!j || !j.plan) return local();
-        S.access = { plan: j.plan, until: j.until ? new Date(j.until + 3 * 3600000).toISOString().slice(0, 10) : null, untilTs: j.until, code: j.code || "" }; save(); return j;
+        S.access = { plan: j.plan, until: j.until ? new Date(j.until + 3 * 3600000).toISOString().slice(0, 10) : null, untilTs: j.until, code: j.code || "", sub: j.sub || null }; save(); return j;
       }).catch(local);
   }
   // «glubina 12» и «ГЛУБИНА12» — одно и то же; есть ли такой код и не использован ли он — решает сервер (список кодов в открытом коде не хранится)
@@ -804,6 +804,53 @@ window.startApp = function () {
     };
   }
   // экран доступа после анкеты: пробный период или промокод
+
+  // ---------- подписка: оформление на сайте (Продамус), в Telegram — только статус и отмена ----------
+  const inTG = () => !!(tg && tg.initData);
+  const MON = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+  const dmy = (ts) => { const d = new Date(ts); return d.getDate() + " " + MON[d.getMonth()]; };
+  const TAR = { basic: { t: "Подписка", p: 2990, f: ["Все погружения и подкасты", "Словарь символов и Таро", "Проводник без ограничений"] }, full: { t: "Подписка с ответами Насти", p: 4990, f: ["Все, что в подписке", "4 ответа Насти в месяц на твои вопросы"] } };
+  function planLine() {
+    const A = S.access || {}, s = A.sub, u = A.untilTs;
+    if (A.plan === "basic" || A.plan === "full" || A.plan === "paid") return (TAR[A.plan] ? TAR[A.plan].t : "Подписка") + (s && s.active && s.next ? " · продлится " + dmy(s.next) : u ? " · до " + dmy(u - 86400000) : "");
+    if (A.plan === "promo") return "Промокод · полный доступ до 30 декабря";
+    if (A.plan === "trial") return "Пробный период" + (u ? " · до " + dmy(u) : "");
+    if (A.plan === "expired") return "Доступ закончился · открыта «Моя карта»";
+    return "Пробный период";
+  }
+  function Sub(ok) {
+    const A = S.access || {}, s = A.sub, paid = A.plan === "basic" || A.plan === "full" || A.plan === "paid";
+    const st = { tariff: A.plan === "full" ? "full" : "basic", agree: false, sure: false };
+    const draw = () => {
+      app.innerHTML = `<div class="stack v-pad" style="gap:18px">${back("#/me", "Профиль")}
+        <div class="scr-h"><div class="cap">Подписка</div><h1>${paid ? esc(TAR[A.plan] ? TAR[A.plan].t : "Подписка") : "Полный доступ к Глубине"}</h1><p>${esc(planLine())}</p></div>
+        ${ok ? `<div class="pr-ok"><span class="pr-ok-i">✓</span><span><b>Оплата прошла</b><span id="okst">Обновляю доступ…</span></span></div>` : ""}
+        ${s && s.fail ? `<div class="card small">Последнее списание не прошло. Проверь карту в письме Продамуса или оформи подписку заново.</div>` : ""}
+        ${inTG() ? `<div class="card stack" style="gap:8px"><b>Оформить подписку</b><span class="small">Оформить и поменять подписку можно на сайте kartaglubiny.ru — вход через Telegram, подписка общая для сайта и Telegram.</span><button type="button" class="pill" id="cpy" style="align-self:flex-start">Скопировать адрес сайта</button></div>`
+          : (paid && s && s.active ? "" : `<div class="stack" style="gap:10px">${Object.entries(TAR).map(([k, x]) => `<button type="button" class="card tar${st.tariff === k ? " on" : ""}" data-tar="${k}" style="text-align:left;gap:6px"><div class="row" style="justify-content:space-between"><b>${x.t}</b><b style="white-space:nowrap">${x.p.toLocaleString("ru-RU")} ₽<span class="small" style="font-weight:400"> / мес</span></b></div><span class="small">${x.f.join(" · ")}</span></button>`).join("")}</div>
+            <label class="consent"><input type="checkbox" id="agr"${st.agree ? " checked" : ""}><span>Соглашаюсь на ежемесячное автоматическое списание ${TAR[st.tariff].p.toLocaleString("ru-RU")} ₽${window.KARTA_OFFER ? ` и с <a href="${esc(window.KARTA_OFFER)}" target="_blank" style="text-decoration:underline">условиями оферты</a>` : ""}. Отменить продление можно здесь в любой момент, за 3 дня до списания придет напоминание.</span></label>
+            <button class="btn" id="pay"${st.agree ? "" : " disabled"}>Перейти к оплате</button>`)}
+        ${s && s.active ? `<button type="button" class="pr-link" id="stop" style="align-self:center">${st.sure ? "Точно отменить? Доступ сохранится до " + esc(A.untilTs ? dmy(A.untilTs - 86400000) : "конца оплаченного месяца") : "Отменить продление"}</button>` : ""}
+      </div>`;
+      app.querySelectorAll("[data-tar]").forEach((b) => b.onclick = () => { st.tariff = b.dataset.tar; draw(); });
+      const agr = $("#agr"); if (agr) agr.onchange = () => { st.agree = agr.checked; $("#pay").disabled = !st.agree; };
+      const pay = $("#pay"); if (pay) pay.onclick = () => {
+        if (!st.agree) return; pay.disabled = true; pay.textContent = "Открываю оплату…";
+        botCall({ action: "pay_link", tariff: st.tariff }).then((j) => { if (j && j.url) location.href = j.url; else { toast(j && j.error === "not_ready" ? "Оплата скоро подключится" : "Не получилось открыть оплату"); pay.disabled = false; pay.textContent = "Перейти к оплате"; } });
+      };
+      const cpy = $("#cpy"); if (cpy) cpy.onclick = () => { try { navigator.clipboard.writeText("https://kartaglubiny.ru"); toast("Адрес скопирован"); } catch (e) { toast("kartaglubiny.ru"); } };
+      const stop = $("#stop"); if (stop) stop.onclick = () => {
+        if (!st.sure) { st.sure = true; draw(); return; }
+        stop.disabled = true; botCall({ action: "cancel_sub" }).then((j) => { if (j && j.plan) { S.access.sub = j.sub; save(); toast("Продление отменено"); Sub(); } else toast("Не получилось отменить. Настя уже знает и отключит вручную"); });
+      };
+    };
+    draw();
+    if (ok) { let n = 0; const poll = () => syncAccess("").then(() => { const p = S.access && S.access.plan; if (p === "basic" || p === "full") { const e = $("#okst"); if (e) e.textContent = "Доступ открыт: " + planLine(); } else if (++n < 20) setTimeout(poll, 3000); }); poll(); }
+  }
+  function botCall(body) {
+    if (!window.KARTA_BOT || !window.KARTA_HEADERS) return Promise.resolve(null);
+    return fetch(window.KARTA_BOT, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify(body) }).then((r) => r.json()).catch(() => null);
+  }
   function Access() {
     const A = S.access || { plan: "trial" }, promo = A.plan === "promo";
     const ic = (d) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -818,13 +865,13 @@ window.startApp = function () {
       <ul class="ac-list v-panel">${list.join("")}</ul>
       <p class="small center" style="font-size:12px;margin-top:-4px">Telegram спросит, можно ли боту писать тебе: так придут ответы Насти и напоминание о конце ${promo ? "доступа" : "пробного периода"}.</p>
       <button class="btn" id="acgo">Начать</button>
-      ${promo ? "" : `<button type="button" class="pr-link" id="acpay" style="align-self:center">Оформить подписку сразу</button>`}
+      ${promo || inTG() ? "" : `<button type="button" class="pr-link" id="acpay" style="align-self:center">Оформить подписку сразу</button>`}
     </div>`;
     $("#acgo").onclick = () => {
       const fin = () => go("#/");
       try { if (tg && tg.requestWriteAccess) tg.requestWriteAccess((ok) => { S.botWrite = !!ok; save(); fin(); }); else fin(); } catch (e) { fin(); }
     };
-    if ($("#acpay")) $("#acpay").onclick = () => toast("Оплата подключится вместе с Продамусом");
+    if ($("#acpay")) $("#acpay").onclick = () => go("#/sub");
   }
   function Minor() {
     app.innerHTML = `<div class="stack" style="padding-top:48px;text-align:center;align-items:center">
@@ -2620,6 +2667,7 @@ ${b}</svg>`;
       case "ask": return Ask();
       case "consult": return Consult();
       case "me": return Me();
+      case "sub": return Sub(parts[1] === "ok");
       case "guide": return Guide();
       case "export": return Export(id);
       case "quick": return id === "feel" ? Quick() : QuickVoice();

@@ -1288,3 +1288,8 @@ body.lt .sn i{border-color:rgba(31,54,84,.55);color:#1F3654}
 .hint.pqh{padding-left:0}
 /* «Бухта» выше, ближе к верху экрана */
 .bx2-h{top:calc(30px + env(safe-area-inset-top))}
+/* подписка */
+.card.tar{width:100%;border:1.5px solid transparent;color:inherit;font:inherit;cursor:pointer}
+.card.tar.on{border-color:var(--cream)}
+body.lt .card.tar.on{border-color:#1F3654}
+.btn:disabled{opacity:.45}
