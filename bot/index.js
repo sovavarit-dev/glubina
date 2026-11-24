@@ -150,9 +150,8 @@ async function adminReply(token, bucket, id, text) {
   await putObj(token, bucket, k, x); return { ok: true, when };
 }
 const appUrl = (q) => (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + (q || "");
-const openBtn = (text, q) => ({ inline_keyboard: [[{ text: text || "Приложение", web_app: { url: appUrl(q) } }]] });
-const KB = { keyboard: [[{ text: "Приложение", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true };
-const kbFor = (code) => code ? { keyboard: [[{ text: "Приложение", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + "?promo=" + code } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true } : KB;
+// кнопок под сообщениями и клавиатуры под полем нет: вход в приложение — одна кнопка «Открыть» слева от поля ввода
+const KB = { remove_keyboard: true };
 const send = (chat, text, kb) => tg("sendMessage", Object.assign({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }, kb ? { reply_markup: kb } : {}));
 
 function checkInitData(initData, botToken) {
@@ -399,12 +398,13 @@ async function onUpdate(token, bucket, up) {
     const arg = text.split(/\s+/)[1] || "";
     const code = codes().includes(normCode(arg)) ? normCode(arg) : "";
     // в /start ничего не регистрируем: срок пробного периода считается с первого открытия приложения
+    if (code && isAllowed(from.id)) await tg("setChatMenuButton", { chat_id: from.id, menu_button: { type: "web_app", text: "Открыть", web_app: { url: appUrl("?promo=" + code) } } });
     if (u0) { u0.chat = true; await putObj(token, bucket, key, u0); }
     else await putObj(token, bucket, key + ".chat", { chat: true, at: Date.now() });
-    return send(m.chat.id, (code ? T.startPromo(from.first_name) : T.start(from.first_name)) + "\n\nКнопки — под полем ввода.", kbFor(code));
+    return send(m.chat.id, (code ? T.startPromo(from.first_name) : T.start(from.first_name)) + "\n\nПриложение открывается кнопкой «Открыть» слева от поля ввода.", KB);
   }
   if (/^\/help\b/.test(text) || text === "Помощь") return send(m.chat.id, T.help(), KB);
-  if (/^\/podpiska\b/.test(text) || text === "Моя подписка") return send(m.chat.id, u0 ? T.sub(status(u0)) : "Открой приложение — там начнется пробный период.", openBtn());
+  if (/^\/podpiska\b/.test(text) || text === "Моя подписка") return send(m.chat.id, u0 ? T.sub(status(u0)) : "Открой приложение кнопкой «Открыть» слева от поля ввода — там начнется пробный период.", KB);
   // любое другое сообщение — Насте (обращение в поддержку)
   if (process.env.NASTYA_ID && !/^\//.test(text)) {
     const ib = await inboxSave(token, bucket, from, text);
@@ -416,7 +416,7 @@ async function onUpdate(token, bucket, up) {
     }
     return send(m.chat.id, "Сообщение сохранено, Настя прочитает и ответит.", KB);
   }
-  return send(m.chat.id, "Все самое важное — в приложении.", openBtn());
+  return send(m.chat.id, "Все самое важное — в приложении: кнопка «Открыть» слева от поля ввода.", KB);
 }
 
 // настройка бота: вебхук на эту функцию, кнопка «Открыть» слева от поля, список команд
@@ -439,12 +439,15 @@ async function setup() {
 }
 
 // ---------- напоминания (таймер) ----------
+// reminders.json: { "morning": ["...", ...], "evening": ["...", ...] } — по строке на день, по кругу от первого входа
+const lineFor = (L, part, n) => { const a = L && Array.isArray(L[part]) ? L[part].filter((x) => typeof x === "string" && x.trim()) : []; return a.length ? esc(a[n % a.length].trim()) : ""; };
 async function remind(token, bucket) {
   const t = Date.now();
   const keys = (await listKeys(token, bucket, "users/")).filter((k) => /^users\/\d+\.json$/.test(k));
   const newsKeys = (await listKeys(token, bucket, "news/n-")).filter((k) => /\.json$/.test(k)).slice(-20);
   const news = [];
   for (const k of newsKeys) { const n = await getObj(token, bucket, k); if (n && n.id && t - n.at < 7 * DAY) news.push(n); }
+  const LINES = (await getObj(token, bucket, process.env.LINES_KEY || "reminders.json").catch(() => null)) || {};
   let sent = 0;
   for (const k of keys) {
     const u = await getObj(token, bucket, k); if (!u || !u.id || !isAllowed(u.id)) continue;
@@ -453,10 +456,11 @@ async function remind(token, bucket) {
     const out = []; // [текст, кнопка, флаг]
     // утро и вечер — в то время, что человек выбрал в приложении (по его часовому поясу)
     const R = u.remind || { on: true, morning: "09:00", evening: "21:30" };
+    const dayN = Math.max(0, Math.floor((t - (u.firstSeen || t)) / DAY));
     if (R.on && st.plan !== "expired") {
       for (const part of ["morning", "evening"]) {
         const at = hm(R[part]);
-        if (at !== null && L.min >= at && L.min < at + 60 && u.sent[part] !== L.date) out.push([T[part], "Открыть приложение", () => { u.sent[part] = L.date; }]);
+        if (at !== null && L.min >= at && L.min < at + 60 && u.sent[part] !== L.date) out.push([lineFor(LINES, part, dayN) || T[part], null, () => { u.sent[part] = L.date; }]);
       }
     }
     if (day) {
@@ -477,7 +481,7 @@ async function remind(token, bucket) {
     }
     if (!out.length) continue;
     for (const [text, btn, mark] of out) {
-      const r = await send(u.id, text, btn ? openBtn(btn) : null);
+      const r = await send(u.id, text, KB);
       if (r && r.ok) sent++; else u.sent.lastFail = ((r && r.description) || "fail").slice(0, 80);
       if (mark) mark();
     }
