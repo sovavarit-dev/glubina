@@ -205,12 +205,16 @@ async function proHook(token, bucket, form) {
   if (!ours) return "foreign"; // консультации и другие оплаты на той же форме — не наши
   if (!uid) { await putObj(token, bucket, "orders/unmatched-" + Date.now() + ".json", d); notifyNastya("Продамус: оплата подписки без привязки к человеку, проверь в кабинете"); return "unmatched"; }
   const k = ukey(uid), t = Date.now(), u = (await getObj(token, bucket, k)) || { id: uid, firstSeen: t, sent: {} };
+  u.sent = u.sent || {};
   u.sub = Object.assign(u.sub || {}, { id: subId || (u.sub && u.sub.id) || "", email: d.customer_email || (u.sub && u.sub.email) || "", phone: d.customer_phone || (u.sub && u.sub.phone) || "" });
   if (tariff) u.tariff = tariff;
   const next = Date.parse(sub.date_next_payment || d.date_next_payment || "") || 0;
-  const paid = ["success", "paid", "ok", "completed"].includes(pay) || (act === "auto_payment" && !d.error_code && pay !== "fail");
-  const failed = ["fail", "failed", "error", "declined", "rejected"].includes(pay) || (act === "auto_payment" && !!d.error_code);
-  const stopped = ["deactivation", "finish"].includes(act) || low(sub.active_user) === "0" || low(sub.active_manager) === "0";
+  // по документации Продамуса: первая оплата — payment_status=success; продления и сбои — в subscription[type/action_code/notification_code/error_code]
+  const sty = low(sub.type), sact = low(sub.action_code || act), ncode = low(sub.notification_code), err = sub.error_code || d.error_code;
+  const paid = ["success", "paid", "ok", "completed"].includes(pay) && !sty || (sty === "action" && sact === "auto_payment" && !err);
+  const failed = ["fail", "failed", "error", "declined", "rejected"].includes(pay) || (sty === "notification" && ncode === "auto_payment" && !!err);
+  const stopped = (sty === "action" && ["deactivation", "finish"].includes(sact)) || (sty === "notification" && ncode === "deactivation") || low(sub.active) === "0";
+  const resumed = sty === "notification" && ncode === "activation";
   let res = "info";
   if (paid) {
     const base = Math.max(t, u.paidUntil || 0);
@@ -221,8 +225,11 @@ async function proHook(token, bucket, form) {
     await putObj(token, bucket, "orders/by-customer.json", idx);
     u.queue = (u.queue || []).concat([{ text: `Подписка «${TARIFFS[u.tariff] ? TARIFFS[u.tariff].name : "Карта Глубины"}» активна до ${dm(u.paidUntil - DAY)}. Спасибо!`, at: t }]);
   } else if (failed) { u.sub.failAt = t; res = "failed";
+    if (u.sent.failFor === (u.sub.next || 0)) { await putObj(token, bucket, k, u); return res; } // одно сообщение на период, а не на каждую попытку
+    u.sent.failFor = u.sub.next || 0;
     u.queue = (u.queue || []).concat([{ text: "Не получилось продлить подписку: списание не прошло. Доступ к «Моей карте» сохранится. Проверить карту можно в личном кабинете на сайте kartaglubiny.ru.", at: t }]);
   } else if (stopped) { u.sub.active = false; u.sub.stopAt = t; res = "stopped"; }
+  else if (resumed) { u.sub.active = true; res = "resumed"; }
   await putObj(token, bucket, k, u);
   return res;
 }
