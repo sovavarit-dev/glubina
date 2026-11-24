@@ -113,6 +113,42 @@ async function statePut(token, bucket, user, data) {
   await putObj(token, bucket, k, Object.assign(seal(data), { at: t, lastBak }));
   return { ok: true, at: t };
 }
+// ---------- обращения людей (для Насти в приложении) ----------
+async function inboxSave(token, bucket, from, text) {
+  const id = Date.now() + "-" + from.id;
+  await putObj(token, bucket, "inbox/" + id + ".json", { id, uid: from.id, name: from.first_name || "", user: from.username || "", text: String(text || "").slice(0, 4000), at: Date.now(), answered: false });
+  return id;
+}
+const isAdmin = (u) => !!(u && process.env.NASTYA_ID && String(u.id) === String(process.env.NASTYA_ID));
+async function adminList(token, bucket, kind) {
+  const pre = kind === "bug" ? "bugs/" : "inbox/";
+  const keys = (await listKeys(token, bucket, pre)).filter((k) => /\/\d+-\d+\.json$/.test(k)).sort().reverse().slice(0, 100);
+  const out = [];
+  for (let i = 0; i < keys.length; i += 10) out.push(...(await Promise.all(keys.slice(i, i + 10).map((k) => getObj(token, bucket, k).catch(() => null)))));
+  return { items: out.filter(Boolean) };
+}
+async function adminImg(token, bucket, id, i) {
+  const r = await fetch(S3 + bucket + "/bugs/" + String(id).replace(/[^\d-]/g, "") + "-" + (+i || 0) + ".jpg", { headers: { "X-YaCloud-SubjectToken": token } });
+  if (!r.ok) return { error: "no_image" };
+  return { img: "data:image/jpeg;base64," + Buffer.from(await r.arrayBuffer()).toString("base64") };
+}
+async function adminMark(token, bucket, kind, id, done) {
+  const k = (kind === "bug" ? "bugs/" : "inbox/") + String(id).replace(/[^\d-]/g, "") + ".json", x = await getObj(token, bucket, k);
+  if (!x) return { error: "not_found" };
+  if (kind === "bug") x.done = !!done; else x.answered = !!done;
+  await putObj(token, bucket, k, x); return { ok: true };
+}
+async function adminReply(token, bucket, id, text) {
+  const k = "inbox/" + String(id).replace(/[^\d-]/g, "") + ".json", x = await getObj(token, bucket, k);
+  if (!x || !x.uid || !String(text || "").trim()) return { error: "bad" };
+  const msg = "Ответ Насти:\n\n" + esc(String(text).slice(0, 3500));
+  const uk = ukey(x.uid), uu = (await getObj(token, bucket, uk)) || { id: x.uid, firstSeen: Date.now(), sent: {} };
+  let when = "now";
+  if (isDay(uu)) { const r = await tg("sendMessage", { chat_id: x.uid, text: msg, parse_mode: "HTML" }); if (!r || !r.ok) return { error: "send_failed", why: (r && r.description) || "" }; }
+  else { uu.queue = (uu.queue || []).concat([{ text: msg, at: Date.now() }]); await putObj(token, bucket, uk, uu); when = "morning"; }
+  x.answered = true; x.replies = (x.replies || []).concat([{ text: String(text).slice(0, 3500), at: Date.now(), when }]);
+  await putObj(token, bucket, k, x); return { ok: true, when };
+}
 const appUrl = (q) => (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + (q || "");
 const openBtn = (text, q) => ({ inline_keyboard: [[{ text: text || "Приложение", web_app: { url: appUrl(q) } }]] });
 const KB = { keyboard: [[{ text: "Приложение", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true };
@@ -186,7 +222,7 @@ async function access(token, bucket, user, rawCode, extra) {
     u.remind = { on: r.on !== false, morning: hm(r.morning) !== null ? r.morning : "09:00", evening: hm(r.evening) !== null ? r.evening : "21:30" };
   }
   await putObj(token, bucket, ukey(user.id), u);
-  return Object.assign(status(u, t), { promo, sub: subView(u) });
+  return Object.assign(status(u, t), { promo, sub: subView(u), admin: isAdmin(user) || undefined });
 }
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 function notifyNastya(text) { if (process.env.NASTYA_ID) send(process.env.NASTYA_ID, text).catch(() => {}); }
@@ -334,6 +370,7 @@ async function onUpdate(token, bucket, up) {
   if (process.env.NASTYA_ID && String(from.id) === String(process.env.NASTYA_ID) && m.reply_to_message) {
     const link = await getObj(token, bucket, "support/" + m.reply_to_message.message_id + ".json");
     if (link && link.user) {
+      if (link.inbox) { const ik = "inbox/" + link.inbox + ".json", it = await getObj(token, bucket, ik); if (it) { it.answered = true; it.replies = (it.replies || []).concat([{ text: String(text || "").slice(0, 3500), at: Date.now(), via: "telegram" }]); await putObj(token, bucket, ik, it); } }
       const msg = "Ответ Насти:\n\n" + esc(text || "(без текста)");
       const uk = ukey(link.user), uu = (await getObj(token, bucket, uk)) || { id: link.user, firstSeen: Date.now(), sent: {} };
       if (isDay(uu)) { const r = await tg("sendMessage", { chat_id: link.user, text: msg, parse_mode: "HTML" }); return send(m.chat.id, r && r.ok ? "Отправлено." : "Не получилось отправить: " + esc((r && r.description) || "ошибка")); }
@@ -350,7 +387,7 @@ async function onUpdate(token, bucket, up) {
   }
   if (!isAllowed(from.id)) {
     if (/^\/start\b/.test(text)) return send(m.chat.id, `${from.first_name ? esc(from.first_name) + ", п" : "П"}риложение «Карта Глубины» скоро откроется. Напишем сюда, когда можно будет зайти.`, { remove_keyboard: true });
-    if (process.env.NASTYA_ID && text && !/^\//.test(text)) { const r = await tg("forwardMessage", { chat_id: process.env.NASTYA_ID, from_chat_id: m.chat.id, message_id: m.message_id }); if (r && r.ok) { await putObj(token, bucket, "support/" + r.result.message_id + ".json", { user: from.id, at: Date.now() }); return send(m.chat.id, T.got); } }
+    if (process.env.NASTYA_ID && text && !/^\//.test(text)) { const r = await tg("forwardMessage", { chat_id: process.env.NASTYA_ID, from_chat_id: m.chat.id, message_id: m.message_id }); const ib = await inboxSave(token, bucket, from, text); if (r && r.ok) { await putObj(token, bucket, "support/" + r.result.message_id + ".json", { user: from.id, at: Date.now(), inbox: ib }); } return send(m.chat.id, T.got); }
     return;
   }
   if (/^\/start\s+login_/.test(text)) {
@@ -370,13 +407,13 @@ async function onUpdate(token, bucket, up) {
   if (/^\/podpiska\b/.test(text) || text === "Моя подписка") return send(m.chat.id, u0 ? T.sub(status(u0)) : "Открой приложение — там начнется пробный период.", openBtn());
   // любое другое сообщение — Насте (обращение в поддержку)
   if (process.env.NASTYA_ID && !/^\//.test(text)) {
+    const ib = await inboxSave(token, bucket, from, text);
     const r = await tg("forwardMessage", { chat_id: process.env.NASTYA_ID, from_chat_id: m.chat.id, message_id: m.message_id });
     if (r && r.ok) {
-      await putObj(token, bucket, "support/" + r.result.message_id + ".json", { user: from.id, at: Date.now() });
+      await putObj(token, bucket, "support/" + r.result.message_id + ".json", { user: from.id, at: Date.now(), inbox: ib });
       await send(process.env.NASTYA_ID, `↑ ${esc(from.first_name || "")} (id ${from.id}). Ответь на пересланное сообщение — ответ уйдет человеку.`);
       return send(m.chat.id, T.got, KB);
     }
-    await putObj(token, bucket, "support-inbox/" + Date.now() + "-" + from.id + ".json", { user: from.id, name: from.first_name || "", text, at: Date.now() });
     return send(m.chat.id, "Сообщение сохранено, Настя прочитает и ответит.", KB);
   }
   return send(m.chat.id, "Все самое важное — в приложении.", openBtn());
@@ -507,6 +544,13 @@ module.exports.handler = async function (event, context) {
   if (!user) return reply(401, { error: "open_in_telegram" }, origin);
   if (!isAllowed(user.id)) return reply(403, { error: "closed", plan: "closed" }, origin);
   if (b.action === "bug") return reply(200, await bugReport(token, bucket, user, b), origin);
+  if (/^admin_/.test(b.action || "")) {
+    if (!isAdmin(user)) return reply(403, { error: "forbidden" }, origin);
+    if (b.action === "admin_list") return reply(200, await adminList(token, bucket, b.kind), origin);
+    if (b.action === "admin_img") return reply(200, await adminImg(token, bucket, b.id, b.i), origin);
+    if (b.action === "admin_mark") return reply(200, await adminMark(token, bucket, b.kind, b.id, b.done), origin);
+    if (b.action === "admin_reply") return reply(200, await adminReply(token, bucket, b.id, b.text), origin);
+  }
   // записи человека на сервере: зашифрованы (AES-256-GCM, ключ DATA_KEY только в настройках функции)
   if (b.action === "state_get") return reply(200, await stateGet(token, bucket, user), origin);
   if (b.action === "state_put") return reply(200, await statePut(token, bucket, user, b.data), origin);

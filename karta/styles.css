@@ -1322,3 +1322,11 @@ body.lt .lk-av{background:#1F3654;color:#F5E8D9}
 /* неделя пн–вс: сегодня — кружок, будущие дни бледные */
 .wk button.tdy:not(.on){box-shadow:inset 0 0 0 1.5px var(--cream)}
 .wk button:disabled{opacity:.35;cursor:default}
+/* обращения */
+.lk-adm{margin-top:-4px}
+.ib-done{opacity:.6}
+.ib-rep{background:rgba(245,232,217,.08);border-radius:12px;padding:8px 10px;white-space:pre-line}
+.ib-img{padding:0;cursor:pointer;display:grid;place-items:center;background:rgba(245,232,217,.06);color:inherit}
+.lk-tag{flex:0 0 auto;background:#F5E8D9;color:#1F3654;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700}
+.ptabs a{border-radius:999px;background:rgba(245,232,217,.08);border:1px solid rgba(245,232,217,.22);color:var(--cream);text-decoration:none;font-weight:500}
+.ptabs a.on{background:#F5E8D9;color:#1F3654;border-color:#F5E8D9;font-weight:600}

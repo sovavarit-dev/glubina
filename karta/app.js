@@ -514,6 +514,59 @@ window.startApp = function () {
     });
   }
   // ---------- сообщить об ошибке ----------
+
+  // ---------- обращения (только для Насти): сообщения людей и ошибки ----------
+  const IB = { kind: "msg", items: null, sel: new Set(), imgs: {} };
+  const dtm = (ts) => { const d = new Date(ts); return d.getDate() + " " + MON[d.getMonth()] + ", " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  function Inbox(kind) {
+    if (!(S.access && S.access.admin)) return go("#/notes");
+    if (kind && kind !== IB.kind) { IB.kind = kind; IB.items = null; IB.sel.clear(); }
+    const K = IB.kind, L = IB.items;
+    const draw = () => {
+      const list = IB.items || [], open = list.filter((x) => K === "bug" ? !x.done : !x.answered).length;
+      app.innerHTML = `<div class="stack" style="gap:14px">${back("#/notes", "Моя карта")}
+        <div class="scr-h"><div class="cap">Только для тебя</div><h1>Обращения</h1></div>
+        <div class="ptabs"><a href="#/inbox/msg" class="${K === "msg" ? "on" : ""}">Сообщения</a><a href="#/inbox/bug" class="${K === "bug" ? "on" : ""}">Ошибки</a></div>
+        ${IB.items === null ? `<p class="small">Загружаю…</p>` : !list.length ? `<div class="card dashed small">${K === "bug" ? "Сообщений об ошибках пока нет." : "Сообщений пока нет."}</div>` : `<p class="small">${K === "bug" ? "Не решено" : "Без ответа"}: ${open} из ${list.length}</p>`}
+        ${K === "bug" && list.length ? `<button class="btn" id="ibfile">${IB.sel.size ? "Собрать файл для Claude · " + IB.sel.size : "Собрать файл для Claude"}</button>` : ""}
+        ${list.map((x, i) => K === "bug" ? `<div class="card ib${x.done ? " ib-done" : ""}" style="gap:8px">
+            <div class="row" style="justify-content:space-between;gap:8px"><label class="row" style="gap:8px"><input type="checkbox" data-sel="${i}"${IB.sel.has(x.id) ? " checked" : ""}><b>${esc(x.name || "Без имени")}</b></label><span class="small">${dtm(x.at)}</span></div>
+            <p style="margin:0;white-space:pre-line">${esc(x.text || "(без текста)")}</p>
+            ${x.where ? `<span class="small">Экраны: ${esc(x.where)}</span>` : ""}<span class="small">${x.web ? "Сайт" : "Telegram"}${x.ua ? " · " + esc(x.ua.slice(0, 90)) : ""}</span>
+            ${x.images ? `<div class="row" style="gap:8px;flex-wrap:wrap">${Array.from({ length: x.images }, (_, j) => `<button type="button" class="bg-th ib-img" data-img="${x.id}|${j}">${IB.imgs[x.id + "|" + j] ? `<img src="${IB.imgs[x.id + "|" + j]}" alt="">` : `<span class="small">Скриншот ${j + 1}</span>`}</button>`).join("")}</div>` : ""}
+            <button type="button" class="pr-link" data-done="${i}" style="align-self:flex-start;padding:0">${x.done ? "Вернуть в нерешенные" : "Отметить решенной"}</button></div>`
+          : `<div class="card ib${x.answered ? " ib-done" : ""}" style="gap:8px">
+            <div class="row" style="justify-content:space-between;gap:8px"><b>${esc(x.name || "Без имени")}${x.user ? ` <span class="small">@${esc(x.user)}</span>` : ""}</b><span class="small">${dtm(x.at)}</span></div>
+            <p style="margin:0;white-space:pre-line">${esc(x.text || "")}</p>
+            ${(x.replies || []).map((r) => `<div class="ib-rep small"><b>Твой ответ · ${dtm(r.at)}${r.when === "morning" ? " · уйдет в 10:00 по его времени" : ""}</b><br>${esc(r.text)}</div>`).join("")}
+            <textarea class="inp" rows="2" data-rt="${i}" placeholder="Ответить…"></textarea>
+            <div class="row" style="gap:12px"><button type="button" class="pill" data-send="${i}">Отправить</button><button type="button" class="pr-link" data-done="${i}" style="padding:0">${x.answered ? "Вернуть в неотвеченные" : "Без ответа — закрыть"}</button></div></div>`).join("")}
+      </div>`;
+      app.querySelectorAll("[data-sel]").forEach((c) => c.onchange = () => { const id = list[+c.dataset.sel].id; c.checked ? IB.sel.add(id) : IB.sel.delete(id); const b = $("#ibfile"); if (b) b.textContent = IB.sel.size ? "Собрать файл для Claude · " + IB.sel.size : "Собрать файл для Claude"; });
+      app.querySelectorAll("[data-img]").forEach((b) => b.onclick = () => { const k = b.dataset.img; if (IB.imgs[k]) { cardView(null, null, null, [{ src: IB.imgs[k], top: "Скриншот" }], 0); return; } loadImg(k).then(draw); });
+      app.querySelectorAll("[data-done]").forEach((b) => b.onclick = () => { const x = list[+b.dataset.done], v = K === "bug" ? !x.done : !x.answered; botCall({ action: "admin_mark", kind: K, id: x.id, done: v }).then((j) => { if (j && j.ok) { if (K === "bug") x.done = v; else x.answered = v; draw(); } else toast("Не получилось"); }); });
+      app.querySelectorAll("[data-send]").forEach((b) => b.onclick = () => { const i = +b.dataset.send, t = app.querySelector(`[data-rt="${i}"]`).value.trim(); if (!t) return; b.disabled = true; botCall({ action: "admin_reply", id: list[i].id, text: t }).then((j) => { if (j && j.ok) { list[i].answered = true; list[i].replies = (list[i].replies || []).concat([{ text: t, at: Date.now(), when: j.when }]); toast(j.when === "morning" ? "У человека ночь — ответ уйдет в 10:00 по его времени" : "Ответ отправлен"); draw(); } else { b.disabled = false; toast("Не получилось отправить"); } }); });
+      const f = $("#ibfile"); if (f) f.onclick = () => bugFile(list);
+    };
+    draw();
+    if (L === null) botCall({ action: "admin_list", kind: K }).then((j) => { IB.items = (j && j.items) || []; if (location.hash.startsWith("#/inbox")) draw(); });
+  }
+  const loadImg = (k) => { const [id, i] = k.split("|"); return botCall({ action: "admin_img", id, i: +i }).then((j) => { if (j && j.img) IB.imgs[k] = j.img; }); };
+  // один html-файл со всеми выбранными ошибками и скриншотами — удобно переслать в чат с Claude
+  function bugFile(list) {
+    const pick = list.filter((x) => IB.sel.size ? IB.sel.has(x.id) : !x.done);
+    if (!pick.length) { toast("Нет нерешенных ошибок"); return; }
+    toast("Собираю файл…");
+    const need = []; pick.forEach((x) => { for (let j = 0; j < (x.images || 0); j++) if (!IB.imgs[x.id + "|" + j]) need.push(x.id + "|" + j); });
+    Promise.all(need.map(loadImg)).then(() => {
+      const e = (v) => String(v == null ? "" : v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      const body = pick.map((x, n) => `<section><h2>${n + 1}. ${e(x.name || "Без имени")} · ${e(new Date(x.at).toLocaleString("ru-RU"))}</h2><p><b>Что случилось:</b><br>${e(x.text || "(без текста)").replace(/\n/g, "<br>")}</p><p><b>Экраны до ошибки:</b> ${e(x.where || "—")}</p><p><b>Где:</b> ${x.web ? "сайт" : "Telegram"} · версия ${e(x.ver || "—")}<br><b>Устройство:</b> ${e(x.ua || "—")}</p>${Array.from({ length: x.images || 0 }, (_, j) => IB.imgs[x.id + "|" + j] ? `<img src="${IB.imgs[x.id + "|" + j]}" alt="Скриншот ${j + 1}">` : "").join("")}</section>`).join("");
+      const html = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ошибки «Карта Глубины»</title><style>body{font-family:system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#1F3654}section{border-top:1px solid #ccc;padding:12px 0}img{max-width:320px;border:1px solid #ccc;border-radius:8px;margin:4px 8px 4px 0}</style></head><body><h1>Ошибки «Карта Глубины» · ${pick.length}</h1><p>Собрано ${e(new Date().toLocaleString("ru-RU"))}</p>${body}</body></html>`;
+      const name = "oshibki-karta-" + dkey(Date.now()) + ".html", file = new File([html], name, { type: "text/html" });
+      const dl = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); };
+      if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: name }).catch(dl); else dl();
+    });
+  }
   function Bug() {
     const st = { text: "", imgs: [], busy: false };
     const draw = () => {
@@ -841,7 +894,7 @@ window.startApp = function () {
     return fetch(window.KARTA_BOT, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify({ action: "access", code: code || "", tz: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; } })(), remind: S.remind || { on: true, morning: "09:00", evening: "21:30" } }) })
       .then((r) => r.ok ? r.json() : null).then((j) => {
         if (!j || !j.plan) return local();
-        S.access = { plan: j.plan, until: j.until ? new Date(j.until + 3 * 3600000).toISOString().slice(0, 10) : null, untilTs: j.until, code: j.code || "", sub: j.sub || null }; save(); return j;
+        S.access = { plan: j.plan, until: j.until ? new Date(j.until + 3 * 3600000).toISOString().slice(0, 10) : null, untilTs: j.until, code: j.code || "", sub: j.sub || null, admin: !!j.admin }; keep(); return j;
       }).catch(local);
   }
   // «glubina 12» и «ГЛУБИНА12» — одно и то же; есть ли такой код и не использован ли он — решает сервер (список кодов в открытом коде не хранится)
@@ -2592,7 +2645,7 @@ ${b}</svg>`;
   const nfOk = (x, f) => f === "all" || (f === "feel" && (x.kind === "word" || x.kind === "day")) || (f === "body" && x.kind === "day") || (f === "dream" && x.kind === "dream") || (f === "free" && (x.kind === "free" || x.kind === "deep" || x.kind === "sym")) || (f === "sovp" && x.kind === "sovp") || (f === "dive" && x.kind === "dive") || (f === "talk" && x.kind === "talk");
   function Notes() {
     const items = noteItems();
-    let h = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><div class="scr-h"><h1>Моя карта</h1></div><div class="row" style="gap:8px"><a class="pill-g" href="#/svodka"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="margin-right:6px"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Сводка</a><button type="button" class="addbtn2" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F3654" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div><a class="lk" href="#/me"><span class="lk-av">${avInner()}</span><span class="lk-tx"><b>Личный кабинет</b><span>${esc(planLine())}${!inTG() && (!S.access || ["trial", "expired"].includes(S.access.plan)) ? " · оформить" : ""}</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>`;
+    let h = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><div class="scr-h"><h1>Моя карта</h1></div><div class="row" style="gap:8px"><a class="pill-g" href="#/svodka"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="margin-right:6px"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Сводка</a><button type="button" class="addbtn2" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F3654" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div><a class="lk" href="#/me"><span class="lk-av">${avInner()}</span><span class="lk-tx"><b>Личный кабинет</b><span>${esc(planLine())}</span></span>${!inTG() && (!S.access || ["trial", "expired"].includes(S.access.plan)) ? `<span class="lk-tag">Оформить</span>` : ""}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>${S.access && S.access.admin ? `<a class="lk lk-adm" href="#/inbox"><span class="lk-av"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg></span><span class="lk-tx"><b>Обращения</b><span>Сообщения людей и ошибки</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>` : ""}`;
     // неделя всегда с понедельника по воскресенье; сегодня выделено кружком, будущие дни неактивны
     const tdy = dkey(now()), wd = (new Date(now()).getDay() + 6) % 7, days = []; for (let i = 0; i < 7; i++) days.push(dkey(now() + (i - wd) * 86400000));
     const has = (k) => items.some((x) => x.ts && dkey(x.ts) === k);
@@ -2735,7 +2788,7 @@ ${b}</svg>`;
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
-    const LIBR = ["lib", "dives", "journal", "integr", "after", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "me", "sub", "bug", "svodka", "sovp", "free", "export", "img", "deepv", "talk"];
+    const LIBR = ["lib", "dives", "journal", "integr", "after", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "me", "sub", "bug", "inbox", "svodka", "sovp", "free", "export", "img", "deepv", "talk"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
     const tabI = ["player", "hello", "adult", "access"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) && !(r === "free" && !id) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }
@@ -2776,6 +2829,7 @@ ${b}</svg>`;
       case "ask": return Ask();
       case "consult": return Consult();
       case "bug": return Bug();
+      case "inbox": return Inbox(id);
       case "me": return Me();
       case "sub": return Sub(parts[1] === "ok");
       case "guide": return Guide();
