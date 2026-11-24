@@ -1317,3 +1317,5 @@ body.lt .lk-av{background:#1F3654;color:#F5E8D9}
 /* сайт: пробный период на «Сегодня» */
 .t-plan{position:absolute;z-index:3;display:inline-flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:999px;background:rgba(15,30,51,.55);border:1px solid rgba(245,232,217,.3);color:#F5E8D9;font-size:12px;text-decoration:none;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .t-plan b{background:#F5E8D9;color:#1F3654;border-radius:999px;padding:5px 10px;font-size:12px}
+/* «Сюжеты снов» и «Старшие арканы»: фон кнопки ровно как фон иллюстрации */
+.dwide{background:#07203E}
