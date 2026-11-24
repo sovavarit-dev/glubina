@@ -290,7 +290,8 @@ window.startApp = function () {
   const vta = (id, val, ph, rows, attr) => `<div class="vta"><textarea id="${id}" ${attr || ""} rows="${rows || 4}" placeholder="${esc(ph || "Можно словами, можно голосом…")}">${esc(val || "")}</textarea><button type="button" class="mic" data-mic="${id}" aria-label="Наговорить голосом">${MIC_I}</button></div>`;
   function bindMics() {
     app.querySelectorAll("[data-mic]").forEach((b) => b.onclick = () => {
-      const t = document.getElementById(b.dataset.mic), lbl = { set textContent(v) { b.setAttribute("aria-label", v); } };
+      const t = document.getElementById(b.dataset.mic), box = b.parentNode;
+      const lbl = { set textContent(v) { b.setAttribute("aria-label", v); let st = box.querySelector(".mic-st"); if (v === "Рассказать голосом") { if (st) st.remove(); return; } if (!st) { st = document.createElement("span"); st.className = "mic-st"; box.appendChild(st); } st.textContent = v; } };
       voice(b, lbl, (txt) => { t.value = (t.value ? t.value.trim() + " " : "") + txt; t.dispatchEvent(new Event("input")); t.dispatchEvent(new Event("change")); });
     });
   }
@@ -1987,9 +1988,14 @@ window.startApp = function () {
   let VREC = null;
   function voice(btn, lbl, onText) {
     if (VREC) { VREC.stop(); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast("Запись голоса здесь недоступна. Можно надиктовать с клавиатуры — значок микрофона на ней"); return; }
+    // iOS: звук пойдет, только если AudioContext создан и запущен прямо в нажатии
+    const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC(); try { ctx.resume(); } catch (e) {}
+    btn.classList.add("wait"); lbl.textContent = "Включаю микрофон…";
     navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }).then((stream) => {
-      const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC(), src = ctx.createMediaStreamSource(stream), proc = ctx.createScriptProcessor(4096, 1, 1);
-      let buf = [], len = 0, t0 = Date.now(), pending = 0, alive = true;
+      btn.classList.remove("wait");
+      const src = ctx.createMediaStreamSource(stream), proc = ctx.createScriptProcessor(4096, 1, 1);
+      let buf = [], len = 0, t0 = Date.now(), pending = 0, alive = true, heard = 0, tick = null;
       const flush = (last) => {
         if (!len) { if (last && !pending) done(); return; }
         const sr = ctx.sampleRate, ratio = sr / 16000, all = new Float32Array(len); let o = 0; buf.forEach((b) => { all.set(b, o); o += b.length; }); buf = []; len = 0;
@@ -2000,12 +2006,16 @@ window.startApp = function () {
         gApi({ action: "stt", audio: btoa(bin) }).then((r) => { pending--; if (r.ok && r.j.text) onText(r.j.text); else if (!r.ok) toast("Не получилось расшифровать" + (r.status ? " (" + r.status + (r.j && r.j.status ? "/" + r.j.status : "") + ")" : "")); if (!alive && !pending) done(); else if (alive) lbl.textContent = "Слушаю… нажми, чтобы закончить"; });
       };
       const done = () => { btn.classList.remove("on"); lbl.textContent = "Рассказать голосом"; };
-      proc.onaudioprocess = (e) => { if (!alive) return; const d = e.inputBuffer.getChannelData(0); buf.push(new Float32Array(d)); len += d.length; if (len / ctx.sampleRate >= 25) flush(false); };
+      const mmss = () => { const t = Math.floor((Date.now() - t0) / 1000); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+      proc.onaudioprocess = (e) => { if (!alive) return; const d = e.inputBuffer.getChannelData(0); buf.push(new Float32Array(d)); len += d.length; heard += d.length; if (len / ctx.sampleRate >= 25) flush(false); };
       src.connect(proc); proc.connect(ctx.destination); if (ctx.resume) ctx.resume();
-      btn.classList.add("on"); lbl.textContent = "Слушаю… нажми, чтобы закончить";
-      VREC = { stop: () => { alive = false; VREC = null; src.disconnect(); proc.disconnect(); stream.getTracks().forEach((x) => x.stop()); ctx.close(); flush(true); if (!pending) done(); } };
+      btn.classList.add("on"); lbl.textContent = "Идет запись 0:00 · нажми, чтобы закончить";
+      tick = setInterval(() => { if (alive && !pending) lbl.textContent = "Идет запись " + mmss() + " · нажми, чтобы закончить"; }, 1000);
+      VREC = { stop: () => { alive = false; VREC = null; clearInterval(tick); src.disconnect(); proc.disconnect(); stream.getTracks().forEach((x) => x.stop()); ctx.close();
+        if (!heard) { buf = []; len = 0; done(); toast("Микрофон не передал звук. Проверь доступ к микрофону для Telegram в настройках телефона"); return; }
+        flush(true); if (!pending) done(); } };
       setTimeout(() => { if (VREC && Date.now() - t0 > 5 * 60e3) VREC.stop(); }, 5 * 60e3 + 500);
-    }, () => toast("Нет доступа к микрофону. Можно надиктовать с клавиатуры — значок микрофона на ней"));
+    }, () => { btn.classList.remove("wait"); lbl.textContent = "Рассказать голосом"; try { ctx.close(); } catch (e) {} toast("Нет доступа к микрофону. Можно надиктовать с клавиатуры — значок микрофона на ней"); });
   }
   function Dream(k0) {
     const k = /^\d{4}-\d{2}-\d{2}$/.test(k0 || "") ? k0 : dkey(), past = k !== dkey();
@@ -2638,6 +2648,19 @@ ${b}</svg>`;
     }
   }
   window.addEventListener("hashchange", render);
+  // «Назад» возвращает туда, откуда пришли, а не в раздел-родитель
+  const NAV = [];
+  const navNote = () => {
+    const h = location.hash || "#/", root = (h.replace(/^#\/?/, "") || "").split("/");
+    if (root.length === 1 && TABS.some((x) => x[0] === root[0])) { NAV.length = 0; NAV.push(h); return; }
+    if (NAV.length >= 2 && NAV[NAV.length - 2] === h) NAV.pop(); else if (NAV[NAV.length - 1] !== h) NAV.push(h);
+  };
+  navNote(); window.addEventListener("hashchange", navNote);
+  const goBack = (fallback) => { if (NAV.length > 1) history.back(); else if (fallback) go(fallback); };
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("a.back[href]"); if (!a || NAV.length < 2) return;
+    e.preventDefault(); goBack(a.getAttribute("href"));
+  }, true);
   // нажатие на пустое место экрана прячет клавиатуру (кнопки, ссылки и сами поля работают как обычно)
   document.addEventListener("touchstart", (e) => {
     const a = document.activeElement;
@@ -2669,7 +2692,7 @@ ${b}</svg>`;
   // свайп влево/вправо на главных экранах вкладок: Сегодня ↔ Бухта ↔ Проводник ↔ Моя карта
   (function swipeTabs() {
     let sx = 0, sy = 0, st = 0, ok = false;
-    const NOSW = ".nfil2,.mchips,.chips,.wk,.per,.sk4,#msgs,.msg,.sheet-bg,.imap,input,textarea,select,[contenteditable],.mseek,.dgrid";
+    const NOSW = ".ptabs,.nfil2,.mchips,.chips,.wk,.per,.sk4,#msgs,.msg,.sheet-bg,.imap,input,textarea,select,[contenteditable],.mseek,.dgrid";
     document.addEventListener("touchstart", (e) => {
       const t = e.touches[0]; if (!t || e.touches.length > 1) { ok = false; return; }
       ok = !(e.target.closest && e.target.closest(NOSW)); sx = t.clientX; sy = t.clientY; st = Date.now();
@@ -2680,8 +2703,13 @@ ${b}</svg>`;
       const dx = t.clientX - sx, dy = t.clientY - sy;
       if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.7 || Date.now() - st > 900) return;
       const r = (location.hash.replace(/^#\/?/, "") || "").split("/");
-      if (r.length > 1 && r[1]) return;
-      const i = TABS.findIndex((x) => x[0] === r[0]); if (i < 0 || !S.profile) return;
+      const i = (r.length > 1 && r[1]) ? -1 : TABS.findIndex((x) => x[0] === r[0]);
+      if (i < 0) { // внутренний экран: свайп вправо — назад
+        if (dx < 0 || !S.profile || document.querySelector(".cview,.sheet-bg")) return;
+        const b = app.querySelector("a.back[href]"); if (!b && NAV.length < 2) return;
+        document.body.dataset.sw = "r"; goBack(b && b.getAttribute("href")); setTimeout(() => { delete document.body.dataset.sw; }, 400); return;
+      }
+      if (!S.profile) return;
       const j = i + (dx < 0 ? 1 : -1); if (j < 0 || j >= TABS.length) return;
       document.body.dataset.sw = dx < 0 ? "l" : "r"; try { tg && tg.HapticFeedback && tg.HapticFeedback.selectionChanged(); } catch (e2) {}
       go("#/" + TABS[j][0]);
