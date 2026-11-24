@@ -1984,6 +1984,23 @@ window.startApp = function () {
   const FEEL_BASE = { "злость": ["раздражение", "досада", "недовольство", "нетерпение", "гнев", "ярость", "возмущение", "протест", "ревность", "зависть"], "страх": ["тревога", "беспокойство", "волнение", "опасение", "неуверенность", "растерянность", "беззащитность", "испуг", "паника", "ужас"], "грусть": ["печаль", "обида", "одиночество", "тоска", "разочарование", "сожаление", "бессилие", "безнадежность", "горе", "скука"], "стыд": ["вина", "смущение", "неловкость", "уязвимость", "унижение", "никчемность"], "отвращение": ["неприязнь", "брезгливость", "отторжение", "презрение", "пресыщение"], "оцепенение": ["пустота", "безразличие", "апатия", "отстраненность", "ступор", "усталость"], "удивление": ["изумление", "недоумение", "замешательство", "любопытство"], "радость": ["облегчение", "спокойствие", "удовлетворение", "интерес", "воодушевление", "надежда", "гордость", "благодарность", "восторг"], "нежность": ["тепло", "любовь", "забота", "сочувствие", "жалость", "трогательность", "близость", "принятие"] };
   const WANTS = ["отдохнуть", "сказать вслух", "тепла", "тишины", "подвигаться", "поплакать", "чтобы обняли", "выйти на воздух", "побыть в одиночестве"];
   const chipSel = (list, sel, attr, cls) => list.map((x) => `<button type="button" class="chip${sel.includes(x) ? " " + (cls || "terraon") : ""}" data-${attr}="${esc(x)}">${esc(x)}</button>`).join("");
+  // «Сегодня» целиком на экране: сцена 390×700 уменьшается по высоте, если не влезает до нижнего меню
+  function fitToday() {
+    const vs = document.getElementById("today"); if (!vs) return;
+    ["--u", "width", "margin-left", "min-height"].forEach((k) => vs.style.removeProperty(k));
+    const uW = Math.min(window.innerWidth, 520) / 390, top = vs.getBoundingClientRect().top + window.scrollY;
+    const nav = document.getElementById("tabs"), navTop = nav && nav.offsetHeight ? nav.getBoundingClientRect().top + window.scrollY : window.innerHeight;
+    const uH = (navTop - top - 10) / 700, u = Math.min(uW, uH);
+    if (u >= uW - 0.005) return;
+    const full = vs.parentElement.clientWidth + 40;
+    const off = (full - 390 * u) / 2;
+    vs.style.setProperty("--u", u + "px"); vs.style.minHeight = "0"; vs.style.width = 390 * u + "px"; vs.style.marginLeft = (off - 20) + "px";
+    // плашка сообщения — на всю ширину экрана, заголовок сдвигается ровно под нее
+    const m = vs.querySelector(".t-msgs"), hd = vs.querySelector(".t-hd");
+    if (m) { m.style.left = (12 - off) + "px"; m.style.right = (12 - off) + "px"; }
+    if (m && hd && vs.classList.contains("hasmsg")) { hd.style.transform = "none"; const sh = Math.max(0, m.getBoundingClientRect().bottom + 6 - hd.getBoundingClientRect().top); hd.style.transform = "translateY(" + sh + "px)"; }
+  }
+  window.addEventListener("resize", () => { clearTimeout(fitToday.t); fitToday.t = setTimeout(fitToday, 120); });
   function Today(step, i) {
     const D = today();
     if (!step) {
@@ -2354,7 +2371,7 @@ ${b}</svg>`;
       <div class="t-how" style="left:${u(124)};top:${u(pT + 25)};width:${u(140)}">КАК ТЫ?</div>
       ${btn("#/today", "Segodnya5m-7.webp", "Тело и чувства", 40, 0, 32)}${am ? btn("#/dream", "Segodnya5m-8.webp", "Сновидение", 37, 0, 142) : btn("#/free", "Segodnya5-1.webp", "Заметки", 37, 0, 142)}${btn("#/quick", "Segodnya5m-9.webp", "На бегу", 32, 0, 253)}
       <div class="t-msgs" id="msgs" data-i="0"></div></div>`;
-    app.innerHTML = h;
+    app.innerHTML = h; fitToday();
     app.querySelectorAll('a[href="#/symbol"]').forEach((a) => a.onclick = (e) => {
       e.preventDefault();
       if (e.target.closest(".t-wr")) { const st = drawSym(), c = st && cardById(st.id), y = c && symByTitle(c.title); if (y) go("#/sym/" + y.id + "/moe"); return; }
