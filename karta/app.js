@@ -14,7 +14,49 @@ window.startApp = function () {
   const blank = () => ({ listens: {}, notes: {}, integr: {}, shift: 0, profile: null, myimg: {}, playlist: [], music: { timer: 60, repeat: "list", fade: true }, pod: {}, catches: [], days: {}, dreams: {}, sym: {} });
   let S;
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { S = blank(); }
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  // записи хранятся на телефоне (быстро) и копией на сервере (не потеряются при смене телефона, общие для сайта и Telegram)
+  const LOCAL_ONLY = ["access", "shift", "_at", "_syncedAt", "_pushedAt"];
+  const keep = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  const save = () => { S._at = Date.now(); keep(); syncSoon(); };
+  let syncT = null, syncBusy = false;
+  const canPull = () => !!(window.KARTA_BOT && window.KARTA_HEADERS && (window.KARTA_HEADERS["X-Telegram-Init-Data"] || window.KARTA_HEADERS["X-Session"]));
+  const canSync = () => canPull() && !!S.profile; // пустое состояние нового устройства на сервер не отправляем
+  const forServer = () => { const o = {}; for (const k in S) if (!LOCAL_ONLY.includes(k)) o[k] = S[k]; return o; };
+  const syncSoon = () => { clearTimeout(syncT); syncT = setTimeout(pushState, 4000); };
+  function pushState(beacon) {
+    clearTimeout(syncT); if (!canSync() || syncBusy || (S._pushedAt || 0) >= (S._at || 0)) return Promise.resolve();
+    syncBusy = true; const at = S._at;
+    return fetch(window.KARTA_BOT, { method: "POST", keepalive: !!beacon, headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify({ action: "state_put", data: forServer() }) })
+      .then((r) => r.json()).then((j) => { if (j && j.ok) { S._syncedAt = j.at; S._pushedAt = at; keep(); } }).catch(() => {}).then(() => { syncBusy = false; if ((S._at || 0) > (S._pushedAt || 0)) syncSoon(); });
+  }
+  // слияние двух копий: словари объединяются по ключам, при совпадении берется более свежая копия
+  function mergeState(a, b, aNewer) {
+    const out = {}, empty = (v) => v == null || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length) || (Array.isArray(v) && !v.length);
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const x = a[k], y = b[k];
+      if (empty(x)) out[k] = y; else if (empty(y)) out[k] = x;
+      else if (typeof x === "object" && typeof y === "object" && !Array.isArray(x) && !Array.isArray(y) && k !== "profile" && k !== "music" && k !== "remind") out[k] = Object.assign({}, aNewer ? y : x, aNewer ? x : y);
+      else out[k] = aNewer ? x : y;
+    }
+    return out;
+  }
+  function pullState() {
+    if (!canPull()) return Promise.resolve(false);
+    return fetch(window.KARTA_BOT, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS), body: JSON.stringify({ action: "state_get" }) })
+      .then((r) => r.json()).then((j) => {
+        if (!j || j.error) return false;
+        if (!j.data) { S._pushedAt = 0; S._at = S._at || Date.now(); pushState(); return false; } // на сервере еще пусто — отправляем свое
+        const rAt = j.at || 0, localChanged = (S._at || 0) > (S._pushedAt || 0) || !S._syncedAt;
+        if (rAt <= (S._syncedAt || 0)) { if (localChanged) pushState(); return false; } // на сервере не новее
+        const loc = {}; LOCAL_ONLY.forEach((k) => { if (k in S) loc[k] = S[k]; });
+        const remote = Object.assign(blank(), j.data);
+        if (!S.profile && !S._syncedAt) { const loc0 = {}; LOCAL_ONLY.forEach((k) => { if (k in S) loc0[k] = S[k]; }); S = Object.assign(remote, loc0); S._syncedAt = rAt; S._at = S._pushedAt = Date.now(); keep(); return true; }
+        S = Object.assign(localChanged ? Object.assign(blank(), mergeState(forServer(), remote, true)) : remote, loc);
+        S._syncedAt = rAt;
+        if (localChanged) { S._at = Date.now(); keep(); pushState(); } else { S._at = S._pushedAt = Date.now(); keep(); }
+        return true;
+      }).catch(() => false);
+  }
   const now = () => Date.now() + (S.shift || 0);
 
   // ---------- утилиты ----------
@@ -502,7 +544,7 @@ window.startApp = function () {
       <div class="cap" style="margin-bottom:-6px">Личный кабинет</div>
       <div class="row" style="gap:14px"><label class="av big av-ed" aria-label="Поменять фото"><input type="file" accept="image/*" id="avf" hidden>${avInner()}<span class="av-cam" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span></label><span class="stack" style="gap:2px"><h1 style="font-size:24px">${esc(p.name || "Профиль")}</h1><span class="small">${p.avatar ? `<button type="button" class="pr-link" id="avrm" style="padding:0;font-size:13px">Убрать фото</button>` : "Нажми на кружок, чтобы поставить фото"}</span></span></div>
       <a class="link-row" href="#/sub"><span class="stack" style="gap:2px"><b>Подписка</b><span class="small" style="font-weight:400">${esc(planLine())}</span></span>${icon.chev}</a>
-      <div class="card" style="gap:6px"><b>Вход на сайте</b><span class="small">kartaglubiny.ru → «Войти через Telegram». Подписка общая, записи пока хранятся на каждом устройстве отдельно.</span></div>
+      <div class="card" style="gap:6px"><b>Вход на сайте</b><span class="small">kartaglubiny.ru → «Войти через Telegram». Подписка и записи общие: записи хранятся на телефоне и зашифрованной копией на сервере.</span></div>
       <div class="card" style="gap:12px"><div class="row" style="justify-content:space-between"><b>Напоминания от бота</b><button type="button" class="tgl${R.on ? " on" : ""}" id="ron" role="switch" aria-checked="${R.on}" aria-label="Напоминания"><i></i></button></div>
         <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Утро: сон и символ дня</span><input class="tm" id="rm" inputmode="numeric" maxlength="5" placeholder="09:00" aria-label="Время утреннего напоминания" value="${R.morning}"></label>
         <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Вечер: «Как ты?»</span><input class="tm" id="re" inputmode="numeric" maxlength="5" placeholder="21:30" aria-label="Время вечернего напоминания" value="${R.evening}"></label>
@@ -2786,6 +2828,10 @@ ${b}</svg>`;
   }, { passive: true });
   // доступ (пробный / промокод / подписка) сверяется с сервером при каждом запуске
   setTimeout(() => { if (S.profile && !S.profile.minor) syncAccess(""); }, 2500);
+  // записи: при запуске и при возвращении в приложение — забрать с сервера; при сворачивании — отправить
+  const pullAndPaint = () => pullState().then((changed) => { if (changed && !PL && !document.querySelector("textarea:focus,input:focus")) render(); });
+  setTimeout(pullAndPaint, 600);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") pushState(true); else pullAndPaint(); });
   // заранее подгружаем иллюстрации экранов, куда можно перейти отсюда: переход без ожидания картинки
   const PRE = {
     "": ["Bukhta-1.webp", "ProvodnikChat-1.jpg", "Anketa-1.webp", "Poslanie-1.webp", "PanelSon-1.webp", "PanelZametki-1.webp", "PanelNaBegu-1.webp", "Telo1-1.webp", "Siluety-1.webp"],

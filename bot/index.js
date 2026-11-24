@@ -92,6 +92,27 @@ async function bugReport(token, bucket, user, b) {
   if (process.env.NASTYA_ID) { await send(process.env.NASTYA_ID, head); for (const bf of bufs) await tgPhoto(process.env.NASTYA_ID, bf, "Скриншот к ошибке " + id); }
   return { ok: true };
 }
+// ---------- хранение записей человека (зашифровано) ----------
+const dataKey = () => process.env.DATA_KEY ? crypto.createHash("sha256").update("karta-data:" + process.env.DATA_KEY).digest() : null;
+function seal(obj) { const k = dataKey(), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", k, iv); const ct = Buffer.concat([c.update(JSON.stringify(obj), "utf8"), c.final()]); return { v: 1, iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), ct: ct.toString("base64") }; }
+function unseal(box) { const k = dataKey(), d = crypto.createDecipheriv("aes-256-gcm", k, Buffer.from(box.iv, "base64")); d.setAuthTag(Buffer.from(box.tag, "base64")); return JSON.parse(Buffer.concat([d.update(Buffer.from(box.ct, "base64")), d.final()]).toString("utf8")); }
+const skey = (id) => "state/" + String(id).replace(/\D/g, "") + ".json";
+async function stateGet(token, bucket, user) {
+  if (!dataKey()) return { error: "not_ready" };
+  const box = await getObj(token, bucket, skey(user.id)); if (!box || !box.ct) return { data: null };
+  try { return { data: unseal(box), at: box.at || 0 }; } catch (e) { console.log("unseal", String(e).slice(0, 80)); return { error: "decrypt" }; }
+}
+async function statePut(token, bucket, user, data) {
+  if (!dataKey()) return { error: "not_ready" };
+  if (!data || typeof data !== "object") return { error: "bad_data" };
+  const json = JSON.stringify(data); if (json.length > 2800000) return { error: "too_big" };
+  const k = skey(user.id), prev = await getObj(token, bucket, k), t = Date.now();
+  // копия раз в сутки, последние 7 дней — чтобы записи можно было вернуть
+  let lastBak = prev && prev.lastBak || 0;
+  if (prev && prev.ct && t - lastBak > DAY) { await putObj(token, bucket, "state-bak/" + String(user.id).replace(/\D/g, "") + "-" + new Date(t).getUTCDay() + ".json", prev); lastBak = t; }
+  await putObj(token, bucket, k, Object.assign(seal(data), { at: t, lastBak }));
+  return { ok: true, at: t };
+}
 const appUrl = (q) => (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") + (q || "");
 const openBtn = (text, q) => ({ inline_keyboard: [[{ text: text || "Приложение", web_app: { url: appUrl(q) } }]] });
 const KB = { keyboard: [[{ text: "Приложение", web_app: { url: (process.env.APP_URL || "https://karta-glubiny-app.website.yandexcloud.net/") } }], [{ text: "Моя подписка" }, { text: "Помощь" }]], resize_keyboard: true, is_persistent: true };
@@ -486,6 +507,9 @@ module.exports.handler = async function (event, context) {
   if (!user) return reply(401, { error: "open_in_telegram" }, origin);
   if (!isAllowed(user.id)) return reply(403, { error: "closed", plan: "closed" }, origin);
   if (b.action === "bug") return reply(200, await bugReport(token, bucket, user, b), origin);
+  // записи человека на сервере: зашифрованы (AES-256-GCM, ключ DATA_KEY только в настройках функции)
+  if (b.action === "state_get") return reply(200, await stateGet(token, bucket, user), origin);
+  if (b.action === "state_put") return reply(200, await statePut(token, bucket, user, b.data), origin);
   // расшифровка голоса (сны, заметки): кусок LPCM 16 кГц → текст через SpeechKit, звук не сохраняется
   if (b.action === "stt") {
     const audio = Buffer.from(String(b.audio || ""), "base64");
