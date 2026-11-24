@@ -175,7 +175,7 @@ function proVerify(form, sign) {
   return false;
 }
 const qs = (o, pre) => Object.entries(o).flatMap(([k, v]) => { const key = pre ? `${pre}[${k}]` : k; return v && typeof v === "object" ? qs(v, key) : [[key, String(v)]]; });
-const addMonth = (ts) => { const d = new Date(ts); d.setUTCMonth(d.getUTCMonth() + 1); return d.getTime(); };
+const addMonth = (ts) => ts + 30 * DAY; // в Продамусе интервал подписки — 30 дней
 // ссылка на оплату выбранной подписки; номер заказа связывает оплату с человеком
 async function payLink(token, bucket, user, tariff) {
   const T0 = TARIFFS[tariff]; if (!T0 || !proReady()) return { error: !T0 ? "bad_tariff" : "not_ready" };
@@ -201,7 +201,9 @@ async function proHook(token, bucket, form) {
     const idx = (await getObj(token, bucket, "orders/by-customer.json")) || {};
     uid = idx[low(d.customer_email)] || idx[String(d.customer_phone || "").replace(/\D/g, "")] || null;
   }
-  if (!uid) { await putObj(token, bucket, "orders/unmatched-" + Date.now() + ".json", d); notifyNastya("Продамус: оплата без привязки к человеку, проверь в кабинете"); return "unmatched"; }
+  const ours = /^kg\d+-/.test(String(d.order_num || "")) || [String(process.env.PRODAMUS_SUB_BASIC), String(process.env.PRODAMUS_SUB_FULL)].includes(subId);
+  if (!ours) return "foreign"; // консультации и другие оплаты на той же форме — не наши
+  if (!uid) { await putObj(token, bucket, "orders/unmatched-" + Date.now() + ".json", d); notifyNastya("Продамус: оплата подписки без привязки к человеку, проверь в кабинете"); return "unmatched"; }
   const k = ukey(uid), t = Date.now(), u = (await getObj(token, bucket, k)) || { id: uid, firstSeen: t, sent: {} };
   u.sub = Object.assign(u.sub || {}, { id: subId || (u.sub && u.sub.id) || "", email: d.customer_email || (u.sub && u.sub.email) || "", phone: d.customer_phone || (u.sub && u.sub.phone) || "" });
   if (tariff) u.tariff = tariff;
