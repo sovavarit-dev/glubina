@@ -1988,17 +1988,19 @@ window.startApp = function () {
   function fitToday() {
     const vs = document.getElementById("today"); if (!vs) return;
     ["--u", "width", "margin-left", "min-height"].forEach((k) => vs.style.removeProperty(k));
-    const uW = Math.min(window.innerWidth, 520) / 390, top = vs.getBoundingClientRect().top + window.scrollY;
-    const nav = document.getElementById("tabs"), navTop = nav && nav.offsetHeight ? nav.getBoundingClientRect().top + window.scrollY : window.innerHeight;
-    const uH = (navTop - top - 10) / 700, u = Math.min(uW, uH);
-    if (u >= uW - 0.005) return;
-    const full = vs.parentElement.clientWidth + 40;
-    const off = (full - 390 * u) / 2;
-    vs.style.setProperty("--u", u + "px"); vs.style.minHeight = "0"; vs.style.width = 390 * u + "px"; vs.style.marginLeft = (off - 20) + "px";
-    // плашка сообщения — на всю ширину экрана, заголовок сдвигается ровно под нее
     const m = vs.querySelector(".t-msgs"), hd = vs.querySelector(".t-hd");
+    if (m) { m.style.removeProperty("left"); m.style.removeProperty("right"); } if (hd) hd.style.removeProperty("transform");
+    const W = document.documentElement.clientWidth, uW = Math.min(W, 520) / 390, r0 = vs.getBoundingClientRect();
+    const nav = document.getElementById("tabs"), navTop = nav && nav.offsetHeight ? nav.getBoundingClientRect().top : window.innerHeight;
+    const bottom = vs.querySelector(".t-gauge") ? Math.max(...[...vs.querySelectorAll(".t-gauge, .t-gauge span")].map((g) => g.getBoundingClientRect().bottom)) : 0;
+    if (!bottom || bottom <= navTop - 6) return; // и так влезает
+    const u = uW * (navTop - 8 - r0.top) / (bottom - r0.top);
+    const off = (W - 390 * u) / 2, ml = parseFloat(getComputedStyle(vs).marginLeft) || 0;
+    vs.style.setProperty("--u", u + "px"); vs.style.minHeight = "0"; vs.style.width = 390 * u + "px";
+    vs.style.marginLeft = (ml + off - r0.left) + "px"; // ставим сцену ровно по центру экрана
+    // плашка сообщения — на всю ширину экрана, заголовок сдвигается ровно под нее
     if (m) { m.style.left = (12 - off) + "px"; m.style.right = (12 - off) + "px"; }
-    if (m && hd && vs.classList.contains("hasmsg")) { hd.style.transform = "none"; const sh = Math.max(0, m.getBoundingClientRect().bottom + 6 - hd.getBoundingClientRect().top); hd.style.transform = "translateY(" + sh + "px)"; }
+    if (m && hd && vs.classList.contains("hasmsg")) { hd.style.transition = "none"; hd.style.transform = "none"; const sh = Math.max(0, m.getBoundingClientRect().bottom + 6 - hd.getBoundingClientRect().top); hd.style.transform = "translateY(" + sh + "px)"; void hd.offsetWidth; hd.style.removeProperty("transition"); }
   }
   window.addEventListener("resize", () => { clearTimeout(fitToday.t); fitToday.t = setTimeout(fitToday, 120); });
   function Today(step, i) {
@@ -2337,7 +2339,7 @@ ${b}</svg>`;
   function paintMsgs() {
     const box = $("#msgs"); if (!box) return;
     const L = todayMsgs(); let i = Math.min(+box.dataset.i || 0, L.length - 1);
-    const stg = $("#today"); if (stg) stg.classList.toggle("hasmsg", L.length > 0);
+    const stg = $("#today"); if (stg) stg.classList.toggle("hasmsg", L.length > 0); setTimeout(fitToday, 0);
     if (!L.length) { box.innerHTML = ""; return; }
     const m = L[i];
     box.innerHTML = `<div class="msg" id="msg1"><span class="msg-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E8D9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MSG_IC[m.ic]}</svg></span><span class="msg-t"><span class="cap">${esc(m.cap)}</span><b>${esc(m.t)}</b><span>${esc(m.sub)}</span></span><a class="msg-go" href="${m.href}">Открыть</a><button type="button" class="msg-x" aria-label="Скрыть напоминания на сегодня">×</button></div>${L.length > 1 ? `<div class="msg-dots">${L.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>` : ""}`;
@@ -2371,7 +2373,7 @@ ${b}</svg>`;
       <div class="t-how" style="left:${u(124)};top:${u(pT + 25)};width:${u(140)}">КАК ТЫ?</div>
       ${btn("#/today", "Segodnya5m-7.webp", "Тело и чувства", 40, 0, 32)}${am ? btn("#/dream", "Segodnya5m-8.webp", "Сновидение", 37, 0, 142) : btn("#/free", "Segodnya5-1.webp", "Заметки", 37, 0, 142)}${btn("#/quick", "Segodnya5m-9.webp", "На бегу", 32, 0, 253)}
       <div class="t-msgs" id="msgs" data-i="0"></div></div>`;
-    app.innerHTML = h; fitToday();
+    app.innerHTML = h; fitToday(); setTimeout(fitToday, 350);
     app.querySelectorAll('a[href="#/symbol"]').forEach((a) => a.onclick = (e) => {
       e.preventDefault();
       if (e.target.closest(".t-wr")) { const st = drawSym(), c = st && cardById(st.id), y = c && symByTitle(c.title); if (y) go("#/sym/" + y.id + "/moe"); return; }
