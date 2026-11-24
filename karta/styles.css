@@ -1319,3 +1319,6 @@ body.lt .lk-av{background:#1F3654;color:#F5E8D9}
 .t-plan b{background:#F5E8D9;color:#1F3654;border-radius:999px;padding:5px 10px;font-size:12px}
 /* «Сюжеты снов» и «Старшие арканы»: фон кнопки ровно как фон иллюстрации */
 .dwide{background:#07203E}
+/* неделя пн–вс: сегодня — кружок, будущие дни бледные */
+.wk button.tdy:not(.on){box-shadow:inset 0 0 0 1.5px var(--cream)}
+.wk button:disabled{opacity:.35;cursor:default}
