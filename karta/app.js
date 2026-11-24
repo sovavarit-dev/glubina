@@ -537,6 +537,9 @@ window.startApp = function () {
   }
   // ИИ-проводник (тест): чат с YandexGPT через облачную функцию. Открыт только по ключу предпросмотра и тестировщикам.
   let guideOK = null, guideBusy = false;
+  // расшифровка голоса — через бота: он принимает и Telegram, и вход на сайте
+  const sttApi = (audio) => fetch(window.KARTA_BOT || window.KARTA_API, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS || {}), body: JSON.stringify({ action: "stt", audio }) })
+    .then((r) => r.json().then((j) => ({ ok: r.ok, status: r.status, j })), () => ({ ok: false, status: 0, j: {} }));
   const gApi = (body) => fetch(window.KARTA_API, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, window.KARTA_HEADERS || {}), body: JSON.stringify(body) })
     .then((r) => r.json().then((j) => ({ ok: r.ok, status: r.status, j })), () => ({ ok: false, status: 0, j: {} }));
   // контекст для Проводника: заметки о погружении и словарь по образам из разговора (только суть символа)
@@ -2113,7 +2116,7 @@ window.startApp = function () {
         for (let i = 0; i < n; i++) { const v = Math.max(-1, Math.min(1, all[Math.floor(i * ratio)])); pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff; }
         const u8 = new Uint8Array(pcm.buffer); let bin = ""; for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
         pending++; lbl.textContent = "Расшифровываю…";
-        gApi({ action: "stt", audio: btoa(bin) }).then((r) => { pending--; if (r.ok && r.j.text) onText(r.j.text); else if (!r.ok) toast("Не получилось расшифровать" + (r.status ? " (" + r.status + (r.j && r.j.status ? "/" + r.j.status : "") + ")" : "")); if (!alive && !pending) done(); else if (alive) lbl.textContent = "Слушаю… нажми, чтобы закончить"; });
+        sttApi(btoa(bin)).then((r) => { pending--; if (r.ok && r.j.text) onText(r.j.text); else if (!r.ok) toast("Не получилось расшифровать" + (r.status ? " (" + r.status + (r.j && r.j.status ? "/" + r.j.status : "") + ")" : "")); if (!alive && !pending) done(); else if (alive) lbl.textContent = "Слушаю… нажми, чтобы закончить"; });
       };
       const done = () => { btn.classList.remove("on"); lbl.textContent = "Рассказать голосом"; };
       const mmss = () => { const t = Math.floor((Date.now() - t0) / 1000); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };

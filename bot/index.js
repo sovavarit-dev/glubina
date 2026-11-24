@@ -486,6 +486,17 @@ module.exports.handler = async function (event, context) {
   if (!user) return reply(401, { error: "open_in_telegram" }, origin);
   if (!isAllowed(user.id)) return reply(403, { error: "closed", plan: "closed" }, origin);
   if (b.action === "bug") return reply(200, await bugReport(token, bucket, user, b), origin);
+  // расшифровка голоса (сны, заметки): кусок LPCM 16 кГц → текст через SpeechKit, звук не сохраняется
+  if (b.action === "stt") {
+    const audio = Buffer.from(String(b.audio || ""), "base64");
+    if (!audio.length || audio.length > 1000000) return reply(400, { error: "bad_audio" }, origin);
+    try {
+      const r = await fetch(`https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?folderId=${process.env.FOLDER_ID || "b1ghnlv1kcfnlc4uabvr"}&lang=ru-RU&format=lpcm&sampleRateHertz=16000`, { method: "POST", headers: { Authorization: "Bearer " + token, "x-data-logging-enabled": "false" }, body: audio, signal: AbortSignal.timeout(20000) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { console.log("stt", r.status, JSON.stringify(j).slice(0, 200)); return reply(502, { error: "stt_failed", status: r.status }, origin); }
+      return reply(200, { text: String(j.result || "").replace(/ё/g, "е") }, origin);
+    } catch (e) { console.log("stt error", String(e).slice(0, 120)); return reply(502, { error: "stt_failed" }, origin); }
+  }
   if (b.action === "pay_link") return reply(200, await payLink(token, bucket, user, b.tariff), origin);
   if (b.action === "cancel_sub") return reply(200, await proCancel(token, bucket, user), origin);
   // контент для сайта (в Telegram его отдает karta-api)
