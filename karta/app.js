@@ -458,7 +458,8 @@ window.startApp = function () {
   function Me() {
     if (!S.remind) S.remind = { morning: "09:00", evening: "21:30", on: true };
     const R = S.remind, p = S.profile || {};
-    app.innerHTML = `<div class="stack">${back("#/", "Сегодня")}
+    app.innerHTML = `<div class="stack">${back("#/notes", "Моя карта")}
+      <div class="cap" style="margin-bottom:-6px">Личный кабинет</div>
       <div class="row" style="gap:14px"><span class="av big">${esc((p.name || "?").slice(0, 1).toUpperCase())}</span><span class="stack" style="gap:2px"><h1 style="font-size:24px">${esc(p.name || "Профиль")}</h1><span class="small">вход через Telegram</span></span></div>
       <a class="link-row" href="#/sub"><span class="stack" style="gap:2px"><b>Подписка</b><span class="small" style="font-weight:400">${esc(planLine())}</span></span>${icon.chev}</a>
       <div class="card" style="gap:6px"><b>Вход на сайте</b><span class="small">kartaglubiny.ru → «Войти через Telegram». Подписка общая, записи пока хранятся на каждом устройстве отдельно.</span></div>
@@ -669,7 +670,7 @@ window.startApp = function () {
   }
   function Export(days) {
     const d = Number(days) || 30, txt = exportText(d === 999 ? 0 : d);
-    app.innerHTML = `<div class="stack">${back("#/me", "Профиль")}
+    app.innerHTML = `<div class="stack">${back("#/me", "Личный кабинет")}
       <div class="stack" style="gap:4px"><h1>Для моего психолога</h1><span class="small">Записи собираются в один текст. Кому и когда его отправить — решать тебе.</span></div>
       <div class="seg3">${[[7, "7 дней"], [30, "30 дней"], [999, "все"]].map(([v, l]) => `<button type="button" class="${d === v ? "on" : ""}" data-d="${v}">${l}</button>`).join("")}</div>
       <textarea id="ex" rows="14" readonly>${esc(txt)}</textarea>
@@ -822,7 +823,7 @@ window.startApp = function () {
     const A = S.access || {}, s = A.sub, paid = A.plan === "basic" || A.plan === "full" || A.plan === "paid";
     const st = { tariff: A.plan === "full" ? "full" : "basic", agree: false, sure: false };
     const draw = () => {
-      app.innerHTML = `<div class="stack v-pad" style="gap:18px">${back("#/me", "Профиль")}
+      app.innerHTML = `<div class="stack v-pad" style="gap:18px">${back("#/me", "Личный кабинет")}
         <div class="scr-h"><div class="cap">Подписка</div><h1>${paid ? esc(TAR[A.plan] ? TAR[A.plan].t : "Подписка") : "Полный доступ к Глубине"}</h1><p>${esc(planLine())}</p></div>
         ${ok ? `<div class="pr-ok"><span class="pr-ok-i">✓</span><span><b>Оплата прошла</b><span id="okst">Обновляю доступ…</span></span></div>` : ""}
         ${s && s.fail ? `<div class="card small">Последнее списание не прошло. Проверь карту в письме Продамуса или оформи подписку заново.</div>` : ""}
@@ -2299,7 +2300,7 @@ ${b}</svg>`;
     const pT = porthole ? 540 : 468;
     const btn = (href, img, l, w, h, ix) => `<a class="t-gauge" href="${href}" style="left:${u(ix)};top:${u(pT + 53)}"><img src="${V27}${img}" alt="" style="width:${u(34)};height:${u(34)};left:${u(w)};top:${u(15)}"><span style="top:${u(73)}">${l}</span></a>`;
     let h = `<div class="vs" id="today">
-      <a class="t-hd" href="#/me" aria-label="Профиль и настройки" style="left:${u(24)};right:${u(100)};top:${u(56)}"><span class="cap">${WDAY[d0.getDay()]} · ${PH_RU[ph]}</span><h1>${HELLO[ph]}${nm ? ", " + esc(nm) : ""}</h1></a>
+      <a class="t-hd" href="#/" aria-label="Сегодня" style="left:${u(24)};right:${u(100)};top:${u(56)}"><span class="cap">${WDAY[d0.getDay()]} · ${PH_RU[ph]}</span><h1>${HELLO[ph]}${nm ? ", " + esc(nm) : ""}</h1></a>
       <a class="t-ring" href="#/aid" aria-label="Если сложно — открыть Аптечку" style="left:${u(284)};top:${u(127)};width:${u(84)}"><img src="${V27}Segodnya5m-2.webp" alt=""></a>`;
     if (porthole) h += `<a class="t-port" href="#/symbol" aria-label="Открыть послание дня" style="left:${u(65)};top:${u(196)};width:${u(260)};height:${u(260)}"><img src="${V27}Segodnya4-1.webp" alt=""></a>
       <div class="t-portt" style="top:${u(472)}"><b>К тебе приплыла бутылка</b><span>Коснись стекла, чтобы открыть</span></div>`;
@@ -2484,7 +2485,7 @@ ${b}</svg>`;
   const nfOk = (x, f) => f === "all" || (f === "feel" && (x.kind === "word" || x.kind === "day")) || (f === "body" && x.kind === "day") || (f === "dream" && x.kind === "dream") || (f === "free" && (x.kind === "free" || x.kind === "deep" || x.kind === "sym")) || (f === "sovp" && x.kind === "sovp") || (f === "dive" && x.kind === "dive") || (f === "talk" && x.kind === "talk");
   function Notes() {
     const items = noteItems();
-    let h = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><div class="scr-h"><h1>Моя карта</h1><span class="small">Видишь только ты.</span></div><div class="row" style="gap:8px"><a class="pill-g" href="#/svodka"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="margin-right:6px"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Сводка</a><button type="button" class="addbtn2" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F3654" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div>`;
+    let h = `<div class="stack" style="gap:14px;padding-top:24px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><div class="scr-h" style="gap:8px"><h1>Моя карта</h1><a class="lk" href="#/me"><span class="lk-av">${esc(((S.profile && S.profile.name) || "?").slice(0, 1).toUpperCase())}</span>Личный кабинет<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a></div><div class="row" style="gap:8px"><a class="pill-g" href="#/svodka"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="margin-right:6px"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Сводка</a><button type="button" class="addbtn2" id="addN" aria-label="Добавить запись"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F3654" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div>`;
     const days = []; for (let i = 6; i >= 0; i--) days.push(dkey(now() - i * 86400000));
     const has = (k) => items.some((x) => x.ts && dkey(x.ts) === k);
     if (!ND || !days.includes(ND)) ND = has(days[6]) ? days[6] : days.slice().reverse().find(has) || days[6];
@@ -2626,7 +2627,7 @@ ${b}</svg>`;
     document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
     window.scrollTo(0, 0);
     // нижнее меню — на всех экранах, кроме погружения и опроса после него (и знакомства)
-    const LIBR = ["lib", "dives", "journal", "integr", "after", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "svodka", "sovp", "free", "export", "img", "deepv", "talk"];
+    const LIBR = ["lib", "dives", "journal", "integr", "after", "dict", "dsec", "sym", "pick", "tarot", "arc", "music", "cycle", "pod", "series", "ep", "prep"], NOTR = ["notes", "me", "sub", "svodka", "sovp", "free", "export", "img", "deepv", "talk"];
     const top = !r || r === "lib" || r === "guide" || r === "notes";
     const tabI = ["player", "hello", "adult", "access"].includes(r) ? -1 : r === "guide" ? 2 : LIBR.includes(r) ? 1 : NOTR.includes(r) && !(r === "free" && !id) ? 3 : 0;
     if (tg && tg.BackButton) { top ? tg.BackButton.hide() : tg.BackButton.show(); }

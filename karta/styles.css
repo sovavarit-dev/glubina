@@ -1293,3 +1293,9 @@ body.lt .sn i{border-color:rgba(31,54,84,.55);color:#1F3654}
 .card.tar.on{border-color:var(--cream)}
 body.lt .card.tar.on{border-color:#1F3654}
 .btn:disabled{opacity:.45}
+/* «Личный кабинет» под заголовком «Моей карты» */
+.lk{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;padding:5px 12px 5px 5px;border-radius:999px;background:rgba(245,232,217,.10);border:1px solid rgba(245,232,217,.22);color:var(--cream);font-size:13px;font-weight:600;text-decoration:none}
+.lk-av{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#F5E8D9;color:#1F3654;font-size:12px;font-weight:700}
+.lk svg{opacity:.7;margin-left:-2px}
+body.lt .lk{background:rgba(31,54,84,.06);border-color:rgba(31,54,84,.2);color:#1F3654}
+body.lt .lk-av{background:#1F3654;color:#F5E8D9}
