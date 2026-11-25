@@ -1569,16 +1569,19 @@ window.startApp = function () {
 
   // ---------- подкасты: экраны ----------
   const epNext = (id, k) => { const e = epById(id); if (!e) return null; const L = e.series.episodes.filter((x) => x.src); const i = L.findIndex((x) => x.id === id); const n = L[i + k]; return n ? epById(n.id) : null; };
+  // свои обложки выпусков: большая — на странице выпуска, маленькая — в списках
+  const EP_ART = { zapros: "zapros", "zapros-vselennaya": "zapros", "net-ego": "net-ego", soprotivlenie: "soprotivlenie" };
+  const epArt = (e, small) => e && EP_ART[e.id] ? "img/pod/" + EP_ART[e.id] + (small ? "-s" : "") + ".webp" : "";
   const POD_TH = (se) => V27 + (se && se.single ? "Podkasty-3.webp" : "Podkasty-2.webp");
   function Pods() {
     setBg("Podkasty-1.webp", { light: true, pos: "78% 100%" });
     const cont = EPS.filter((e) => e.src && !podSt(e.id).done && podSt(e.id).pos > 5).sort((a, b) => (podSt(b.id).at || 0) - (podSt(a.id).at || 0))[0];
     let h = `<div class="stack pd-main" style="gap:18px">${back("#/lib", "Бухта")}<h1>Подкасты</h1>`;
-    if (cont) { const st = podSt(cont.id); h += `<a class="pd-cont" href="#/ep/${cont.id}"><img src="${POD_TH(cont.series)}" alt=""><span class="t"><span class="cap">Продолжить</span><b>${esc(cont.title)}</b><span class="pd-bar"><i style="width:${Math.min(100, (st.pos / cont.dur) * 100).toFixed(0)}%"></i></span><span class="small" style="font-size:12px">осталось ${Math.max(1, Math.round((cont.dur - st.pos) / 60))} мин</span></span><span class="pd-play">${ICN_PLAY}</span></a>`; }
+    if (cont) { const st = podSt(cont.id); h += `<a class="pd-cont" href="#/ep/${cont.id}"><img src="${epArt(cont, true) || POD_TH(cont.series)}" alt=""><span class="t"><span class="cap">Продолжить</span><b>${esc(cont.title)}</b><span class="pd-bar"><i style="width:${Math.min(100, (st.pos / cont.dur) * 100).toFixed(0)}%"></i></span><span class="small" style="font-size:12px">осталось ${Math.max(1, Math.round((cont.dur - st.pos) / 60))} мин</span></span><span class="pd-play">${ICN_PLAY}</span></a>`; }
     if (!PODS.length) h += `<p class="lead">Подкасты появятся после подключения.</p>`;
     h += `<div class="pd-gap" id="pdgap"></div><div class="cap pd-cap" id="pdcap">Серии и выпуски</div><div class="stack" style="gap:8px">`;
     PODS.forEach((se) => {
-      if (se.single) { h += se.episodes.map((e) => `<a class="pd-row" href="#/ep/${e.id}"><img src="${e.cover || POD_TH(se)}" alt=""><span class="t"><b>${esc(e.title)}</b><span class="small">выпуск${e.dur ? " · " + Math.round(e.dur / 60) + " мин" : ""}</span></span>${icon.chev}</a>`).join(""); return; }
+      if (se.single) { h += se.episodes.map((e) => `<a class="pd-row" href="#/ep/${e.id}"><img src="${e.cover || epArt(e, true) || POD_TH(se)}" alt=""><span class="t"><b>${esc(e.title)}</b><span class="small">выпуск${e.dur ? " · " + Math.round(e.dur / 60) + " мин" : ""}</span></span>${icon.chev}</a>`).join(""); return; }
       const n = se.episodes.filter((e) => e.n).length || se.episodes.length, d = se.episodes.filter((e) => podSt(e.id).done).length;
       h += `<a class="pd-row" href="#/series/${se.id}"><img src="${POD_TH(se)}" alt=""><span class="t"><b>${esc(se.title)}</b><span class="row" style="gap:8px"><span class="cy-dots ink">${Array.from({ length: Math.min(n, 8) }, (_, i) => `<i class="${i < d ? "on" : ""}"></i>`).join("")}</span><span class="small" style="font-size:12px">${d} из ${n}</span></span></span>${icon.chev}</a>`;
     });
@@ -1609,7 +1612,7 @@ window.startApp = function () {
     const e = epById(id); if (!e || !e.src) return go("#/pod");
     setBg("PodkastVypusk-1.webp", { light: true, top: true });
     const se = e.series, st = podSt(id), nStage = se.episodes.filter((x) => x.n).length;
-    app.innerHTML = `<img class="cy-hero" src="${V27}Podkasty-2.webp" alt=""><div class="stack" style="gap:18px">${se.single ? back("#/pod", "Подкасты") : back("#/series/" + se.id, "Подкасты")}<div style="height:calc(min(100vw,520px) * .62)"></div>
+    app.innerHTML = `<img class="cy-hero" src="${epArt(e) || V27 + "Podkasty-2.webp"}" alt=""><div class="stack" style="gap:18px">${se.single ? back("#/pod", "Подкасты") : back("#/series/" + se.id, "Подкасты")}<div style="height:calc(min(100vw,520px) * .62)"></div>
       <div class="scr-h"><div class="cap">${se.single ? "Выпуск" : esc(se.title) + (e.n ? " · " + e.n + " из " + nStage : " · вводный")}</div><h1>${esc(e.title)}</h1>${e.desc ? `<p>${esc(e.desc)}</p>` : ""}</div>
       <div class="pd-pl" id="pp-box"></div>
       <div id="prac"></div></div>`;
