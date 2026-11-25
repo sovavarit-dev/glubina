@@ -592,16 +592,16 @@ window.startApp = function () {
   }
   function Me() {
     if (!S.remind) S.remind = { morning: "09:00", evening: "21:30", on: true };
-    const R = S.remind, p = S.profile || {};
+    const R = S.remind, p = S.profile || {}, trial = !!(S.access && S.access.plan === "trial"), ron = R.on || trial;
     app.innerHTML = `<div class="stack">${back("#/notes", "Моя карта")}
       <div class="cap" style="margin-bottom:-6px">Личный кабинет</div>
       <div class="row" style="gap:14px"><label class="av big av-ed" aria-label="Поменять фото"><input type="file" accept="image/*" id="avf" hidden>${avInner()}<span class="av-cam" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span></label><span class="stack" style="gap:2px"><h1 style="font-size:24px">${esc(p.name || "Профиль")}</h1><span class="small">${p.avatar ? `<button type="button" class="pr-link" id="avrm" style="padding:0;font-size:13px">Убрать фото</button>` : "Нажми на кружок, чтобы поставить фото"}</span></span></div>
       <a class="link-row" href="#/sub"><span class="stack" style="gap:2px"><b>Подписка</b><span class="small" style="font-weight:400">${esc(planLine())}</span></span>${icon.chev}</a>
       <div class="card" style="gap:6px"><b>Вход на сайте</b><span class="small">kartaglubiny.ru → «Войти через Telegram». Подписка и записи общие: записи хранятся на телефоне и зашифрованной копией на сервере.</span></div>
-      <div class="card" style="gap:12px"><div class="row" style="justify-content:space-between"><b>Напоминания от бота</b><button type="button" class="tgl${R.on ? " on" : ""}" id="ron" role="switch" aria-checked="${R.on}" aria-label="Напоминания"><i></i></button></div>
-        <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Утро: сон и символ дня</span><input class="tm" id="rm" inputmode="numeric" maxlength="5" placeholder="09:00" aria-label="Время утреннего напоминания" value="${R.morning}"></label>
-        <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Вечер: «Как ты?»</span><input class="tm" id="re" inputmode="numeric" maxlength="5" placeholder="21:30" aria-label="Время вечернего напоминания" value="${R.evening}"></label>
-        <span class="small">Не больше двух сообщений в день. Пропуск — это просто пропуск.</span></div>
+      <div class="card" style="gap:12px"><div class="row" style="justify-content:space-between"><b>Напоминания от бота</b><button type="button" class="tgl${ron ? " on" : ""}" id="ron" role="switch" aria-checked="${ron}" aria-label="Напоминания"${trial ? " disabled" : ""}><i></i></button></div>
+        <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Утро</span><input class="tm" id="rm" inputmode="numeric" maxlength="5" placeholder="09:00" aria-label="Время утреннего напоминания" value="${R.morning}"></label>
+        <label class="row" style="justify-content:space-between"><span class="small" style="color:var(--muted2)">Вечер</span><input class="tm" id="re" inputmode="numeric" maxlength="5" placeholder="21:30" aria-label="Время вечернего напоминания" value="${R.evening}"></label>
+        <span class="small">${trial ? "В пробный период напоминания включены всегда, время можно поменять. " : ""}Одна строка утром и одна вечером. Пропуск — это просто пропуск.</span></div>
       <a class="link-row" href="#/ask">Мои вопросы Насте ${icon.chev}</a>
       <a class="link-row" href="#/bug">Сообщить об ошибке ${icon.chev}</a>
       <a class="link-row" href="#/export">Собрать наблюдения для своего психолога ${icon.chev}</a>
@@ -611,7 +611,7 @@ window.startApp = function () {
         <div class="chips"><button class="chip" data-shift="8">+8 часов</button><button class="chip" data-shift="48">+48 часов</button><button class="chip" data-shift="200">пройти все циклы</button><button class="chip" data-reset="1">Начать заново</button></div>
       </div></div>`;
     const push = () => { clearTimeout(Me.t); Me.t = setTimeout(() => syncAccess(""), 800); }; // время напоминаний — боту
-    $("#ron").onclick = () => { R.on = !R.on; save(); push(); Me(); };
+    $("#ron").onclick = () => { if (trial) return; R.on = !R.on; save(); push(); Me(); };
     $("#avf").onchange = (e) => { const x = e.target.files && e.target.files[0]; if (!x) return; shrinkImg(x, 256, true).then((d) => { S.profile.avatar = d; save(); Me(); }).catch(() => toast("Не получилось открыть фото")); };
     if ($("#avrm")) $("#avrm").onclick = () => { delete S.profile.avatar; save(); Me(); };
     const hhmm = (el, key) => {

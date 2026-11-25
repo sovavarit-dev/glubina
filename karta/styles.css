@@ -1330,3 +1330,4 @@ body.lt .lk-av{background:#1F3654;color:#F5E8D9}
 .lk-tag{flex:0 0 auto;background:#F5E8D9;color:#1F3654;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700}
 .ptabs a{border-radius:999px;background:rgba(245,232,217,.08);border:1px solid rgba(245,232,217,.22);color:var(--cream);text-decoration:none;font-weight:500}
 .ptabs a.on{background:#F5E8D9;color:#1F3654;border-color:#F5E8D9;font-weight:600}
+.tgl:disabled{opacity:.55;cursor:default}

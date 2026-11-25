@@ -457,7 +457,8 @@ async function remind(token, bucket) {
     // утро и вечер — в то время, что человек выбрал в приложении (по его часовому поясу)
     const R = u.remind || { on: true, morning: "09:00", evening: "21:30" };
     const dayN = Math.max(0, Math.floor((t - (u.firstSeen || t)) / DAY));
-    if (R.on && st.plan !== "expired") {
+    // в пробный период утро и вечер отключить нельзя
+    if ((R.on || st.plan === "trial") && st.plan !== "expired") {
       for (const part of ["morning", "evening"]) {
         const at = hm(R[part]);
         if (at !== null && L.min >= at && L.min < at + 60 && u.sent[part] !== L.date) out.push([lineFor(LINES, part, dayN) || T[part], null, () => { u.sent[part] = L.date; }]);
